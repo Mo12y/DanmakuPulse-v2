@@ -8,13 +8,31 @@ import argparse
 
 from pyspark.sql import SparkSession
 
+# 分区表（batch_date 分区，MSCK REPAIR）
 TABLES = [
+    # B0（min 对拍链）
     ('ods_danmaku_full', '/warehouse/ods_danmaku_full'),
     ('dwd_danmaku_clean_min', '/warehouse/dwd_danmaku_clean_min'),
     ('ods_batch_meta', '/warehouse/ods_batch_meta'),
     ('ods_hotlist_video', '/warehouse/ods_hotlist_video'),
     ('dws_video_curve_min', '/warehouse/dws_video_curve_min'),
     ('dws_video_metrics_min', '/warehouse/dws_video_metrics_min'),
+    # B1（生产链）
+    ('dwd_danmaku_clean', '/warehouse/dwd_danmaku_clean'),
+    ('dwd_video_metric_snapshot', '/warehouse/dwd_video_metric_snapshot'),
+    ('dwd_danmaku_sent', '/warehouse/dwd_danmaku_sent'),
+    ('dws_sentiment_curve_1pct', '/warehouse/dws_sentiment_curve_1pct'),
+    ('dws_reconcile_detail', '/warehouse/dws_reconcile_detail'),
+]
+
+# 非分区表（含 batch_date 作为普通列，不 MSCK）
+TABLES_PLAIN = [
+    ('dws_batch_audit', '/warehouse/dws_batch_audit'),
+    ('dim_video', '/warehouse/dim_video'),
+    ('dict_sentiment', '/warehouse/dict_sentiment'),
+    ('dict_slang_meme', '/warehouse/dict_slang_meme'),
+    ('dict_anchor', '/warehouse/dict_anchor'),
+    ('dict_emoticon', '/warehouse/dict_emoticon'),
 ]
 
 
@@ -43,6 +61,15 @@ def main():
         spark.sql(f'MSCK REPAIR TABLE {name}')
         n = spark.sql(f'SELECT COUNT(*) FROM {name}').collect()[0][0]
         print(f'✅ {name}: {n} 行（HMS 已注册）')
+
+    for name, loc in TABLES_PLAIN:
+        loc = loc.replace('/warehouse', args.wh_root) if args.wh_root != '/warehouse' else loc
+        df = spark.read.parquet(loc)
+        cols = ', '.join(f'`{f.name}` {f.dataType.simpleString()}' for f in df.schema.fields)
+        spark.sql(f'CREATE EXTERNAL TABLE IF NOT EXISTS {name} ({cols}) '
+                  f'STORED AS PARQUET LOCATION \'{loc}\'')
+        n = spark.sql(f'SELECT COUNT(*) FROM {name}').collect()[0][0]
+        print(f'✅ {name}: {n} 行（HMS 已注册，非分区）')
     spark.stop()
 
 
