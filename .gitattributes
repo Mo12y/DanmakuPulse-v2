@@ -1,0 +1,2 @@
+# danmaku-v2 只在 Ubuntu 修改（协作协议 11 §4）；文本文件行尾统一 LF，防 Windows 侧编辑引入 CRLF 噪音
+* text=auto eol=lf
