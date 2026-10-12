@@ -55,11 +55,11 @@ def main():
         print(f'  dt={dt}: {df.count()} 视频')
 
     with open(os.path.join(args.out, 'goldens_curve.csv'), 'w', newline='', encoding='utf-8') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')   # LF：与 .gitattributes(* text=auto eol=lf) 对齐
         w.writerow(['bvid', 'dt', 'bucket', 'c'])
         w.writerows(curve_rows)
     with open(os.path.join(args.out, 'goldens_metrics.csv'), 'w', newline='', encoding='utf-8') as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator='\n')   # LF：与 .gitattributes(* text=auto eol=lf) 对齐
         w.writerow(['bvid', 'dt'] + INDICATOR_KEYS + ['danmaku_count'])
         w.writerows(metric_rows)
 
