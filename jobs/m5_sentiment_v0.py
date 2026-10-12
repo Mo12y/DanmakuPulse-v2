@@ -210,7 +210,7 @@ def main():
     score_udf = F.udf(scorer, schema)
 
     scored = dwd.withColumn('_s', score_udf(F.col('text_norm'))).select(
-        'bvid', 'batch_date', 'text', 'offset_pct', 'is_ultra_short',
+        'bvid', 'batch_date', 'text', 'text_norm', 'offset_pct', 'is_ultra_short',
         F.col('_s.sent_score').alias('sent_score'),
         F.col('_s.sent_state').alias('sent_state'),
         F.col('_s.is_anchor').alias('is_anchor'),
