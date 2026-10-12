@@ -21,16 +21,19 @@ LOG_FILE="$LOGS/collect_$STAMP.log"
 
 # 采集参数：Top 200（collect_schedule.sh 旧默认），pages=ceil(200/50)+2=6，--fresh 开新批次
 # 断点续采同批：./bili_daily.sh --resume 20260101
+# ⚠️ 2026-10-12 修复：bili.py 实际没有 --no-fresh 参数（其用法提示/报错文案误写，bili.py 按
+#    09 §3.1 冻结零改动，问题记入 STATUS）。续采 = 不给 --fresh、只给 --batch-date（读已存快照
+#    增量续采，实测有效：20261012 批次即以此方式续采）。
 COUNT=200
 PAGES=6
 FRESH="--fresh"
 if [ "${1:-}" = "--resume" ] && [ -n "${2:-}" ]; then
-  FRESH="--no-fresh --batch-date $2"
+  FRESH="--batch-date $2"
 fi
 
 log() { echo "[$(date +'%F %T')] $1" | tee -a "$LOG_FILE"; }
 
-log "════ 日频采集开始：Top $COUNT (pages=$PAGES, fresh=$FRESH) ════"
+log "════ 日频采集开始：Top $COUNT (pages=$PAGES, args=$FRESH) ════"
 export PYTHONUNBUFFERED=1   # 坑16：stdout 接管道必须 -u + unbuffered，否则 kill 丢缓冲
 python -u collect/bili.py hotlist -n "$COUNT" --pages "$PAGES" $FRESH 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
