@@ -76,6 +76,18 @@ etl: ## B0.3 全链：M0-min → L1-min → ADS（幂等分区覆盖）
 hms: ## HMS 表目录注册（外部表 + MSCK；B1 起 metastore 自建已可用）
 	$(SUBMIT) /opt/work/jobs/register_hms.py
 
+# ── B1 生产链（与 min 对拍链隔离：min 链锚定 672,439，本链新口径 676,931）──
+m0-full: ## M0 完整版：标准化+清洗打标+刷量检测（dwd_danmaku_clean / dim_video / dwd_video_metric_snapshot / dwd_spam_flag）
+	$(SUBMIT) /opt/work/jobs/m0_full.py
+
+m1: ## M1 对账：三值对账+归因+偏差+质量分（dws_batch_audit / dws_reconcile_detail / PG ads_quality_report）
+	$(SUBMIT) /opt/work/jobs/m1_reconcile.py
+
+m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
+	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
+
+b1: m0-full m1 m5 ## B1 全链（三段串跑；每段各自验收后 commit）
+
 parity: ## 对拍验收：曲线101点+8维 vs goldens + 池级锚点
 	$(SUBMIT) /opt/work/jobs/parity_check.py
 
