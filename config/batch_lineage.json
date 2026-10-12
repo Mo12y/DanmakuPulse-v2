@@ -1,0 +1,28 @@
+{
+  "20260902": {
+    "cadence": "weekly_legacy",
+    "real_list_date": "2026-08-12",
+    "snapshot_present": false,
+    "known_issues": "榜单快照永久丢失（旧系统 hotlist_videos.json 被后续批次覆盖）；list_fetched_at=2026-08-12 为推定值；coverage 91/100"
+  },
+  "20260907": {
+    "cadence": "weekly_legacy",
+    "real_list_date": "2026-09-07",
+    "snapshot_present": false,
+    "known_issues": "榜单快照永久丢失；coverage 118/200"
+  },
+  "20260914": {
+    "cadence": "weekly_legacy",
+    "real_list_date": "2026-09-14",
+    "snapshot_present": true,
+    "snapshot_file": "hotlist_videos.json (legacy, fetched_at=2026-09-14T13:12:42 与 meta 一致)",
+    "known_issues": "partial 批：排名尾部 87 视频从未采集（系统性头部偏差，非随机缺失）；跨 2.5 天三窗口（9/14-9/16），非单点快照；coverage 200/200 但 attempted=200 为尾部续采后口径"
+  },
+  "20260917": {
+    "cadence": "weekly_legacy",
+    "real_list_date": "2026-09-17",
+    "snapshot_present": true,
+    "snapshot_file": "hotlist_videos_20260917.json",
+    "known_issues": "list_count=200 但取前 100（depth=100）；coverage 100/100"
+  }
+}

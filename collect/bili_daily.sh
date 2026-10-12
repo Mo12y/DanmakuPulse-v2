@@ -1,0 +1,44 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════
+# bili_daily.sh — 新系统日频采集 wrapper
+# bili.py 零改动（09 §3.1 冻结：限流定标/批次身份/SIGTERM 收尾全部沿用）
+# 与旧 collect_schedule.sh 的区别：不跑旧 ETL / 不写旧 SESSION_LOG / 不 git commit
+# 编排：B0 期间由宿主 crontab 每日 01:00 触发（collect/daily_cron.sh）；B1 起 DolphinScheduler 接管
+# ═══════════════════════════════════════════════════════════════
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
+# 依赖：requests（B0 暂用旧仓库 venv——它只装 requests/pyspark，不污染；B1 建独立 venv）
+source "$HOME/danmaku-venv/bin/activate"
+
+LOGS="$PROJECT_ROOT/logs"
+mkdir -p "$LOGS"
+STAMP=$(date +%Y%m%d)
+LOG_FILE="$LOGS/collect_$STAMP.log"
+
+# 采集参数：Top 200（collect_schedule.sh 旧默认），pages=ceil(200/50)+2=6，--fresh 开新批次
+# 断点续采同批：./bili_daily.sh --resume 20260101
+COUNT=200
+PAGES=6
+FRESH="--fresh"
+if [ "${1:-}" = "--resume" ] && [ -n "${2:-}" ]; then
+  FRESH="--no-fresh --batch-date $2"
+fi
+
+log() { echo "[$(date +'%F %T')] $1" | tee -a "$LOG_FILE"; }
+
+log "════ 日频采集开始：Top $COUNT (pages=$PAGES, fresh=$FRESH) ════"
+export PYTHONUNBUFFERED=1   # 坑16：stdout 接管道必须 -u + unbuffered，否则 kill 丢缓冲
+python -u collect/bili.py hotlist -n "$COUNT" --pages "$PAGES" $FRESH 2>&1 | tee -a "$LOG_FILE"
+EXIT_CODE=${PIPESTATUS[0]}
+
+# 143=SIGTERM（用户掐断）：已采部分按批次 C 仍有效，不算失败
+log "采集结束（退出码 $EXIT_CODE）"
+if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 143 ]; then
+  log "❌ 采集失败，退出码 $EXIT_CODE"
+  exit 1
+fi
+log "✅ 完成。产物落 data/cli_collected/（灌 HDFS 由 make ingest / daily_cron.sh 负责）"

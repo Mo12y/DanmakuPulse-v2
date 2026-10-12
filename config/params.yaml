@@ -1,0 +1,29 @@
+# 配置中心（B0-min 子集）—— 全部可调参数集中于此（对齐 08 §0.3，后续批次只增不改语义）
+# 权威算法口径 = 旧仓库 analysis/danmaku_metrics.py（SSOT），本文件值与其保持一致，
+# 对拍容差分层：计数类零容差 / 浮点类 <=1e-9（Spark 分区求和 vs NumPy 顺序求和的 IEEE754 差异）
+
+l1_min:
+  n_points: 101            # 密度曲线点数（旧 SSOT N_POINTS=101）
+  smooth_sigma: 1.0        # 高斯平滑 σ（scipy gaussian_filter1d, truncate=4.0 → 9-tap 核, reflect 边界）
+  # 峰检测（旧 SSOT：find_peaks(height=μ+2σ, distance=n//50)；distance=2 对严格局部极大是 no-op，
+  # 见 jobs/m2_l1_min.py 头注）
+  peak_sigma_mult: 2.0
+  # front_ratio 用旧 adaptive 口径（60s→[3%,10%] 截断）——B0 对拍基准口径，B2 切新口径前不得改
+  front_window: adaptive
+
+etl:
+  dedup_key: [bvid, text, time_offset]   # ⚠️ B0 用旧去重键（对拍行数锚点 672,439 的前提）
+                                          # 新设计键 (bvid,cid,row_id) 属 B1 M0 完整版决策，届时切换须记口径变更
+  status_ok: "ok"
+
+parity:
+  float_tol: 1.0e-9        # 浮点维/曲线点容差
+  int_exact: true          # peak_count / peak_fwhm / 计数锚点必须精确一致
+  goldens_dir: /opt/goldens
+
+anchors:  # 池级对账锚点（2026-10-12 一手实测，出处旧仓库 docs/00-规范/结论权威口径.md §2.9）
+  n_videos_pool: 508            # 每 bvid 取最新 batch 画像
+  n_rows_total: 509             # 视频批次数 = 91+118+200+100
+  n_danmaku_pool: 669995        # 池内 SUM(danmaku_count)
+  n_danmaku_dwd: 672439         # DWD 总行数（= 保留率 99.3364% 的分子）
+  clean_retention: "0.993364"   # dwd/ods = 672439/676931

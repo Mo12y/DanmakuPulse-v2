@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<configuration>
+  <!-- Spark SQL 走 HMS thrift 协议（表目录服务；底层存储仍是 parquet on HDFS） -->
+  <property><name>hive.metastore.uris</name><value>thrift://hive-metastore:9083</value></property>
+</configuration>

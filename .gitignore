@@ -1,0 +1,10 @@
+# 数据与产物不进 git（对齐旧仓库惯例，data 由 backup 脚本单独存档）
+data/
+logs/
+data-out/
+lib/*.jar
+serve/static/vendor/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
