@@ -12,9 +12,23 @@ l1_min:
   front_window: adaptive
 
 etl:
-  dedup_key: [bvid, text, time_offset]   # ⚠️ B0 用旧去重键（对拍行数锚点 672,439 的前提）
-                                          # 新设计键 (bvid,cid,row_id) 属 B1 M0 完整版决策，届时切换须记口径变更
+  # B1 2026-10-12 切换（实验 tools/probe_dedup_keys.py：旧键 (text,time_offset) 误删 4,492 行
+  # 「同文同刻但 row_id 全唯一」的真实复读弹幕——3,021 组；新键 (bvid,cid,row_id) 批内零误删。
+  # 对拍锚点链（m0_min→parity/replay）仍硬编码旧键 672,439 不动；本键供 m0_full 生产链：4 批 → 676,931）
+  dedup_key: [bvid, cid, row_id]
   status_ok: "ok"
+  min_text_len: 5                        # is_ultra_short 阈值（08 §1.3）
+  ad_regex: "扫码|加微|加薇|加我|私信我|粉丝群|领资料|免费领"     # v0 保守集（08「+微/扫码/加我…params 可扩」）
+  meaningless_regex: "^(打卡.*天?|有人吗|前排|沙发|签到|第一|来了|到此一游|占楼)[!！。.~～]*$"
+
+quality:
+  # 08 §0.3 质量与刷量阈值（M1/m0_full 共用）
+  reconcile_warn_ratio: 0.20
+  blocked_warn_ratio: 0.30
+  spam_user_share: 0.05
+  spam_cv: 0.10
+  spam_burst: 20
+  spam_video_ratio: 0.30
 
 parity:
   float_tol: 1.0e-9        # 浮点维/曲线点容差
