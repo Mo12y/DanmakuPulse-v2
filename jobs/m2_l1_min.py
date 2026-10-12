@@ -11,13 +11,18 @@ analysis/danmaku_metrics.py（NumPy SSOT）+ tests/goldens/*.csv。
  2. 101 桶直方图（np.histogram(bins=101, range=(0,1)) 精确语义：bin k ⟺ e_k ≤ x < e_{k+1}，
     e_k = k*(1.0/101)——numpy linspace 用乘法造边，非除法！x==1.0 强制入桶 100）：
     SQL 实现 = floor(x*101) 起步 + 两次边界修正（与边值比较，±1 内必收敛）
- 3. max 归一 → 高斯 σ=1.0（scipy gaussian_filter1d：truncate=4.0→9-tap，
-    w[t]=exp(-0.5t²)/Σexp(-0.5t²)，边界 mode='reflect'：i<0→-i；i>100→200-i）
-    → 再 max 归一
+ 3. max 归一 → 高斯 σ=1.0 → 再 max 归一。高斯实现 = **窗口函数 + 反射扩展行**（非数组高阶函数）：
+    - scipy gaussian_filter1d 默认 mode='reflect' 为 **edge-repeat**（2026-10-12 scipy 实测：
+      x[-1]=x[0], x[-2]=x[1]；x[n]=x[n-1]）→ 映射：p<0 → -p-1；p>100 → 201-p
+    - 9-tap 核（truncate=4.0）：w[t]=exp(-0.5t²)/Σexp(-0.5t²)，t∈[-4,4]，逐 tap lag/lead 加权和
+    - ⚠️ 不用 transform/element_at 数组链：投影塌缩内联 + 解释执行路径（ArrayTransform 每次取元素
+      触发 SQLConf 查询）会把复杂度放大到单 task 满转 16 分钟（2026-10-12 实测线程栈定位）
+    - 零计数桶稠密化（crossJoin 0..100）：直方图语义 = 全 101 桶（含 0），稀疏行会漏掉反射源
  4. 8 维（front_window='adaptive' 旧口径，B2 切新口径前不得改）：
     - mu/sd = 全 101 点均值/总体标准差(ddof=0)
-    - 峰 = 严格局部极大(c[i]>c[i±1]) AND c ≥ μ+2σ AND 1≤i≤99
-      （find_peaks distance=max(2,101//50)=2 对严格局部极大是 no-op：相邻严格极大不可能成对出现）
+    - 峰 = scipy find_peaks 精确语义：**平台顶也算峰**——等值 run 左缘严格升、右缘严格降
+      → 峰位置 = 平台中点 (L+R)//2；高度过滤 c ≥ μ+2σ；端点（触 0/100 桶）不算峰；
+      distance=max(2,101//50)=2 对中点仍 no-op（峰间必有谷 ⇒ 中点距 ≥2，含平台情形）
     - main_peak_pct = (最高峰|无峰取全局argmax，并列取最小下标)/101*100
     - peak_fwhm = 含全局 argmax 的 ≥max/2 连续段跨度：(右侧首个<half 或 100)−(左侧首个<half 或 0)
     - cold_pct = mean(c < μ*0.5)*100
@@ -36,8 +41,8 @@ import math
 import os
 
 from pyspark.sql import SparkSession
-import pyspark.sql.functions as F
 from pyspark.sql import Window
+import pyspark.sql.functions as F
 
 N_POINTS = 101
 SMOOTH_SIGMA = 1.0
@@ -104,33 +109,52 @@ def main():
 
     cnt = (pts.groupBy('bvid', 'batch_date', 'bucket').agg(F.count('*').alias('cnt')))
 
-    # ── 2) 101 点曲线：计数数组 → max 归一 → 9-tap 高斯(reflect) → 再 max 归一（全 SQL 高阶函数）──
-    kernel_lit = 'array(' + ','.join(repr(w) + 'D' for w in gaussian_kernel()) + ')'
-    gauss_expr = f"""
-    transform(sequence(0,100), b ->
-      aggregate(sequence(0,8), 0.0D, (acc, j) ->
-        acc + element_at({kernel_lit}, j + 1) *
-              element_at(norm_arr,
-                (CASE WHEN b + j - 4 < 0 THEN -(b + j - 4)
-                      WHEN b + j - 4 > 100 THEN 200 - (b + j - 4)
-                      ELSE b + j - 4 END) + 1)))
-    """
-    curves = (cnt.groupBy('bvid', 'batch_date')
-              .agg(F.map_from_entries(
-                  F.collect_list(F.struct(F.col('bucket').cast('int'),
-                                          F.col('cnt').cast('double')))).alias('cnt_map'))
-              .withColumn('cnt_arr',
-                          F.expr("transform(sequence(0,100), b -> coalesce(element_at(cnt_map, b), 0.0D))"))
-              .withColumn('cnt_max', F.array_max('cnt_arr'))
-              .withColumn('norm_arr', F.when(F.col('cnt_max') > 0,
-                                             F.expr("transform(cnt_arr, x -> x / cnt_max)"))
-                                       .otherwise(F.col('cnt_arr')))
-              .withColumn('smooth_arr', F.expr(gauss_expr))
-              .withColumn('smooth_max', F.array_max('smooth_arr'))
-              .withColumn('curve', F.when(F.col('smooth_max') > 0,
-                                          F.expr("transform(smooth_arr, x -> x / smooth_max)"))
-                                    .otherwise(F.col('smooth_arr')))
-              .drop('cnt_map', 'cnt_arr', 'cnt_max', 'norm_arr', 'smooth_arr', 'smooth_max'))
+    # ── 2) 稠密化（全 101 桶，零计数补 0）+ 第一次 max 归一 ──
+    wv = Window.partitionBy('bvid', 'batch_date')
+    buckets = spark.range(0, N_POINTS).select(F.col('id').alias('bucket'))
+    dense = (meta.select('bvid', 'batch_date').distinct().crossJoin(buckets)
+             .join(cnt, ['bvid', 'batch_date', 'bucket'], 'left')
+             .withColumn('cnt', F.coalesce(F.col('cnt'), F.lit(0)).cast('int')))
+    dense = (dense.withColumn('m1', F.max('cnt').over(wv))
+             .withColumn('c1', F.when(F.col('m1') > 0,
+                                      F.col('cnt') / F.col('m1')).otherwise(F.col('cnt').cast('double'))))
+
+    # ── 3) 反射扩展行（edge-repeat，scipy 实测：p<0 → -p-1；p>100 → 201-p）──
+    ext_pairs = [(p, -p - 1) for p in range(-KERNEL_RADIUS, 0)] + \
+                [(p, 201 - p) for p in range(N_POINTS, N_POINTS + KERNEL_RADIUS)]
+    ext_map = spark.createDataFrame(ext_pairs, ['p', 'src_bucket']).cache()
+    ext = (dense.select('bvid', 'batch_date', F.col('bucket').alias('src_bucket'), 'c1')
+           .join(ext_map, 'src_bucket')
+           .select('bvid', 'batch_date', F.col('p'), 'c1'))
+    real = dense.select('bvid', 'batch_date', F.col('bucket').alias('p'), 'c1')
+    rows = real.unionByName(ext)
+
+    # ── 4) 9-tap 高斯（lag/lead 窗口加权和，tap 顺序 t=-4..+4 与 scipy 累加次序一致）──
+    wp = Window.partitionBy('bvid', 'batch_date').orderBy('p')
+    K = gaussian_kernel()
+    smooth_expr = None
+    for j, wt in enumerate(K):
+        t = j - KERNEL_RADIUS
+        if t < 0:
+            col = F.lag('c1', -t).over(wp)
+        elif t == 0:
+            col = F.col('c1')
+        else:
+            col = F.lead('c1', t).over(wp)
+        term = F.lit(float(wt)) * col
+        smooth_expr = term if smooth_expr is None else smooth_expr + term
+    rows = rows.withColumn('smooth', smooth_expr)
+
+    # ── 5) 真实桶 → 第二次 max 归一 → 收集 101 数组（聚合边界，安全）──
+    real_smooth = (rows.filter((F.col('p') >= 0) & (F.col('p') <= 100))
+                   .withColumn('m2', F.max('smooth').over(wv))
+                   .withColumn('cv_val', F.when(F.col('m2') > 0,
+                                                F.col('smooth') / F.col('m2')).otherwise(F.col('smooth'))))
+    curves = (real_smooth.groupBy('bvid', 'batch_date')
+              .agg(F.map_from_entries(F.collect_list(
+                  F.struct(F.col('p').cast('int'), F.col('cv_val')))).alias('cmap'))
+              .withColumn('curve',
+                          F.expr('transform(sequence(0,100), b -> coalesce(element_at(cmap, b), 0.0D))')))
 
     cv = (curves.join(meta, ['bvid', 'batch_date'])
           # front 窗口：原始 duration（非 600 回退），口径=旧 extract_8_indicators('adaptive')
@@ -143,7 +167,7 @@ def main():
     n_videos = cv.count()
     cv.write.mode('overwrite').partitionBy('batch_date').parquet(f'{wh}/dws_video_curve_min')
 
-    # ── 3) 8 维指标：posexplode → 窗口函数族（无 groupBy-join 往返）──
+    # ── 6) 8 维指标：posexplode → 窗口函数族（行级窗口，无数组链内联风险）──
     pt = cv.select('bvid', 'batch_date', 'duration_raw', 'danmaku_count', 'title', 'tname', 'play',
                    'front_idx', F.posexplode('curve').alias('bucket', 'c'))
 
@@ -151,7 +175,7 @@ def main():
     wo = w.orderBy('bucket')
 
     pt = (pt
-          # μ/σ/cmax/argmax（全局 argmax 并列取最小下标）
+          # μ/σ/cmax/argmax（全局 argmax 并列取最小下标 = 最大值平台左缘，np.argmax 语义）
           .withColumn('mu', F.avg('c').over(w))
           .withColumn('cmax', F.max('c').over(w))
           .withColumn('argmax_idx', F.min(F.when(F.col('c') == F.col('cmax'),
@@ -159,19 +183,12 @@ def main():
           .withColumn('half', F.col('cmax') * F.lit(0.5))
           .withColumn('sd', F.sqrt(F.sum(F.pow(F.col('c') - F.col('mu'), F.lit(2.0))).over(w)
                                    / F.lit(101.0)))
-          # 峰检测：严格局部极大 + height≥μ+2σ + 非边界（distance=2 no-op，见头注）
-          .withColumn('prev', F.lag('c').over(wo))
-          .withColumn('nxt', F.lead('c').over(wo))
-          .withColumn('is_peak', ((F.col('c') > F.col('prev')) & (F.col('c') > F.col('nxt')) &
-                                  (F.col('c') >= F.col('mu') + F.lit(2.0) * F.col('sd')) &
-                                  (F.col('bucket') >= 1) & (F.col('bucket') <= 99)))
-          .withColumn('peak_cnt_w', F.sum(F.when(F.col('is_peak'), 1).otherwise(0)).over(w))
-          .withColumn('peak_cmax_w', F.max(F.when(F.col('is_peak'), F.col('c'))).over(w))
-          .withColumn('main_peak_idx_w', F.min(F.when(F.col('is_peak') &
-                                                      (F.col('c') == F.col('peak_cmax_w')),
-                                                      F.col('bucket'))).over(w))
-          .withColumn('main_idx_w', F.when(F.col('peak_cnt_w') > 0,
-                                           F.col('main_peak_idx_w')).otherwise(F.col('argmax_idx')))
+          # 相邻值 + 等值 run 编号（find_peaks 平台语义的基础）
+          .withColumn('prev_v', F.lag('c').over(wo))
+          .withColumn('next_v', F.lead('c').over(wo))
+          .withColumn('run_id', F.sum(F.when(F.col('prev_v').isNull() |
+                                             (F.col('c') != F.col('prev_v')),
+                                             1).otherwise(0)).over(wo))
           # FWHM：含 argmax 的 ≥half 连续段（左右首个 <half，无则 0/100）
           .withColumn('l_false_w', F.max(F.when((F.col('bucket') < F.col('argmax_idx')) &
                                                  (F.col('c') < F.col('half')),
@@ -194,18 +211,50 @@ def main():
           .withColumn('mid_std_w', F.sqrt(F.col('mid_ssq_w') / F.lit(60.0)))
           .withColumn('end_sum_w', F.sum(F.when(F.col('bucket') >= 90, F.col('c'))).over(w)))
 
+    # ── 6b) 峰检测：find_peaks 精确语义（scipy _local_maxima_1d）──
+    # 平台顶也算峰：run 内值恒定，左缘严格升 (c>prev)、右缘严格降 (c>next) → 峰；
+    # 报告位置 = 平台中点 (L+R)//2（2026-10-12 对拍实测：BV15Xe768Enh@20260917
+    # 的 2 长平台峰被"严格局部极大"漏检后定位）。边界 run（触 0/100 桶）因 prev/next
+    # 为 null 自动排除 = scipy "端点不算峰"。distance=2 对中点仍 no-op（峰间必有谷，
+    # 中点距 ≥2，含平台情形）。
+    runs = (pt.groupBy('bvid', 'batch_date', 'run_id')
+            .agg(F.min('bucket').alias('L'), F.max('bucket').alias('R'),
+                 F.max('c').alias('val'),
+                 F.max(F.when(F.col('prev_v').isNotNull() & (F.col('c') > F.col('prev_v')),
+                              1)).alias('rise'),
+                 F.max(F.when(F.col('next_v').isNotNull() & (F.col('c') > F.col('next_v')),
+                              1)).alias('fall'),
+                 F.max('mu').alias('mu'), F.max('sd').alias('sd'))
+            .withColumn('midpoint', F.floor((F.col('L') + F.col('R')) / F.lit(2.0)).cast('int'))
+            .withColumn('is_peak_run',
+                        (F.col('rise') == 1) & (F.col('fall') == 1) &
+                        (F.col('val') >= F.col('mu') + F.lit(2.0) * F.col('sd'))))
+
+    w_pk = Window.partitionBy('bvid', 'batch_date')
+    peaks_v = (runs.filter('is_peak_run')
+               .withColumn('pk_cmax', F.max('val').over(w_pk))
+               .withColumn('main_mid', F.min(F.when(F.col('val') == F.col('pk_cmax'),
+                                                    F.col('midpoint'))).over(w_pk))
+               .groupBy('bvid', 'batch_date')
+               .agg(F.count('*').alias('peak_count'),
+                    F.max('main_mid').alias('main_peak_mid')))
+
     m = (pt.groupBy('bvid', 'batch_date')
          .agg(F.max('title').alias('title'), F.max('tname').alias('tname'),
               F.max('play').alias('play'), F.max('duration_raw').alias('duration'),
               F.max('danmaku_count').alias('danmaku_count'),
-              F.max('peak_cnt_w').alias('peak_count'),
-              F.max('main_idx_w').alias('main_idx'),
+              F.max('argmax_idx').alias('argmax_idx'),
               F.max('fwhm_w').alias('peak_fwhm'),
               F.max('cold_k_w').alias('cold_k'),
               F.max('front_sum_w').alias('front_sum'), F.max('front_idx').alias('front_idx'),
               F.max('end_sum_w').alias('end_sum'),
               F.max('mu').alias('mu'), F.max('sd').alias('sd'),
               F.max('mid_std_w').alias('mid_std'))
+         .join(peaks_v, ['bvid', 'batch_date'], 'left')
+         .withColumn('peak_count', F.coalesce(F.col('peak_count'), F.lit(0)).cast('int'))
+         # main_peak：有峰=最高平台峰中点（并列取最小中点）；无峰=全局 argmax（np.argmax 语义）
+         .withColumn('main_idx', F.when(F.col('peak_count') > 0,
+                                        F.col('main_peak_mid')).otherwise(F.col('argmax_idx')))
          .withColumn('main_peak_pct', (F.col('main_idx').cast('double') / F.lit(101.0)) * F.lit(100.0))
          .withColumn('cold_pct', (F.col('cold_k').cast('double') / F.lit(101.0)) * F.lit(100.0))
          .withColumn('front_ratio', F.when(F.col('mu') > 0,
@@ -216,12 +265,13 @@ def main():
                                        .otherwise(F.lit(1.0)))
          .withColumn('cv', F.when(F.col('mu') > 0, F.col('sd') / F.col('mu')).otherwise(F.lit(0.0)))
          .withColumn('engine_version', F.lit(ENGINE_VERSION))
-         .drop('main_idx', 'cold_k', 'front_sum', 'front_idx', 'end_sum', 'mu', 'sd'))
+         .drop('main_idx', 'cold_k', 'front_sum', 'front_idx', 'end_sum', 'mu', 'sd',
+               'main_peak_mid', 'argmax_idx'))
 
     n_metrics = m.count()
     m.write.mode('overwrite').partitionBy('batch_date').parquet(f'{wh}/dws_video_metrics_min')
 
-    # ── 4) 运行报告 ──
+    # ── 7) 运行报告 ──
     report = {'job': 'm2_l1_min', 'engine_version': ENGINE_VERSION,
               'n_videos': n_videos, 'n_metrics': n_metrics,
               'anchors_expect': {'n_videos': 509, 'sum_danmaku_count': 672439}}

@@ -78,8 +78,12 @@ def main():
     df.write.mode('overwrite').partitionBy('batch_date').parquet(f'{wh}/ods_danmaku_full')
 
     # ── 2) ODS → DWD（status=ok + 旧去重键 + quality_flag 打标）──
+    # ⚠️ 旧 clean.py 是"逐批次独立去重"（每批一次快照，各自 dropDuplicates）——
+    #    全表一次去重会把跨批次重复视频（如 BV1mwY96jEom 同时在 0914/0917 两批，
+    #    弹幕池快照大量重合）的行错误吃掉（实测少 2,433 行）。
+    #    去重键加入 batch_date = 精确复刻批内去重语义。
     dwd = (df.filter(F.col('status') == 'ok')
-           .dropDuplicates(['bvid', 'text', 'time_offset'])
+           .dropDuplicates(['batch_date', 'bvid', 'text', 'time_offset'])
            .withColumn('quality_flag',
                        F.when((F.col('time_offset') < 0) | (F.col('time_offset') > F.col('duration')),
                               'invalid_offset').otherwise('ok')))
@@ -88,7 +92,7 @@ def main():
 
     # ── 3) ods_batch_meta：meta.json 字段 + 血缘标注（cadence/快照存留/已知问题）──
     lineage = json.load(open(os.path.join(args.config_root, 'batch_lineage.json')))
-    meta = (spark.read.json(f'{raw}/batch_date=*/meta.json')
+    meta = (spark.read.option('multiLine', True).json(f'{raw}/batch_date=*/meta.json')
             .withColumn('batch_date', F.regexp_extract(F.input_file_name(), r'batch_date=(\d{8})', 1))
             .select('batch_date', 'csv', 'list_fetched_at', 'count', 'depth_requested',
                     'status', 'coverage', 'note'))
@@ -119,7 +123,7 @@ def main():
     for bd, present in sorted(snap_map.items()):
         if not present:
             continue
-        j = spark.read.json(f'{raw}/batch_date={bd}/hotlist.json')
+        j = spark.read.option('multiLine', True).json(f'{raw}/batch_date={bd}/hotlist.json')
         v = (j.selectExpr('fetched_at', 'posexplode(videos) as (rank_proxy, vv)')
              .selectExpr('fetched_at', 'rank_proxy', 'vv.*')
              .withColumn('batch_date', F.lit(bd)))

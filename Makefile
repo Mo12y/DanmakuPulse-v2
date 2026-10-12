@@ -19,17 +19,17 @@ setup: ## 一次性：下载 pg jdbc jar + echarts（国内镜像）
 	curl -fL -o lib/postgresql-42.7.4.jar https://maven.aliyun.com/repository/public/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
 	curl -fL -o serve/static/vendor/echarts.min.js https://registry.npmmirror.com/echarts/5.5.1/files/dist/echarts.min.js
 
-seed-data: ## 一次性：历史 4 批三件套从旧仓库复制（旧仓库只读）
+seed-data: ## 一次性：历史 4 批三件套从旧仓库复制（旧仓库只读；meta 文件名无 .csv 段）
 	mkdir -p data/cli_collected
 	cp -n ~/projects/danmaku/data/cli_collected/hotlist_top100_20260902.csv \
-	      ~/projects/danmaku/data/cli_collected/hotlist_top100_20260902.csv.meta.json \
+	      ~/projects/danmaku/data/cli_collected/hotlist_top100_20260902.meta.json \
 	      ~/projects/danmaku/data/cli_collected/hotlist_top200_20260907.csv \
-	      ~/projects/danmaku/data/cli_collected/hotlist_top200_20260907.csv.meta.json \
+	      ~/projects/danmaku/data/cli_collected/hotlist_top200_20260907.meta.json \
 	      ~/projects/danmaku/data/cli_collected/hotlist_top200_20260914.csv \
-	      ~/projects/danmaku/data/cli_collected/hotlist_top200_20260914.csv.meta.json \
+	      ~/projects/danmaku/data/cli_collected/hotlist_top200_20260914.meta.json \
 	      ~/projects/danmaku/data/cli_collected/hotlist_videos.json \
 	      ~/projects/danmaku/data/cli_collected/hotlist_top100_20260917.csv \
-	      ~/projects/danmaku/data/cli_collected/hotlist_top100_20260917.csv.meta.json \
+	      ~/projects/danmaku/data/cli_collected/hotlist_top100_20260917.meta.json \
 	      ~/projects/danmaku/data/cli_collected/hotlist_videos_20260917.json \
 	      data/cli_collected/
 
