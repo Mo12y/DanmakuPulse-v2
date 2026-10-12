@@ -33,8 +33,9 @@ HISTORICAL = {
 def stage(bd, csv_name, snapshot_name):
     d = os.path.join(DST, f'batch_date={bd}')
     os.makedirs(d, exist_ok=True)
+    meta_name = csv_name[:-len('.csv')] + '.meta.json'  # 实际命名无 .csv 段（2026-10-12 勘察）
     shutil.copy2(os.path.join(SRC, csv_name), os.path.join(d, 'danmaku.csv'))
-    shutil.copy2(os.path.join(SRC, csv_name + '.meta.json'), os.path.join(d, 'meta.json'))
+    shutil.copy2(os.path.join(SRC, meta_name), os.path.join(d, 'meta.json'))
     if snapshot_name:
         shutil.copy2(os.path.join(SRC, snapshot_name), os.path.join(d, 'hotlist.json'))
     else:

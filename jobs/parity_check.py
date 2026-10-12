@@ -54,9 +54,9 @@ def main():
                .withColumn('c', F.col('c').cast('double'))
                .withColumnRenamed('dt', 'g_batch'))
     g_m_raw = spark.read.option('header', True).csv(f'{args.goldens_dir}/goldens_metrics.csv')
-    g_m = (g_m_raw.withColumnRenamed('dt', 'g_batch')
-           .select([F.col(c).alias('g_' + c) if c not in ('bvid', 'g_batch') else F.col(c)
-                    for c in g_m_raw.columns]))
+    g_m_r = g_m_raw.withColumnRenamed('dt', 'g_batch')
+    g_m = (g_m_r.select([F.col(c).alias('g_' + c) if c not in ('bvid', 'g_batch') else F.col(c)
+                         for c in g_m_r.columns]))
     for c in INT_COLS + FLOAT_COLS:
         g_m = g_m.withColumn('g_' + c, F.col('g_' + c).cast('double'))
 
