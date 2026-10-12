@@ -14,9 +14,10 @@ SUBMIT    = $(COMPOSE) exec -T spark-master /opt/spark/bin/spark-submit \
 
 .PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean
 
-setup: ## 一次性：下载 pg jdbc jar + echarts（国内镜像）
+setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
 	curl -fL -o lib/postgresql-42.7.4.jar https://maven.aliyun.com/repository/public/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
+	curl -fL -o lib/disruptor-3.3.6.jar https://maven.aliyun.com/repository/public/com/lmax/disruptor/3.3.6/disruptor-3.3.6.jar
 	curl -fL -o serve/static/vendor/echarts.min.js https://registry.npmmirror.com/echarts/5.5.1/files/dist/echarts.min.js
 
 seed-data: ## 一次性：历史 4 批三件套从旧仓库复制（旧仓库只读；meta 文件名无 .csv 段）
@@ -64,12 +65,15 @@ etl: ## B0.3 全链：M0-min → L1-min → ADS（幂等分区覆盖）
 	$(SUBMIT) /opt/work/jobs/m2_l1_min.py
 	$(SUBMIT) /opt/work/jobs/ads_min.py
 
-# HMS 表目录注册 —— B0 不算在 etl 链内（见 STATUS「B0 冻结决策」）：
-# compose 的 ${HIVE_IMAGE}=bde2020/hive-metastore-postgresql:2.3.0 是 HMS 背后的 PG，
-# 不是 metastore 服务本身（容器内 HiveMetaStore 进程数=0、9083 拒连）；
-# 正确的 bde2020/hive:2.3.0-postgresql-metastore 在 daocloud 403、1ms.run not found。
-# B0 的 DoD 不依赖表目录（作业按 Parquet 路径直读、ADS 落 PostgreSQL），故移出主链。
-hms: ## 可选：HMS 表目录注册（B1 恢复；需先有 metastore 服务）
+# HMS 表目录注册 —— B1 2026-10-12 起 metastore **已自建**（compose 的 hive-metastore 服务：
+# 复用 danmaku-spark 镜像的 Hive 2.3.9 依赖 + datanucleus autoCreateSchema；配置见 compose/assets/hms/hive-site.xml）。
+# 历史背景（B0 裁定）：原 bde2020/hive-metastore-postgresql:2.3.0 实为 HMS 背后的 PG（9083 拒连实测），
+# 正确镜像两源不可得（daocloud 403 / 1ms.run not found）→ 曾移出 etl 主链；B1 自建后恢复可用。
+# ⚠️ 恢复手册（2026-10-12 实测）：若 create_table 卡死（jstack 显示 datanucleus 等 PG 锁），执行
+#   docker exec -i postgres psql -U danmaku -d metastore_db -c '...terminate idle in transaction...'
+#   docker compose -f compose/docker-compose.b0.yml restart hive-metastore
+#   完整根因与处置见 CHANGELOG 2026-10-12「HMS 自建」条。
+hms: ## HMS 表目录注册（外部表 + MSCK；B1 起 metastore 自建已可用）
 	$(SUBMIT) /opt/work/jobs/register_hms.py
 
 parity: ## 对拍验收：曲线101点+8维 vs goldens + 池级锚点

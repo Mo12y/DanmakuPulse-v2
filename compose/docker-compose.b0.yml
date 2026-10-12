@@ -48,22 +48,22 @@ services:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks: [net]
 
-  # ── Hive Metastore（PG 后端，Spark 的表目录服务）──
+  # ── Hive Metastore（自建版，B1 2026-10-12）──
+  # bde2020/hive* 系列镜像两源不可得（403 / not found）；复用 danmaku-spark 镜像自带的
+  # Hive 2.3.9 依赖直接起服务（探针实证）：
+  #   java -cp "/opt/spark/jars/*:/opt/hms-jars/*:/opt/hms-conf" org.apache.hadoop.hive.metastore.HiveMetaStore
+  # 裁剪版无 schematool → hive-site.xml 用 datanucleus.schema.autoCreateAll=true 自建 schema（幂等）。
+  # /opt/hms-jars = ../lib（disruptor + pg jdbc，Makefile setup 负责下载）。
   hive-metastore:
-    image: ${HIVE_IMAGE}
+    image: ${SPARK_IMAGE}
     container_name: hive-metastore
     mem_limit: 512m
+    user: root
     restart: unless-stopped
-    env_file: hadoop.env
-    environment:
-      SERVICE_NAME: metastore
-      DB_DRIVER: postgres
-      HIVE_SITE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://postgres/metastore_db"
-      HIVE_SITE_CONF_javax_jdo_option_ConnectionDriverName: "org.postgresql.Driver"
-      HIVE_SITE_CONF_javax_jdo_option_ConnectionUserName: ${POSTGRES_USER}
-      HIVE_SITE_CONF_javax_jdo_option_ConnectionPassword: ${POSTGRES_PASSWORD}
-      HIVE_SITE_CONF_datanucleus_autoCreateSchema: "false"
-      HIVE_SITE_CONF_hive_metastore_uris: "thrift://hive-metastore:9083"
+    command: ["java", "-Xmx400m", "-cp", "/opt/spark/jars/*:/opt/hms-jars/*:/opt/hms-conf", "org.apache.hadoop.hive.metastore.HiveMetaStore"]
+    volumes:
+      - ./assets/hms:/opt/hms-conf:ro
+      - ../lib:/opt/hms-jars:ro
     depends_on: [namenode, postgres]
     networks: [net]
 
