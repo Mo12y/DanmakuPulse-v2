@@ -16,12 +16,16 @@ echo "[$(date +'%F %T')] ════ daily_cron 开始 ════"
 
 # 1) 采集（失败则终止——没新数据就不用灌）
 if bash collect/bili_daily.sh; then
-  # 2) 灌入 HDFS（ingest_raw.sh 自动发现新批次；Docker 未起时跳过并告警）
+  # 2) 暂存 raw-local（批次映射唯一事实源=stage_raw_local.py；纯本地、不依赖 Docker。
+  #    ⚠️ 2026-10-12 修复：此前缺本环——新批次停留在 cli_collected/，ingest 只见旧 raw-local，
+  #    "自动灌 raw" 实际断链；且本步必须先于 HDFS 判断（HDFS 未起时也先把批次暂存好）。
+  python3 tools/stage_raw_local.py || echo "[$(date +'%F %T')] [error] stage 失败，检查后手动重跑 tools/stage_raw_local.py"
+  # 3) 灌入 HDFS（ingest_raw.sh 幂等覆盖 raw-local 全部批次；Docker 未起时跳过并告警）
   if docker compose -f compose/docker-compose.b0.yml ps --status running 2>/dev/null | grep -q namenode; then
     docker compose -f compose/docker-compose.b0.yml exec -T namenode bash /mnt/assets/ingest_raw.sh
     echo "[$(date +'%F %T')] 灌入完成。ETL 请手动：make etl"
   else
-    echo "[$(date +'%F %T')] [warn] HDFS 未运行，新批次暂存 data/cli_collected/，起服务后手动 make ingest"
+    echo "[$(date +'%F %T')] [warn] HDFS 未运行，新批次已暂存 data/raw-local/，起服务后手动 make ingest"
   fi
 else
   echo "[$(date +'%F %T')] [error] 采集失败，本日跳过灌入（详见 logs/collect_*.log）"
