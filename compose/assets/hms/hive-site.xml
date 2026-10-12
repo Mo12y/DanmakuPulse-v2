@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!-- Hive Metastore 服务配置（自建版，B1 2026-10-12）
+     背景：bde2020/hive* 系列镜像两源不可得（daocloud 403 / 1ms.run not found）；
+     本方案复用 danmaku-spark 镜像自带的 Hive 2.3.9 依赖（hive-metastore / datanucleus / thrift）,
+     直接以 `java -cp … org.apache.hadoop.hive.metastore.HiveMetaStore` 起服务。
+     ⚠️ Spark 裁剪版不含 HiveSchemaTool（schematool 不可用）→ 用 datanucleus.schema.autoCreateAll
+     在首次启动时自动建 schema（探针已实证：PG metastore_db 27+ 表建成；表已存在时幂等跳过）。
+     ⚠️ 连接密码与 compose/.env 的 POSTGRES_PASSWORD 保持一致（当前 danmaku_b0，内网实验环境）。
+     本目录另有 core-site.xml（fs.defaultFS=hdfs://namenode:9000）——HMS 处理外部表 LOCATION
+     需要 HDFS 配置，缺失会导致 create_table 挂起（2026-10-12 实测根因之一）。 -->
+<configuration>
+  <property><name>javax.jdo.option.ConnectionURL</name><value>jdbc:postgresql://postgres:5432/metastore_db</value></property>
+  <property><name>javax.jdo.option.ConnectionDriverName</name><value>org.postgresql.Driver</value></property>
+  <property><name>javax.jdo.option.ConnectionUserName</name><value>danmaku</value></property>
+  <property><name>javax.jdo.option.ConnectionPassword</name><value>danmaku_b0</value></property>
+  <property><name>datanucleus.schema.autoCreateAll</name><value>true</value></property>
+  <property><name>hive.metastore.schema.verification</name><value>false</value></property>
+  <property><name>hive.metastore.warehouse.dir</name><value>hdfs://namenode:9000/user/hive/warehouse</value></property>
+</configuration>

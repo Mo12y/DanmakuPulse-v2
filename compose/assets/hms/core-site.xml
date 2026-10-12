@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<configuration>
+  <!-- Spark 容器访问 HDFS（与 hadoop.env 中 CORE_CONF_fs_defaultFS 一致） -->
+  <property><name>fs.defaultFS</name><value>hdfs://namenode:9000</value></property>
+</configuration>
