@@ -59,10 +59,17 @@ smoke: ## B0.1 验收：compose ps + HDFS/PG 读写冒烟 + Spark master 探活
 ingest: ## raw-local → HDFS /raw（幂等覆盖）
 	$(COMPOSE) exec -T namenode bash /mnt/assets/ingest_raw.sh
 
-etl: ## B0.3 全链：M0-min → L1-min → ADS → HMS 注册（幂等分区覆盖）
+etl: ## B0.3 全链：M0-min → L1-min → ADS（幂等分区覆盖）
 	$(SUBMIT) /opt/work/jobs/m0_min.py
 	$(SUBMIT) /opt/work/jobs/m2_l1_min.py
 	$(SUBMIT) /opt/work/jobs/ads_min.py
+
+# HMS 表目录注册 —— B0 不算在 etl 链内（见 STATUS「B0 冻结决策」）：
+# compose 的 ${HIVE_IMAGE}=bde2020/hive-metastore-postgresql:2.3.0 是 HMS 背后的 PG，
+# 不是 metastore 服务本身（容器内 HiveMetaStore 进程数=0、9083 拒连）；
+# 正确的 bde2020/hive:2.3.0-postgresql-metastore 在 daocloud 403、1ms.run not found。
+# B0 的 DoD 不依赖表目录（作业按 Parquet 路径直读、ADS 落 PostgreSQL），故移出主链。
+hms: ## 可选：HMS 表目录注册（B1 恢复；需先有 metastore 服务）
 	$(SUBMIT) /opt/work/jobs/register_hms.py
 
 parity: ## 对拍验收：曲线101点+8维 vs goldens + 池级锚点
