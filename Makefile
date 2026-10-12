@@ -12,7 +12,7 @@ SUBMIT    = $(COMPOSE) exec -T spark-master /opt/spark/bin/spark-submit \
             --conf spark.sql.shuffle.partitions=8 \
             --jars /opt/spark/jars-extra/postgresql-42.7.4.jar
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install register goldens dev-etl clean
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean
 
 setup: ## 一次性：下载 pg jdbc jar + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -83,6 +83,8 @@ replay: ## 幂等验收：全链 ETL 两次 → 规范导出比对（整数精�
 	mv data-out/canonical data-out/canonical_run2
 	python3 tools/compare_canonical.py data-out/canonical_run1 data-out/canonical_run2
 	$(SUBMIT) /opt/work/jobs/parity_check.py
+	@echo "✅ 幂等验收通过：全链两跑一致（整数精确 / 浮点≤1e-9）+ 对拍 PASS"
+	@echo "CHAIN_REPLAY_OK"
 
 collect: ## 手动触发一次日频采集（Top200，约 2-4 小时）
 	bash collect/bili_daily.sh
@@ -92,8 +94,11 @@ cron-install: ## 安装日频 crontab（每日 01:00 采集+灌 raw）
 	 echo '0 1 * * * cd $(CURDIR) && bash collect/daily_cron.sh >> logs/cron_daily.log 2>&1') | crontab -
 	crontab -l | tail -2
 
-goldens: ## 生成对拍基准（宿主机旧 venv，只读旧仓库）
+goldens: ## 生成对拍基准（宿主机旧 venv，只读旧仓库）+ 上传 HDFS /opt/goldens（集群 parity 实际读取源）
 	$(VENV) tools/export_goldens.py --old-root ~/projects/danmaku --out tests/goldens
+	$(COMPOSE) exec -T namenode hdfs dfs -mkdir -p /opt/goldens
+	$(COMPOSE) exec -T namenode hdfs dfs -put -f - /opt/goldens/goldens_curve.csv < tests/goldens/goldens_curve.csv
+	$(COMPOSE) exec -T namenode hdfs dfs -put -f - /opt/goldens/goldens_metrics.csv < tests/goldens/goldens_metrics.csv
 
 dev-etl: ## 本地模式全链（不起 Docker，file:// 路径——开发迭代用）
 	$(VENV) jobs/m0_min.py --local --raw-root file://$(CURDIR)/data/raw-local --wh-root file://$(CURDIR)/data-out/dev-wh
