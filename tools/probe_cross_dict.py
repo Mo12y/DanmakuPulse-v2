@@ -137,7 +137,7 @@ def main():
         'n_nohit_samples': len(rows),
         'n_samples_newly_hit': n_hit_new,
         'hit_lift_pct': round(100 * n_hit_new / max(len(rows), 1), 1),
-        'examples': examples[:12],
+        'examples': examples[:60],
         'note': '跨域合并实验（NTUSD+清华+HowNet）——若正式合并是否执行由裁决决定',
     }
     with open(OUT, 'w', encoding='utf-8') as f:
@@ -145,7 +145,7 @@ def main():
     print(json.dumps({k: v for k, v in summary.items() if k != 'examples'},
                      ensure_ascii=False, indent=1))
     print('例子：')
-    for x in examples[:12]:
+    for x in examples[:60]:
         print(' ', x['text'][:20], '->', x['hits'])
 
 
