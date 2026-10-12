@@ -87,6 +87,7 @@ services:
       - ../tests/goldens:/opt/goldens:ro               # 对拍基准
       - ../data-out:/opt/work/data-out                 # 对拍报告/指纹输出
       - spark-events:/opt/spark/events
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master", "--port", "7077", "--webui-port", "8080"]
     depends_on: [namenode, hive-metastore]
     networks: [net]
 
@@ -119,7 +120,7 @@ services:
     environment:
       SPARK_NO_DAEMONIZE: "true"
       SPARK_HISTORY_OPTS: "-Dspark.history.fs.logDirectory=file:/opt/spark/events -Dspark.history.ui.port=18080"
-    command: ["/opt/spark/bin/spark-class", "org.apache.spark.history.HistoryServer"]
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.history.HistoryServer"]
     ports: ["${SPARK_HISTORY_PORT}:18080"]
     volumes:
       - spark-events:/opt/spark/events:ro
