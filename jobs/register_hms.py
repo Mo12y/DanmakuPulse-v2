@@ -22,12 +22,16 @@ TABLES = [
     ('dwd_video_metric_snapshot', '/warehouse/dwd_video_metric_snapshot'),
     ('dwd_danmaku_sent', '/warehouse/dwd_danmaku_sent'),
     ('dws_sentiment_curve_1pct', '/warehouse/dws_sentiment_curve_1pct'),
+    ('dws_density_5s', '/warehouse/dws_density_5s'),
+    ('dws_density_1pct', '/warehouse/dws_density_1pct'),
+    ('dws_video_rhythm_features', '/warehouse/dws_video_rhythm_features'),
     ('dws_reconcile_detail', '/warehouse/dws_reconcile_detail'),
 ]
 
 # 非分区表（含 batch_date 作为普通列，不 MSCK）
 TABLES_PLAIN = [
     ('dws_batch_audit', '/warehouse/dws_batch_audit'),
+    ('dws_partition_rhythm', '/warehouse/dws_partition_rhythm'),
     ('dim_video', '/warehouse/dim_video'),
     ('dict_sentiment', '/warehouse/dict_sentiment'),
     ('dict_slang_meme', '/warehouse/dict_slang_meme'),
