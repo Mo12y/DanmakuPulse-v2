@@ -83,6 +83,17 @@ m0-full: ## M0 完整版：标准化+清洗打标+刷量检测（dwd_danmaku_cle
 m1: ## M1 对账：三值对账+归因+偏差+质量分（dws_batch_audit / dws_reconcile_detail / PG ads_quality_report）
 	$(SUBMIT) /opt/work/jobs/m1_reconcile.py
 
+m2-l1-density: ## L1 密度引擎（dws_density_5s / dws_density_1pct）
+	$(SUBMIT) /opt/work/jobs/m2_l1_density.py
+
+m2-l1-fingerprint: ## L1 指纹计算器（dws_video_rhythm_features）
+	$(SUBMIT) /opt/work/jobs/m2_l1_fingerprint.py
+
+m2-l1-baseline: ## L1 分区基准库（dws_partition_rhythm）
+	$(SUBMIT) /opt/work/jobs/m2_l1_baseline.py
+
+m2-l1: m2-l1-density m2-l1-fingerprint m2-l1-baseline ## L1 体积层全链
+
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
 	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
 
