@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>分区画像 · 弹幕互动节奏分析</title>
+<link rel="icon" href="data:,">
+<script src="vendor/echarts.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#d7dce4; --dim:#8b93a3; --acc:#4f8cff; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--fg); font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; padding:20px; }
+  h1 { font-size:18px; margin-bottom:4px; } .sub { color:var(--dim); font-size:12px; margin-bottom:14px; }
+  .nav { margin-bottom:14px; } .nav a { color:var(--acc); margin-right:14px; text-decoration:none; font-size:13px; }
+  .nav a.on { color:var(--fg); font-weight:600; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
+  .chart { background:var(--card); border:1px solid var(--line); border-radius:10px; height:320px; padding:8px; margin-bottom:14px; }
+  select { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--dim); font-weight:500; } tr:hover td { background:#1d212b; }
+  .warn { color:#e5c07b; font-size:12px; }
+  .flexwrap { display:flex; gap:12px; flex-wrap:wrap; } .flexwrap > div { flex:1 1 380px; }
+  .low { color:#e5c07b; }
+</style>
+</head>
+<body>
+<h1>分区画像</h1>
+<div class="sub">基准库曲线 + 包络 · 指纹特征中位数 · 节奏类型分布（分区内）</div>
+<div class="nav"><a href="overview.html">运营总览</a><a href="rhythm.html">视频节奏详情</a><a class="on" href="partition.html">分区画像</a><a href="index.html">B0 验收页</a></div>
+
+<div class="row">
+  <select id="partSel" style="min-width:260px"></select>
+  <span id="meta" class="sub" style="margin:0"></span>
+</div>
+<div class="chart" id="baseCurve"></div>
+<div class="flexwrap" style="margin-bottom:14px">
+  <div class="chart" id="typePie" style="margin-bottom:0"></div>
+  <div class="card" style="flex:1 1 380px; overflow:auto; max-height:320px">
+    <table id="featTable"><thead><tr><th>特征</th><th>中位数</th><th>MAD（×1.4826）</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<div class="card" style="padding:0; overflow:auto; max-height:430px">
+  <table id="vidTable"><thead><tr>
+    <th>bvid</th><th>标题</th><th>UP主</th><th>播放</th><th>弹幕数</th><th>节奏熵</th><th>聚类簇</th><th>演化型</th>
+  </tr></thead><tbody></tbody></table>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n == null ? '-' : (n >= 1e4 ? (n/1e4).toFixed(1)+'万' : n);
+const COLORS = ['#4f8cff','#4caf7d','#e5c07b','#e5534b','#9b7fff'];
+const FEAT_ZH = {dm_per_min:'弹幕/分',wdm_per_min:'加权/分',rhythm_entropy:'节奏熵',burst_cv:'突发CV',w_burst_cv:'加权CV',
+  early_lag_ratio:'早期占比',color_ratio:'彩色率',top_mode_ratio:'顶部模式',pos_ratio:'正向比',neg_ratio:'负向比',
+  neu_ratio:'中性比',no_hit_ratio:'未命中比',avg_text_len:'平均长度',opening_5pct:'开场5%',ending_5pct:'结尾5%',mid_ratio:'中段比'};
+async function api(url){ const r = await fetch(url); if(!r.ok) throw new Error(url+' → '+r.status); return (await r.json()).data; }
+
+(async function main(){
+  const parts = await api('/api/partitions');
+  const sel = $('partSel');
+  parts.forEach(p=>{ const o=document.createElement('option'); o.value=p.tname;
+    o.textContent=`${p.tname}（${p.n_videos} 视频${p.low_support?' · 低支撑':''}）`; sel.appendChild(o); });
+  sel.onchange = () => load(sel.value);
+  await load(sel.value);
+
+  async function load(tname){
+    const [p, vids] = await Promise.all([
+      api('/api/partition/'+encodeURIComponent(tname)),
+      api('/api/partition/'+encodeURIComponent(tname)+'/videos'),
+    ]);
+    $('meta').innerHTML = `n=${p.n_videos} ${p.low_support?'<span class="low">（低支撑：n&lt;20，z 值不输出）</span>':''}`;
+    const c = echarts.init($('baseCurve'), 'dark');
+    const xs = [...Array(p.curve_med.length).keys()];
+    c.setOption({backgroundColor:'transparent',
+      title:{text:`基准库曲线 · ${tname}（跨视频每桶分位）`, left:8, textStyle:{fontSize:13}},
+      tooltip:{trigger:'axis'}, legend:{top:0, right:8, textStyle:{fontSize:11}},
+      grid:{left:44,right:16,top:36,bottom:28},
+      xAxis:{type:'category', data:xs, name:'位置（1%桶）'}, yAxis:{type:'value', name:'弹幕数/桶'},
+      series:[
+        {name:'p25', type:'line', showSymbol:false, lineStyle:{opacity:0}, stack:'env', data:p.curve_p25},
+        {name:'p25–p75 包络', type:'line', showSymbol:false, lineStyle:{opacity:0}, stack:'env',
+         data:p.curve_p75.map((hi,i)=>hi-(p.curve_p25[i]||0)), areaStyle:{color:'rgba(79,140,255,0.15)'}},
+        {name:'中位', type:'line', showSymbol:false, lineStyle:{width:2, color:'#4f8cff'}, data:p.curve_med},
+      ]});
+    // 类型分布
+    const dist = vids.meta ? vids.meta.type_dist : {};
+    const pc = echarts.init($('typePie'), 'dark');
+    pc.setOption({backgroundColor:'transparent',
+      title:{text:'节奏类型分布（分区内）', left:8, textStyle:{fontSize:13}},
+      tooltip:{trigger:'item'}, legend:{bottom:0, textStyle:{fontSize:11}},
+      series:[{type:'pie', radius:['38%','66%'], center:['50%','52%'], label:{fontSize:11, color:'#d7dce4'},
+        data:Object.entries(dist).map(([k,v],i)=>({name:k, value:v, itemStyle:{color:COLORS[i%5]}}))}]});
+    // 特征表
+    $('featTable').querySelector('tbody').innerHTML = Object.keys(FEAT_ZH).map(f=>{
+      const m=p.feat_med[f], mad=p.feat_mad[f];
+      return `<tr><td>${FEAT_ZH[f]}</td><td>${m==null?'-':(+m).toFixed(4)}</td><td>${mad==null?'-':(+mad).toFixed(4)}</td></tr>`;
+    }).join('');
+    // 视频表
+    $('vidTable').querySelector('tbody').innerHTML = vids.map(r=>`<tr>
+      <td><a style="color:var(--acc)" href="rhythm.html?bvid=${r.bvid}&batch_date=${r.batch_date}">${r.bvid}</a></td>
+      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(r.title||'').replace(/"/g,'')}">${r.title||'-'}</td>
+      <td>${r.up_name||'-'}</td><td>${fmt(r.play)}</td><td>${r.n_danmaku}</td>
+      <td>${r.rhythm_entropy==null?'-':(+r.rhythm_entropy).toFixed(3)}</td>
+      <td>${r.cluster_id==null?'-':r.cluster_id}</td><td>${r.evo_type||'-'}</td></tr>`).join('');
+  }
+})().catch(e=>{ document.body.insertAdjacentHTML('beforeend', `<div class="warn">加载失败：${e.message}</div>`); });
+</script>
+</body>
+</html>
