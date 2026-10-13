@@ -11,6 +11,8 @@ import argparse
 from pyspark.sql import SparkSession
 
 # 分区表（batch_date 分区，MSCK REPAIR）
+# ⚠️ 只有 write.partitionBy('batch_date') 写出的表才放这里——平铺表误放会导致 MSCK
+#    零分区 → COUNT=0（2026-10-13 实测：dws_curve_clusters/dws_hawkes_params 曾误放）
 TABLES = [
     # B0（min 对拍链）
     ('ods_danmaku_full', '/warehouse/ods_danmaku_full'),
@@ -29,11 +31,12 @@ TABLES = [
     ('dws_video_rhythm_features', '/warehouse/dws_video_rhythm_features'),
     ('dws_reconcile_detail', '/warehouse/dws_reconcile_detail'),
     # B2-L2（生产链）
-    ('dws_curve_clusters', '/warehouse/dws_curve_clusters'),
     ('dws_rhythm_events', '/warehouse/dws_rhythm_events'),
     ('dws_sync_features', '/warehouse/dws_sync_features'),
     ('dws_segments', '/warehouse/dws_segments'),
-    ('dws_hawkes_params', '/warehouse/dws_hawkes_params'),
+    ('dws_evolution_feats', '/warehouse/dws_evolution_feats'),
+    ('dws_onlist_track', '/warehouse/dws_onlist_track'),
+    ('dws_video_daily', '/warehouse/dws_video_daily'),
 ]
 
 # 非分区表（含 batch_date 作为普通列，不 MSCK）
@@ -41,6 +44,10 @@ TABLES_PLAIN = [
     ('dws_batch_audit', '/warehouse/dws_batch_audit'),
     ('dws_partition_rhythm', '/warehouse/dws_partition_rhythm'),
     ('dws_lag_calibration', '/warehouse/dws_lag_calibration'),
+    ('dws_curve_clusters', '/warehouse/dws_curve_clusters'),   # 平铺小表（509 行，非分区）
+    ('dws_hawkes_params', '/warehouse/dws_hawkes_params'),     # 平铺小表（231 行，非分区）
+    ('dws_lifecycle', '/warehouse/dws_lifecycle'),
+    ('dws_up_profile', '/warehouse/dws_up_profile'),
     ('dim_video', '/warehouse/dim_video'),
     ('dict_sentiment', '/warehouse/dict_sentiment'),
     ('dict_slang_meme', '/warehouse/dict_slang_meme'),
