@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 m0_min.py — M0 最小版：raw → ods → dwd（B0.3，11 §2；完整 M0 属 B1.1）
+⚠️ 2026-10-13 起支持 --batches 批次限定（对拍/复放链必须限定 legacy 4 批）：
+   日频新批次（20261012 起）由 m0_daily 装载进 ods、m0_full 走生产链——**不得并入本链**，
+   否则 parity 锚点（509/672,439）失效。Makefile 经 $(LEGACY_BATCHES) 自动限定。
 
 口径对齐旧仓库 pipeline/clean.py（对拍锚点 676,931 / 672,439 / 99.3364% 的前提，逐条对应）：
   - CSV 读取：RFC4180（quote='"' escape='"'，坑：Python csv.writer 双写引号 vs Spark 默认反斜杠转义）
@@ -44,7 +47,11 @@ def main():
     ap.add_argument('--config-root', default=os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config'))
     ap.add_argument('--out-dir', default=None, help='运行报告输出目录（本地文件系统；集群默认 /opt/work/data-out）')
     ap.add_argument('--local', action='store_true', help='本地模式（file:// 路径开发调试用）')
+    ap.add_argument('--batches', default='',
+                    help='逗号分隔批次限定（默认=raw 全量）。对拍/复放链必须限定 legacy 4 批 '
+                         '20260902,20260907,20260914,20260917（否则日频新批次并入 min 链、破 parity 锚点）')
     args = ap.parse_args()
+    _batches = [b.strip() for b in args.batches.split(',') if b.strip()]
 
     spark = build_spark(local=args.local)
     spark.sparkContext.setLogLevel('ERROR')
@@ -56,7 +63,8 @@ def main():
     # ── 1) 弹幕 CSV → ODS（cast + time_offset 非空过滤，口径=旧 clean.py）──
     df = (spark.read.option('header', True)
           .option('quote', '"').option('escape', '"')
-          .csv(f'{raw}/batch_date=*/danmaku.csv'))
+          .csv([f'{raw}/batch_date={b}/danmaku.csv' for b in _batches] if _batches
+               else [f'{raw}/batch_date=*/danmaku.csv']))
 
     # BOM：Spark 多文件读 header 以第一个文件为准，其余文件 header 行按位置跳过 → 单次改名即可
     c0 = df.columns[0]
@@ -92,7 +100,8 @@ def main():
 
     # ── 3) ods_batch_meta：meta.json 字段 + 血缘标注（cadence/快照存留/已知问题）──
     lineage = json.load(open(os.path.join(args.config_root, 'batch_lineage.json')))
-    meta = (spark.read.option('multiLine', True).json(f'{raw}/batch_date=*/meta.json')
+    meta = (spark.read.option('multiLine', True).json([f'{raw}/batch_date={b}/meta.json' for b in _batches] if _batches
+                  else f'{raw}/batch_date=*/meta.json')
             .withColumn('batch_date', F.regexp_extract(F.input_file_name(), r'batch_date=(\d{8})', 1))
             .select('batch_date', 'csv', 'list_fetched_at', 'count', 'depth_requested',
                     'status', 'coverage', 'note'))
@@ -143,7 +152,9 @@ def main():
         'ods_rows': ods_rows, 'dwd_rows': dwd_rows, 'hotlist_rows': hot_n,
         'snapshot_map': snap_map,
         'anchors_expect': {'ods_rows': 676931, 'dwd_rows': 672439, 'retention': '0.993364'},
-        'anchors_match': {'ods_rows': ods_rows == 676931, 'dwd_rows': dwd_rows == 672439},
+        'scope_batches': _batches or ['ALL'],
+        'anchors_match': (None if _batches else
+                          {'ods_rows': ods_rows == 676931, 'dwd_rows': dwd_rows == 672439}),
     }
     with open(os.path.join(out_dir, 'm0_report.json'), 'w', encoding='utf-8') as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
