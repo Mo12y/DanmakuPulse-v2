@@ -179,7 +179,8 @@ parity: ## 对拍验收：曲线101点+8维 vs goldens + 池级锚点
 	$(SUBMIT) /opt/work/jobs/parity_check.py
 
 replay: ## 幂等验收：全链 ETL 两次 → 规范导出比对（整数精确/浮点≤1e-9）+ 对拍
-	rm -rf data-out/canonical_run1 data-out/canonical_run2
+	# ⚠️ 清理必须经容器（canonical 产物由容器 root 写出，宿主 rm 会"权限不够"——2026-10-13 实测）
+	$(COMPOSE) exec -T spark-master rm -rf /opt/work/data-out/canonical_run1 /opt/work/data-out/canonical_run2
 	$(SUBMIT) /opt/work/jobs/m0_min.py --batches $(LEGACY_BATCHES) && $(SUBMIT) /opt/work/jobs/m2_l1_min.py && $(SUBMIT) /opt/work/jobs/ads_min.py
 	mv data-out/canonical data-out/canonical_run1
 	$(SUBMIT) /opt/work/jobs/m0_min.py --batches $(LEGACY_BATCHES) && $(SUBMIT) /opt/work/jobs/m2_l1_min.py && $(SUBMIT) /opt/work/jobs/ads_min.py
