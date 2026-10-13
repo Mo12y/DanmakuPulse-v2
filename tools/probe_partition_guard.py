@@ -44,6 +44,8 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--compare-with', default=None)
     ap.add_argument('--expect-unchanged', default='', help='逗号分隔 batch_date（必须未变）')
+    ap.add_argument('--assert-no-changes', action='store_true',
+                    help='日频装载断言：任何既有分区若变化/消失即失败（只允许新增分区）')
     ap.add_argument('--local', action='store_true')
     args = ap.parse_args()
 
@@ -75,12 +77,12 @@ def main():
             removed = sorted([k for k in bpart if k not in apart])
             print(f'  [{t}] 变化={changed or "无"} 新增={added or "无"} 消失={removed or "无"}')
             for k in changed:
-                if k in expect:
-                    problems.append(f'{t} 分区 {k} 在“必须未变”清单但指纹变化：'
+                if k in expect or args.assert_no_changes:
+                    problems.append(f'{t} 分区 {k} 指纹变化（{"assert-no-changes" if args.assert_no_changes else "expect 清单"}）：'
                                     f'{bpart[k]} → {apart[k]}')
             for k in removed:
-                if k in expect:
-                    problems.append(f'{t} 分区 {k} 在“必须未变”清单但已消失')
+                if k in expect or args.assert_no_changes:
+                    problems.append(f'{t} 分区 {k} 已消失（{"assert-no-changes" if args.assert_no_changes else "expect 清单"}）')
         if problems:
             print('\n❌ 守卫失败：')
             for p in problems:
