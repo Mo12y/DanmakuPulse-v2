@@ -23,7 +23,7 @@ SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 # M6 链：特征矩阵闭包依赖 l2_common + m2_l2_events 纯函数（--py-files 分发）
 SUBMIT_M6 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py,/opt/work/jobs/m2_l2_events.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -158,7 +158,11 @@ m6-features: ## M6 特征矩阵 ml_features（0..3 日窗截断口径；预注�
 m6-train: ## M6 T1 四层消融（预注册 14 §5；容器 local[2]，~20-30min）
 	docker exec spark-master /opt/spark/bin/spark-submit --master local[2] --driver-memory 2g /opt/work/jobs/m6_train.py
 
-m6: m6-features m6-train ## M6 全链（特征+训练）
+m6-panel: ## M6 截断面板（B4.3：构建 + 双切分实验；双 N/聚类稳健 SE）
+	$(SUBMIT_M6) /opt/work/jobs/m6_panel.py
+	docker exec spark-master /opt/spark/bin/spark-submit --master local[2] --driver-memory 2g /opt/work/jobs/m6_panel_train.py
+
+m6: m6-features m6-train m6-panel ## M6 全链（特征+训练+面板）
 
 ads-build: ## 生产链 ADS 导出（11 张表 → PG；覆盖 3 页数据流 + M4）
 	$(SUBMIT) /opt/work/jobs/ads_build.py
