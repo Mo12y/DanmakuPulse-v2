@@ -41,3 +41,30 @@ anchors:  # 池级对账锚点（2026-10-12 一手实测，出处旧仓库 docs/
   n_danmaku_pool: 669995        # 池内 SUM(danmaku_count)
   n_danmaku_dwd: 672439         # DWD 总行数（= 保留率 99.3364% 的分子）
   clean_retention: "0.993364"   # dwd/ods = 672439/676931
+
+l2:
+  min_danmaku: 100         # 弹幕 <100 的视频跳过 L2（08 §4 异常降级；事件表空、指纹相关列置空）
+
+detect:                    # L2 四检测器与融合（08 §4.1/§4.2；w/θ 标定前为默认值 → calibrated_on='uncalibrated'）
+  bucket_sec: 5            # 检测网格（5s 原始口径，禁平滑）
+  d1_quantile: 0.70        # D1 郭可岩三点：前缀 P70 自适应阈值（最近秩）
+  d1_slope: 20             # D1 三点 OLS 斜率门限（cnt/桶）
+  d2_k: 2.0                # D2 孔玲玲：变化率门限 |c_{i+1}−c_{i−1}|/2
+  d3_gap_min: 10           # D3 Entropy：最小峰距（桶）
+  flux_win: 3              # D4 spectral flux：因果窗（桶）
+  flux_delta: 1.5          # D4：局部 20 桶 mean+1.5·std 显著性
+  fusion_w: [0.3, 0.3, 0.2, 0.2]   # D1/D2/D3/D4 权重（30 视频标注网格搜索标定前 = 默认值）
+  fusion_theta: 0.5        # 融合分截断 θ
+  merge_gap: 3             # 同法命中间隔 <3 桶合并（08 §4.1 D1 规则；各法统一）
+
+sync:                      # 同步性（08 §4.3）
+  peak_win: 2              # 事件 ±2 桶峰窗
+  perm_n: 1000             # 置换检验次数（种子按 bvid+batch 固定 → 幂等）
+
+anchor:                    # 锚词滞后校正（08 §4.5；词表在 M5 dict_anchor——本作业只读 is_anchor 打标）
+  win_bucket: 6            # 事件 ±6 桶窗
+  min_anchors_part: 30     # 分区级 δ 输出门槛（DoD：n_anchors ≥30 才输出）
+
+novelty:                   # Novelty 分段（08 §4.6）
+  ssm_win: 10              # SSM 特征窗（桶）
+  kernel_k: 8              # 棋盘核半宽（核尺寸 2k×2k）

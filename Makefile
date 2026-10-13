@@ -12,7 +12,11 @@ SUBMIT    = $(COMPOSE) exec -T spark-master /opt/spark/bin/spark-submit \
             --conf spark.sql.shuffle.partitions=8 \
             --jars /opt/spark/jars-extra/postgresql-42.7.4.jar
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean
+# L2 链：检测器/分段以 RDD + NumPy 数据并行执行（11 §0「算法保真优先」）——需把共享模块
+# l2_common.py 分发到 workers（闭包反序列化时按模块名 import）
+SUBMIT_L2 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py
+
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -93,6 +97,24 @@ m2-l1-baseline: ## L1 分区基准库（dws_partition_rhythm）
 	$(SUBMIT) /opt/work/jobs/m2_l1_baseline.py
 
 m2-l1: m2-l1-density m2-l1-fingerprint m2-l1-baseline ## L1 体积层全链
+
+# ── B2 结构层（L2，08 §4；顺序 = 检测→同步→滞后→分段→收尾回填；每段可独立重跑）──
+m2-l2-events: ## L2 四检测器+融合（dws_rhythm_events；未标定 → calibrated_on='uncalibrated'）
+	$(SUBMIT_L2) /opt/work/jobs/m2_l2_events.py
+
+m2-l2-sync: ## L2 同步性+羊群（dws_sync_features；回写事件表 sync 列）
+	$(SUBMIT) /opt/work/jobs/m2_l2_sync.py
+
+m2-l2-lag: ## L2 锚词滞后校正（dws_lag_calibration；回写密度 cal_cnt）
+	$(SUBMIT) /opt/work/jobs/m2_l2_lag.py
+
+m2-l2-novelty: ## L2 Novelty 分段（dws_segments）
+	$(SUBMIT_L2) /opt/work/jobs/m2_l2_novelty.py
+
+m2-l2-finalize: ## L2 收尾：回填 L1 指纹（peak_*/herd/lag_delta）+ feat_z_part
+	$(SUBMIT) /opt/work/jobs/m2_l2_finalize.py
+
+m2-l2: m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize ## L2 结构层全链（B2）
 
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
 	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
