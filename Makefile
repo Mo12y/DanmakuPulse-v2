@@ -18,7 +18,7 @@ SUBMIT_L2 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py
 # L3 链：Hawkes 逐视频 L-BFGS-B（scipy）——闭包依赖 hawkes_core（--py-files 分发）
 SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -132,6 +132,18 @@ m2-l3-hawkes: ## L3 Hawkes 拟合（dws_hawkes_params；镜像 scipy 已在 Dock
 	$(SUBMIT_L3) /opt/work/jobs/m2_l3_hawkes.py
 
 m2-l3: m2-l3-hawkes ## L3 机制层全链（当前仅 Hawkes）
+
+# ── B2 M4 热榜纵向演化（08 §7）──
+m4-onlist: ## M4 上榜追踪（dws_onlist_track；weekly_legacy 不做跨批差分——冻结决策）
+	$(SUBMIT) /opt/work/jobs/m4_onlist.py
+
+m4-evolution: ## M4 演化（dws_video_daily + dws_evolution_feats 分型 + dws_lifecycle 半衰期）
+	$(SUBMIT_L2) /opt/work/jobs/m4_evolution.py
+
+m4-up: ## M4 UP 档案（dws_up_profile）
+	$(SUBMIT) /opt/work/jobs/m4_up.py
+
+m4: m4-onlist m4-evolution m4-up ## M4 全链（DoD：分型轮廓≥0.4 + 每型≥5%）
 
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
 	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
