@@ -95,11 +95,14 @@ def detect_spam(dwd, q, wh):
     n_with = base.count()
     n_total = dwd.count()
 
-    wu = Window.partitionBy('bvid', 'batch_date', 'user_hash').orderBy('send_time')
+    # ⚠️ 2026-10-13 二修（F1）：range frame 的 orderBy 须数值型；此前因 user_hash 从未生效，
+    #    该代码块从未被执行，两处隐藏 bug 今日首次暴露（lag.over 顺序 + string 排序键）。
+    wu = (Window.partitionBy('bvid', 'batch_date', 'user_hash')
+          .orderBy(F.col('send_time').cast('long')))
     w60 = wu.rangeBetween(-59, 0)
     per_u = (base
              .withColumn('gap', F.col('send_time').cast('long') -
-                         F.lag('send_time').cast('long').over(wu))
+                         F.lag('send_time').over(wu).cast('long'))
              .withColumn('burst_win', F.count('*').over(w60))
              .groupBy('bvid', 'batch_date', 'user_hash')
              .agg(F.count('*').alias('cnt_u'),
@@ -179,7 +182,10 @@ def main():
     csv_df.unpersist()
 
     # ── 1) 输入：B0 ODS（新批次有 user_hash、历史批无——兼容）──
-    ods = spark.read.parquet(f'{wh}/ods_danmaku_full')
+    # ⚠️ 2026-10-13 修复(F1)：全表读需 mergeSchema——新批次（1012/1013）含 user_hash 列、
+    #    历史 4 批无；默认 schema 取代表性文件（老批）会导致 user_hash '不存在' 而跳过刷量检测。
+    ods = (spark.read.option('mergeSchema', 'true')
+           .parquet(f'{wh}/ods_danmaku_full'))
     ods_rows = ods.count()
 
     # ── 2) 标准化器（08 §1.2）──

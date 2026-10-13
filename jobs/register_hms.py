@@ -24,6 +24,7 @@ TABLES = [
     # B1（生产链）
     ('dwd_danmaku_clean', '/warehouse/dwd_danmaku_clean'),
     ('dwd_video_metric_snapshot', '/warehouse/dwd_video_metric_snapshot'),
+    ('dwd_spam_flag', '/warehouse/dwd_spam_flag'),
     ('dwd_danmaku_sent', '/warehouse/dwd_danmaku_sent'),
     ('dws_sentiment_curve_1pct', '/warehouse/dws_sentiment_curve_1pct'),
     ('dws_density_5s', '/warehouse/dws_density_5s'),
