@@ -3,7 +3,9 @@
 > 旧仓库 `~/projects/danmaku` 已冻结为预研仓库（只读，`collect/bili.py` 以副本形式继续服务采集）。
 > 设计基准：旧仓库 `docs/05-新系统重构/07_最终设计方案.md`（v1.4）+ `08_模块详细设计.md`。
 
-## B0 地基周（当前批次）
+## 当前进度（2026-10-13：B0 ✅ / B1 ✅ / M2-L1 ✅ / B2-L2 结构层 ✅）
+
+> 批次状态、DoD 证据与交接块：旧仓库 `docs/05-新系统重构/STATUS.md`；施工图：`08_模块详细设计.md`。
 
 ```bash
 make setup        # 一次性：pg jdbc jar + echarts（国内镜像）
@@ -16,6 +18,10 @@ make ingest       # raw-local → HDFS /raw/batch_date=*/
 make etl          # m0_min → m2_l1_min → ads_min → register_hms
 make parity       # B0.3 对拍验收（曲线+8维 vs goldens；池级锚点 508/669,995/509/672,439）
 make replay       # 幂等验收：重跑 ETL + 规范导出容差比对
+make m0-full m1 m5    # B1 生产链：M0 完整版（清洗/刷量/加权）/ M1 对账 / M5 情感词典 v0
+make m2-l1        # B2：L1 体积层全链（5s·1pct 密度 → 指纹 → 分区基准）
+make m2-l2        # B2：L2 结构层全链（四检测器融合 → 同步性 → 锚滞后 → 分段 → 回填 L1）
+make hms          # HMS 表注册（DROP+CREATE schema 刷新；含 B2-L2 新表）
 make cron-install # 日频采集 crontab（B0 期宿主 crontab；B1 起 DolphinScheduler 接管）
 ```
 
@@ -24,11 +30,11 @@ make cron-install # 日频采集 crontab（B0 期宿主 crontab；B1 起 Dolphin
 ```
 collect/    bili.py（零改动副本）+ bili_daily.sh / daily_cron.sh（新 wrapper，不跑旧 ETL）
 compose/    docker-compose.b0.yml（9 服务）/ hadoop.env / assets/（ingest、nginx、spark-conf）
-jobs/       spark-submit 入口：m0_min / m2_l1_min / ads_min / parity_check / register_hms
-tools/      export_goldens（对拍基准）/ stage_raw_local（批次映射唯一事实源）/ compare_canonical
+jobs/       spark-submit 入口：m0_min·m0_full / m2_l1_min·m2_l1_* / m2_l2_*（events·sync·lag·novelty·finalize）/ m1·m5 / ads_min / parity_check / register_hms / l2_common（L2 共享纯函数）
+tools/      export_goldens（对拍基准）/ stage_raw_local（批次映射唯一事实源）/ compare_canonical / probe_l2_density_contract（L2 输入契约诊断）
 serve/      FastAPI 只读 API + 静态验收页（nginx 反代）
-config/     params.yaml（可调参数）/ batch_lineage.json（历史批次血缘与已知问题）
-tests/      goldens/（对拍基准 CSV，由 make goldens 生成）
+config/     params.yaml（可调参数：含 L2 detect/sync/anchor/novelty 节）/ batch_lineage.json（历史批次血缘与已知问题）
+tests/      goldens/（对拍基准 CSV，由 make goldens 生成）+ test_l2_detectors.py（L2 合成信号单测）
 ```
 
 ## 对拍与幂等（B0 DoD）

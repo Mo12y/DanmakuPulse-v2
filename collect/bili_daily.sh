@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# bili_daily.sh — 新系统日频采集 wrapper
+# bili_daily.sh — 新系统日频采集 wrappe
 # bili.py 零改动（09 §3.1 冻结：限流定标/批次身份/SIGTERM 收尾全部沿用）
 # 与旧 collect_schedule.sh 的区别：不跑旧 ETL / 不写旧 SESSION_LOG / 不 git commit
 # 编排：B0 期间由宿主 crontab 每日 01:00 触发（collect/daily_cron.sh）；B1 起 DolphinScheduler 接管
@@ -38,10 +38,17 @@ export PYTHONUNBUFFERED=1   # 坑16：stdout 接管道必须 -u + unbuffered，�
 python -u collect/bili.py hotlist -n "$COUNT" --pages "$PAGES" $FRESH 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
-# 143=SIGTERM（用户掐断）：已采部分按批次 C 仍有效，不算失败
+# 143=SIGTERM（用户掐断/关机）：已采部分按批次 C 仍有效，不算失败
+# ⚠️ 2026-10-13 修复：143 不得再写 "✅ 完成"——daily_cron_guard.sh 以该标记判"今天已完成"，
+#    若中断也写 ✅ 会让守卫误判"已完成"而静默跳过补跑（当天批次永久停在 aborted）。
+#    中断态显式写"需续采"提示；仅真实完成（退出码 0）写 ✅。
 log "采集结束（退出码 $EXIT_CODE）"
 if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 143 ]; then
   log "❌ 采集失败，退出码 $EXIT_CODE"
   exit 1
 fi
-log "✅ 完成。产物落 data/cli_collected/（灌 HDFS 由 make ingest / daily_cron.sh 负责）"
+if [ "$EXIT_CODE" -eq 143 ]; then
+  log "⚠️ 采集被中断（SIGTERM）——已采部分有效但未完成；续采 = bash collect/bili_daily.sh --resume <batch_date>（不给 --fresh）"
+else
+  log "✅ 完成。产物落 data/cli_collected/（灌 HDFS 由 make ingest / daily_cron.sh 负责）"
+fi

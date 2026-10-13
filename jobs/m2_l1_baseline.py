@@ -15,10 +15,10 @@ import argparse
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
 
-ENGINE_VERSION = 'b1-v1'
+ENGINE_VERSION = 'b2-v1'
 FEAT_COLS = ['dm_per_min', 'wdm_per_min', 'rhythm_entropy', 'burst_cv', 'w_burst_cv',
              'early_lag_ratio', 'color_ratio', 'top_mode_ratio',
-             'pos_ratio', 'neg_ratio', 'obj_ratio', 'avg_text_len',
+             'pos_ratio', 'neg_ratio', 'neu_ratio', 'no_hit_ratio', 'avg_text_len',
              'opening_5pct', 'ending_5pct', 'mid_ratio']
 
 

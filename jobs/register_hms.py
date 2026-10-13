@@ -3,6 +3,8 @@
 register_hms.py — 把 warehouse parquet 路径注册为 Hive Metastore 外部表（幂等）
 B0 的 ETL 写路径不依赖 HMS（正确性解耦）；本作业让 HMS 真正被用起来：
   外部表 + MSCK REPAIR 同步分区 → spark-sql/HiveSQL 可直接查。
+⚠️ 2026-10-13：改为 DROP + CREATE（schema 刷新）——原 IF NOT EXISTS 在列变更时无法更新目录
+  （M5 补 text_norm 列时曾需手动 drop）。外部表 DROP 不删数据，重跑即恢复；MSCK 重建分区。
 """
 import argparse
 
@@ -26,12 +28,17 @@ TABLES = [
     ('dws_density_1pct', '/warehouse/dws_density_1pct'),
     ('dws_video_rhythm_features', '/warehouse/dws_video_rhythm_features'),
     ('dws_reconcile_detail', '/warehouse/dws_reconcile_detail'),
+    # B2-L2（生产链）
+    ('dws_rhythm_events', '/warehouse/dws_rhythm_events'),
+    ('dws_sync_features', '/warehouse/dws_sync_features'),
+    ('dws_segments', '/warehouse/dws_segments'),
 ]
 
 # 非分区表（含 batch_date 作为普通列，不 MSCK）
 TABLES_PLAIN = [
     ('dws_batch_audit', '/warehouse/dws_batch_audit'),
     ('dws_partition_rhythm', '/warehouse/dws_partition_rhythm'),
+    ('dws_lag_calibration', '/warehouse/dws_lag_calibration'),
     ('dim_video', '/warehouse/dim_video'),
     ('dict_sentiment', '/warehouse/dict_sentiment'),
     ('dict_slang_meme', '/warehouse/dict_slang_meme'),
@@ -60,6 +67,7 @@ def main():
         df = spark.read.parquet(loc)
         cols = ', '.join(f'`{f.name}` {f.dataType.simpleString()}'
                          for f in df.schema.fields if f.name != 'batch_date')
+        spark.sql(f'DROP TABLE IF EXISTS {name}')  # schema 刷新（外部表，不动数据）
         spark.sql(f'CREATE EXTERNAL TABLE IF NOT EXISTS {name} ({cols}) '
                   f'PARTITIONED BY (batch_date STRING) STORED AS PARQUET LOCATION \'{loc}\'')
         spark.sql(f'MSCK REPAIR TABLE {name}')
@@ -70,6 +78,7 @@ def main():
         loc = loc.replace('/warehouse', args.wh_root) if args.wh_root != '/warehouse' else loc
         df = spark.read.parquet(loc)
         cols = ', '.join(f'`{f.name}` {f.dataType.simpleString()}' for f in df.schema.fields)
+        spark.sql(f'DROP TABLE IF EXISTS {name}')  # schema 刷新（外部表，不动数据）
         spark.sql(f'CREATE EXTERNAL TABLE IF NOT EXISTS {name} ({cols}) '
                   f'STORED AS PARQUET LOCATION \'{loc}\'')
         n = spark.sql(f'SELECT COUNT(*) FROM {name}').collect()[0][0]
