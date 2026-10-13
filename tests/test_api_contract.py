@@ -65,16 +65,20 @@ def test_overview_contract():
     d = b['data']
     _keys(d, 'latest_batch', 'hotlist_size', 'n_videos_pool', 'cluster', 'evo_types', 'composition')
     assert d['n_videos_pool'] == 508
-    assert d['cluster']['k'] == 4
-    assert sum(t['n'] for t in d['evo_types']) == 124
+    # 2026-10-13：k 随数据演化（6 批 + burst 修复后 silhouette 选 k=3），改结构断言
+    assert d['cluster']['k'] >= 2
+    # 2026-10-13：演化样本随数据增长（B2 时 124，现 142），改下界
+    assert sum(t['n'] for t in d['evo_types']) >= 120
 
 
 def test_hotlist_contract_and_404():
     b = get('/api/hotlist')
     d = b['data']
-    assert len(d) == 200
+    # 2026-10-13：hotlist 行数随新批次增长（当前 300），改下界断言
+    assert len(d) >= 200
     _keys(d[0], 'rank_proxy', 'bvid', 'title', 'tname', 'play', 'cadence')
-    assert d[0]['cadence'] == 'weekly_legacy'
+    # 2026-10-13：新批次引入 daily 节奏（hotlist[0] 为最新批）
+    assert d[0]['cadence'] in ('daily', 'weekly_legacy')
     assert d[0]['rank_delta'] is None          # 冻结决策：legacy 不做跨批差分
     assert get('/api/hotlist?batch_date=20990101', 404) == 404
 
@@ -103,7 +107,8 @@ def test_fingerprint_contract():
 
 def test_partitions_and_detail():
     parts = get('/api/partitions')['data']
-    assert len(parts) == 71, f'命名分区应为 71（全表 72 含 1 行 tname=NULL 未知分区）: {len(parts)}'
+    # 2026-10-13：分区数随新批次增长（当前 76 命名 + 1 未知），改下界断言
+    assert len(parts) >= 70, f'命名分区 ≥70（当前 {len(parts)}）'
     assert all(p['tname'] for p in parts)
     tname = parts[0]['tname']
     p = get(f'/api/partition/{urllib.parse.quote(tname)}')['data']
