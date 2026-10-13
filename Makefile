@@ -18,7 +18,7 @@ SUBMIT_L2 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py
 # L3 链：Hawkes 逐视频 L-BFGS-B（scipy）——闭包依赖 hawkes_core（--py-files 分发）
 SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -144,6 +144,13 @@ m4-up: ## M4 UP 档案（dws_up_profile）
 	$(SUBMIT) /opt/work/jobs/m4_up.py
 
 m4: m4-onlist m4-evolution m4-up ## M4 全链（DoD：分型轮廓≥0.4 + 每型≥5%）
+
+# ── B2.3 服务层（08 §10：dws → PG ads 表；fastapi 重建见 docker compose build fastapi）──
+ads-build: ## 生产链 ADS 导出（11 张表 → PG；覆盖 3 页数据流 + M4）
+	$(SUBMIT) /opt/work/jobs/ads_build.py
+
+serve-rebuild: ## 重建并重启 fastapi 容器（改 serve/ 后执行；静态页 nginx 挂载无需重建）
+	$(COMPOSE) build fastapi && $(COMPOSE) up -d --no-deps fastapi
 
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
 	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
