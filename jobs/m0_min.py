@@ -153,8 +153,8 @@ def main():
         'snapshot_map': snap_map,
         'anchors_expect': {'ods_rows': 676931, 'dwd_rows': 672439, 'retention': '0.993364'},
         'scope_batches': _batches or ['ALL'],
-        'anchors_match': (None if _batches else
-                          {'ods_rows': ods_rows == 676931, 'dwd_rows': dwd_rows == 672439}),
+        'anchors_match': ({'ods_rows': ods_rows == 676931, 'dwd_rows': dwd_rows == 672439}
+                          if (not _batches or set(_batches) == set(lineage.keys())) else None),
     }
     with open(os.path.join(out_dir, 'm0_report.json'), 'w', encoding='utf-8') as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
