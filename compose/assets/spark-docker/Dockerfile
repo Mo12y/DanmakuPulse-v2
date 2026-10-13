@@ -2,13 +2,15 @@
 # B0：仅需标准库；B1 起加 python3-yaml（m0_full/m1_reconcile 读 config/params.yaml——配置中心 08 §0.3）
 # B2-L2 起加 python3-numpy（检测器/熵/置换检验的数值计算，2026-10-13 实测：镜像仅 pip/PyYAML，
 # 无 numpy/pandas/pyarrow——L2 按 11 §0「算法保真优先」以 RDD 数据并行 + NumPy 执行，不引 pandas）
+# B2-L3 起加 python3-scipy（m2_l3_hawkes 的 L-BFGS-B 优化 + KS 检验，08 §5.1 指定 scipy；
+# apt 版 1.8.0 与 python3-numpy 同源同样式，零依赖冲突——2026-10-13）
 FROM apache/spark:3.5.4-java17
 USER root
 # apt 换清华源（jammy 为 sources.list；24.04 为 ubuntu.sources，两种都处理）
 RUN sed -i 's|archive.ubuntu.com|mirrors.tuna.tsinghua.edu.cn|g; s|security.ubuntu.com|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list 2>/dev/null || true \
  && sed -i 's|archive.ubuntu.com|mirrors.tuna.tsinghua.edu.cn|g; s|security.ubuntu.com|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-yaml python3-numpy \
+ && apt-get install -y --no-install-recommends python3 python3-yaml python3-numpy python3-scipy \
  && rm -rf /var/lib/apt/lists/* \
  && ln -sf /usr/bin/python3 /usr/bin/python
 ENV PYSPARK_PYTHON=/usr/bin/python3 \
