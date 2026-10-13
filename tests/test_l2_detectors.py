@@ -166,3 +166,22 @@ def test_per_video_lag_delta():
     # 窗外锚不计入
     out3 = m2lag.per_video_lag((('bv', 'd'), (evs, [('aft', 999.0, 200)])), win=6, bucket_sec=5)
     assert out3[0][3] is None and out3[0][4] == 0
+
+# ── 作业级幂等守卫（2026-10-13 实测踩坑：finalize 二次运行 COLUMN_ALREADY_EXISTS）──
+
+def test_finalize_zcols_dedup_on_rerun():
+    """m2_l2_finalize 必须对已含 *_z_part 的输入表可重跑（08 §0.1 幂等）。
+
+    缺陷形态：src_cols 取自 fp.columns，若 fp 已含上一轮写入的 *_z_part 列，
+    再 select(*src_cols, *z_cols) 会造出重名列 → COLUMN_ALREADY_EXISTS。
+    本测试静态断言「组装 select 前已把 z 列从 src_cols 剔除」。
+    """
+    import re
+    p = os.path.join(JOBS, 'm2_l2_finalize.py')
+    with open(p, encoding='utf-8') as f:
+        src = f.read()
+    m = re.search(r'^\s*src_cols\s*=\s*\[(.*?)\]', src, re.M | re.S)
+    assert m, 'finalize 未找到 src_cols 定义'
+    expr = m.group(1)
+    assert 'z_cols' in expr, (
+        f'src_cols 未排除 z_cols（重跑会重名列）：{expr!r}')

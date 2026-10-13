@@ -98,7 +98,9 @@ def main():
         z_cols.append(zc)
 
     # ── 组装（原列序 + 回填列在位 + z 列追加）──
-    src_cols = [c for c in fp.columns if c != 'batch_date']
+    # ⚠️ 幂等（08 §0.1）：fp 若已含上一轮写入的 *_z_part 列，须先剔除再追加，
+    #    否则二次运行 select 出现重名列 → COLUMN_ALREADY_EXISTS（2026-10-13 实测踩坑）。
+    src_cols = [c for c in fp.columns if c != 'batch_date' and c not in z_cols]
     final = filled.select(*src_cols, *z_cols, F.col('batch_date'))
     final.write.mode('overwrite').partitionBy('batch_date').parquet(f'{wh}/dws_video_rhythm_features')
     n = final.count()
