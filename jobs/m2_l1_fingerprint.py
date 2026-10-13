@@ -7,7 +7,7 @@ m2_l1_fingerprint.py — L1 指纹计算器（08 §3.2）
 
 口径（08 §3.2 + 12 §3.2）：
   - 情感三比例（pos/neg/neu）分母 = 命中子集（pos+neg+neu）；no_hit_ratio 单列（全体 no_hit 占比）
-    ——防"全弹幕情感分布"误读；字段名与 12 §3.2 契约一致（原 obj_ratio 更名，2026-10-13）
+    ——防"全弹幕情感分布"误读；字段名与 12 §3.2 契约一致（2026-10-13 定名）
   - ⚠️ 状态名映射：M5 现行输出 'objective'（=词典未命中）/ 'neutral'（=有词但不偏）；
     12 §2 的"四值重命名（objective→no_hit、neutral→neu）"属未执行项——本作业按现行取值聚合，
     输出字段按 12 §3.2 契约命名（no_hit_ratio / neu_ratio），并修复旧版把 'neutral' 误读为
@@ -65,9 +65,17 @@ def main():
                               / F.log(F.lit(100.0))).otherwise(0.0))
            .select('bvid', 'batch_date', 'rhythm_entropy'))
 
-    # ── burst_cv / w_burst_cv（5s 桶 std/mean）──
+    # ── burst_cv / w_burst_cv（5s 桶 std/mean，稠密化后计算）──
+    # ⚠️ 2026-10-13 契约审计修复：域=[0,max(bucket5s)]，缺行⇔0——原实现对稀疏行直算
+    #    std/mean，静默剔除安静时段（0 桶），系统性高估 cv；审计证据见
+    #    tools/audit_density_contract.py 与 m2_l1_density 头注。
     d5 = spark.read.parquet(f'{wh}/dws_density_5s')
-    burst = (d5.groupBy('bvid', 'batch_date')
+    mx = d5.groupBy('bvid', 'batch_date').agg(F.max('bucket5s').alias('_mx'))
+    dense5 = (mx.withColumn('bucket5s', F.explode(F.sequence(F.lit(0), F.col('_mx'))))
+              .join(d5.select('bvid', 'batch_date', 'bucket5s', 'cnt', 'wcnt'),
+                    ['bvid', 'batch_date', 'bucket5s'], 'left')
+              .fillna(0))
+    burst = (dense5.groupBy('bvid', 'batch_date')
              .agg(F.stddev('cnt').alias('std_c'), F.mean('cnt').alias('mean_c'),
                   F.stddev('wcnt').alias('std_w'), F.mean('wcnt').alias('mean_w'))
              .withColumn('burst_cv', F.when(F.col('mean_c') > 0, F.col('std_c') / F.col('mean_c')).otherwise(0.0))
