@@ -160,9 +160,20 @@ m0-daily: ## 新批次增量装载（用法：make m0-daily BATCHES=20261012,202
 	@test -n "$(BATCHES)" || (echo "用法：make m0-daily BATCHES=20261012,20261013" && exit 1)
 	$(SUBMIT) /opt/work/jobs/m0_daily.py --batches $(BATCHES)
 
-daily: ## 日频全链编排（DS 就位前手工版：装载→生产 dwd→对账→情感→L1→L2→L3→M4→ADS）
+daily: ## 日频全链编排（DS 就位前手工版：守卫→装载→生产 dwd→对账→情感→L1→L2→L3→M4→ADS）
 	@test -n "$(BATCHES)" || (echo "用法：make daily BATCHES=20261012,20261013" && exit 1)
+	docker cp tools/probe_partition_guard.py spark-master:/tmp/guard.py
+	@echo "── ① 装载前快照 ──"
+	docker exec spark-master /opt/spark/bin/spark-submit --master local[2] /tmp/guard.py \
+	  --tables ods_danmaku_full,ods_batch_meta,ods_hotlist_video \
+	  --out /opt/work/data-out/guard_daily_before.json
+	@echo "── ② 增量装载 ──"
 	$(MAKE) m0-daily BATCHES=$(BATCHES)
+	@echo "── ③ 守卫断言：旧分区只许原样、只许新增 ──"
+	docker exec spark-master /opt/spark/bin/spark-submit --master local[2] /tmp/guard.py \
+	  --tables ods_danmaku_full,ods_batch_meta,ods_hotlist_video \
+	  --out /opt/work/data-out/guard_daily_after.json \
+	  --compare-with /opt/work/data-out/guard_daily_before.json --assert-no-changes
 	$(MAKE) m0-full m1 m5
 	$(MAKE) m2-l1
 	$(MAKE) m2-l2
