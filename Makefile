@@ -15,10 +15,13 @@ SUBMIT    = $(COMPOSE) exec -T spark-master /opt/spark/bin/spark-submit \
 # L2 链：检测器/分段以 RDD + NumPy 数据并行执行（11 §0「算法保真优先」）——需把共享模块
 # l2_common.py 分发到 workers（闭包反序列化时按模块名 import）
 SUBMIT_L2 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py
+# 对拍/复放链专属批次范围（legacy 4 批）——日频新批次不得并入 min 链（2026-10-13）
+LEGACY_BATCHES := 20260902,20260907,20260914,20260917
+
 # L3 链：Hawkes 逐视频 L-BFGS-B（scipy）——闭包依赖 hawkes_core（--py-files 分发）
 SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild m0-daily daily
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -66,8 +69,8 @@ smoke: ## B0.1 验收：compose ps + HDFS/PG 读写冒烟 + Spark master 探活
 ingest: ## raw-local → HDFS /raw（幂等覆盖）
 	$(COMPOSE) exec -T namenode bash /mnt/assets/ingest_raw.sh
 
-etl: ## B0.3 全链：M0-min → L1-min → ADS（幂等分区覆盖）
-	$(SUBMIT) /opt/work/jobs/m0_min.py
+etl: ## B0.3 全链：M0-min → L1-min → ADS（幂等分区覆盖；限定 legacy 4 批）
+	$(SUBMIT) /opt/work/jobs/m0_min.py --batches $(LEGACY_BATCHES)
 	$(SUBMIT) /opt/work/jobs/m2_l1_min.py
 	$(SUBMIT) /opt/work/jobs/ads_min.py
 
@@ -152,6 +155,21 @@ ads-build: ## 生产链 ADS 导出（11 张表 → PG；覆盖 3 页数据流 + 
 serve-rebuild: ## 重建并重启 fastapi 容器（改 serve/ 后执行；静态页 nginx 挂载无需重建）
 	$(COMPOSE) build fastapi && $(COMPOSE) up -d --no-deps fastapi
 
+# ── 日频增量链（B0.2 次日新批次自动到达；08 §0.1「滚动全量表每日全量重算」）──
+m0-daily: ## 新批次增量装载（用法：make m0-daily BATCHES=20261012,20261013；只动指定批次分区）
+	@test -n "$(BATCHES)" || (echo "用法：make m0-daily BATCHES=20261012,20261013" && exit 1)
+	$(SUBMIT) /opt/work/jobs/m0_daily.py --batches $(BATCHES)
+
+daily: ## 日频全链编排（DS 就位前手工版：装载→生产 dwd→对账→情感→L1→L2→L3→M4→ADS）
+	@test -n "$(BATCHES)" || (echo "用法：make daily BATCHES=20261012,20261013" && exit 1)
+	$(MAKE) m0-daily BATCHES=$(BATCHES)
+	$(MAKE) m0-full m1 m5
+	$(MAKE) m2-l1
+	$(MAKE) m2-l2
+	$(MAKE) m2-l3
+	$(MAKE) m4
+	$(MAKE) ads-build
+
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
 	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
 
@@ -162,9 +180,9 @@ parity: ## 对拍验收：曲线101点+8维 vs goldens + 池级锚点
 
 replay: ## 幂等验收：全链 ETL 两次 → 规范导出比对（整数精确/浮点≤1e-9）+ 对拍
 	rm -rf data-out/canonical_run1 data-out/canonical_run2
-	$(SUBMIT) /opt/work/jobs/m0_min.py && $(SUBMIT) /opt/work/jobs/m2_l1_min.py && $(SUBMIT) /opt/work/jobs/ads_min.py
+	$(SUBMIT) /opt/work/jobs/m0_min.py --batches $(LEGACY_BATCHES) && $(SUBMIT) /opt/work/jobs/m2_l1_min.py && $(SUBMIT) /opt/work/jobs/ads_min.py
 	mv data-out/canonical data-out/canonical_run1
-	$(SUBMIT) /opt/work/jobs/m0_min.py && $(SUBMIT) /opt/work/jobs/m2_l1_min.py && $(SUBMIT) /opt/work/jobs/ads_min.py
+	$(SUBMIT) /opt/work/jobs/m0_min.py --batches $(LEGACY_BATCHES) && $(SUBMIT) /opt/work/jobs/m2_l1_min.py && $(SUBMIT) /opt/work/jobs/ads_min.py
 	mv data-out/canonical data-out/canonical_run2
 	python3 tools/compare_canonical.py data-out/canonical_run1 data-out/canonical_run2
 	$(SUBMIT) /opt/work/jobs/parity_check.py
@@ -186,7 +204,7 @@ goldens: ## 生成对拍基准（宿主机旧 venv，只读旧仓库）+ 上传 
 	$(COMPOSE) exec -T namenode hdfs dfs -put -f - /opt/goldens/goldens_metrics.csv < tests/goldens/goldens_metrics.csv
 
 dev-etl: ## 本地模式全链（不起 Docker，file:// 路径——开发迭代用）
-	$(VENV) jobs/m0_min.py --local --raw-root file://$(CURDIR)/data/raw-local --wh-root file://$(CURDIR)/data-out/dev-wh
+	$(VENV) jobs/m0_min.py --local --batches $(LEGACY_BATCHES) --raw-root file://$(CURDIR)/data/raw-local --wh-root file://$(CURDIR)/data-out/dev-wh
 	$(VENV) jobs/m2_l1_min.py --local --wh-root file://$(CURDIR)/data-out/dev-wh
 	$(VENV) jobs/parity_check.py --local --wh-root file://$(CURDIR)/data-out/dev-wh --goldens-dir $(CURDIR)/tests/goldens
 
