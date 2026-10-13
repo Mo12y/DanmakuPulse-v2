@@ -20,8 +20,10 @@ LEGACY_BATCHES := 20260902,20260907,20260914,20260917
 
 # L3 链：Hawkes 逐视频 L-BFGS-B（scipy）——闭包依赖 hawkes_core（--py-files 分发）
 SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
+# M6 链：特征矩阵闭包依赖 l2_common + m2_l2_events 纯函数（--py-files 分发）
+SUBMIT_M6 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py,/opt/work/jobs/m2_l2_events.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild m0-daily daily
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -149,6 +151,15 @@ m4-up: ## M4 UP 档案（dws_up_profile）
 m4: m4-onlist m4-evolution m4-up ## M4 全链（DoD：分型轮廓≥0.4 + 每型≥5%）
 
 # ── B2.3 服务层（08 §10：dws → PG ads 表；fastapi 重建见 docker compose build fastapi）──
+# ── B4.2 M6：特征矩阵（日级）+ T1 消融训练（周级）（预注册 14 号）──
+m6-features: ## M6 特征矩阵 ml_features（0..3 日窗截断口径；预注册 14 §3）
+	$(SUBMIT_M6) /opt/work/jobs/m6_features.py
+
+m6-train: ## M6 T1 四层消融（预注册 14 §5；容器 local[2]，~20-30min）
+	docker exec spark-master /opt/spark/bin/spark-submit --master local[2] --driver-memory 2g /opt/work/jobs/m6_train.py
+
+m6: m6-features m6-train ## M6 全链（特征+训练）
+
 ads-build: ## 生产链 ADS 导出（11 张表 → PG；覆盖 3 页数据流 + M4）
 	$(SUBMIT) /opt/work/jobs/ads_build.py
 
@@ -179,6 +190,7 @@ daily: ## 日频全链编排（DS 就位前手工版：守卫→装载→生产 
 	$(MAKE) m2-l2
 	$(MAKE) m2-l3
 	$(MAKE) m4
+	-$(MAKE) m6-features
 	$(MAKE) ads-build
 
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）

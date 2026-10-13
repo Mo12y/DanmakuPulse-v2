@@ -48,6 +48,7 @@ TABLES_PLAIN = [
     ('dws_hawkes_params', '/warehouse/dws_hawkes_params'),     # 平铺小表（231 行，非分区）
     ('dws_lifecycle', '/warehouse/dws_lifecycle'),
     ('dws_up_profile', '/warehouse/dws_up_profile'),
+    ('ml_features', '/warehouse/ml_features'),   # M6 特征矩阵（平铺）
     ('dim_video', '/warehouse/dim_video'),
     ('dict_sentiment', '/warehouse/dict_sentiment'),
     ('dict_slang_meme', '/warehouse/dict_slang_meme'),
