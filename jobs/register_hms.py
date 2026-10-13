@@ -29,9 +29,11 @@ TABLES = [
     ('dws_video_rhythm_features', '/warehouse/dws_video_rhythm_features'),
     ('dws_reconcile_detail', '/warehouse/dws_reconcile_detail'),
     # B2-L2（生产链）
+    ('dws_curve_clusters', '/warehouse/dws_curve_clusters'),
     ('dws_rhythm_events', '/warehouse/dws_rhythm_events'),
     ('dws_sync_features', '/warehouse/dws_sync_features'),
     ('dws_segments', '/warehouse/dws_segments'),
+    ('dws_hawkes_params', '/warehouse/dws_hawkes_params'),
 ]
 
 # 非分区表（含 batch_date 作为普通列，不 MSCK）

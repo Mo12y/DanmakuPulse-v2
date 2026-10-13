@@ -68,3 +68,10 @@ anchor:                    # 锚词滞后校正（08 §4.5；词表在 M5 dict_a
 novelty:                   # Novelty 分段（08 §4.6）
   ssm_win: 10              # SSM 特征窗（桶）
   kernel_k: 8              # 棋盘核半宽（核尺寸 2k×2k）
+
+hawkes:                    # L3 Hawkes 拟合器（08 §5.1；时间单位=天，自 pubdate）
+  min_events: 1000         # 门槛：窗口内事件数 <1000 → 跳过（08 §5.1）
+  window_days: 21          # 窗口 [pubdate, min(末事件, pubdate+21d)]
+  ks_p: 0.05               # 时间变换残差 KS：p>0.05 → pass；否则 method=powerlaw 降级
+  bounds: {mu0: [1.0e-6, 1.0e5], eta: [-20.0, 20.0], sigma: [1.0e-6, 0.95], beta: [0.01, 5.0]}
+                           # L-BFGS-B bounds；mu1=mu0+e^eta（μ1≥μ0 强制）；alpha=sigma*beta

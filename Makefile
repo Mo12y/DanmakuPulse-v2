@@ -15,8 +15,10 @@ SUBMIT    = $(COMPOSE) exec -T spark-master /opt/spark/bin/spark-submit \
 # L2 链：检测器/分段以 RDD + NumPy 数据并行执行（11 §0「算法保真优先」）——需把共享模块
 # l2_common.py 分发到 workers（闭包反序列化时按模块名 import）
 SUBMIT_L2 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py
+# L3 链：Hawkes 逐视频 L-BFGS-B（scipy）——闭包依赖 hawkes_core（--py-files 分发）
+SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -115,6 +117,21 @@ m2-l2-finalize: ## L2 收尾：回填 L1 指纹（peak_*/herd/lag_delta）+ feat
 	$(SUBMIT) /opt/work/jobs/m2_l2_finalize.py
 
 m2-l2: m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize ## L2 结构层全链（B2）
+
+# ── 形态聚类（08 §3.4：K-means++ MLlib 全量 + K-shape 宿主 venv「driver 侧」）──
+m2-l1-cluster: ## 形态聚类全链：K-means++ → 导出 → 宿主 K-shape + ARI → 合并入表（三步幂等）
+	$(SUBMIT) /opt/work/jobs/m2_l1_cluster.py
+	$(VENV) tools/kshape_validate.py
+	$(SUBMIT) /opt/work/jobs/m2_l1_cluster.py
+
+cluster-kshape: ## 形态聚类·仅宿主段（K-shape + 两法 ARI + sklearn 复算；需先跑过 m2-l1-cluster）
+	$(VENV) tools/kshape_validate.py
+
+# ── B2 机制层（L3，08 §5；BTM/时变弹性属周级，未含）──
+m2-l3-hawkes: ## L3 Hawkes 拟合（dws_hawkes_params；镜像 scipy 已在 Dockerfile）
+	$(SUBMIT_L3) /opt/work/jobs/m2_l3_hawkes.py
+
+m2-l3: m2-l3-hawkes ## L3 机制层全链（当前仅 Hawkes）
 
 m5: ## M5 词典 v0：9 情形打分+锚词+词典表+情感曲线（dwd_danmaku_sent / dict_* / dws_sentiment_curve_1pct）
 	$(SUBMIT) /opt/work/jobs/m5_sentiment_v0.py
