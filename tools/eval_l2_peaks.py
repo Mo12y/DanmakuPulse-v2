@@ -107,4 +107,5 @@ def main():
     import json
     json.dump(res, open(a.out, 'w'), ensure_ascii=False, indent=1)
     print('->', a.out)
-main()
+if __name__ == '__main__':
+    main()
