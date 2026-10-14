@@ -26,7 +26,13 @@ meta = (dwd.filter(F.col('bvid').isin(VIDEOS)).groupBy('bvid')
              F.max('batch_date').alias('last_batch')))
 meta_map = {r['bvid']: r.asDict() for r in meta.collect()}
 
-ev = (spark.read.parquet(f'{WH}/dws_rhythm_events').filter(F.col('bvid').isin(VIDEOS))
+# 2026-10-14 修复：16 号表头写明「系统事件（该视频最后一批内）」，但原实现未按 last_batch 过滤，
+# 导致跨批次视频（如 BV1wAp76yEu1 在 20261012/20261013 各 3 段）的事件被合并展示，与文档口径不符。
+last_batch_df = meta.select('bvid', F.col('last_batch').alias('lb'))
+ev = (spark.read.parquet(f'{WH}/dws_rhythm_events')
+      .join(last_batch_df, ['bvid'], 'inner')
+      .filter(F.col('bvid').isin(VIDEOS) & (F.col('batch_date') == F.col('lb')))
+      .drop('lb')
       .select('bvid', 'batch_date', 'event_id', 'start_sec', 'end_sec', 'score_fused',
               'n_methods', 'sync_score', 'sync_p', 'n_anchors', 'n_anchors_aft', 'delta_hat_sec')
       .orderBy('bvid', 'start_sec'))
@@ -62,7 +68,12 @@ prof_map = {r['up_mid']: r.asDict() for r in prof.collect()}
 dim = spark.read.parquet(f'{WH}/dim_video').select('bvid', 'up_mid', 'tname')
 fp = spark.read.parquet(f'{WH}/dws_video_rhythm_features').select(
     'bvid', 'dm_per_min', 'rhythm_entropy', 'burst_cv', 'pos_ratio', 'no_hit_ratio', 'n_danmaku')
-evo = spark.read.parquet(f'{WH}/dws_evolution_feats').select('bvid', 'cluster_type', 'n_days', 'n_turns')
+# 2026-10-14 修复：M4 v2「换变量」后 dws_evolution_feats 已无 n_days / n_turns 列
+# （v2 列为 n_obs / span_days / g_play / g_like / g_reported / cluster_type ...）。
+# 此处以 n_obs（观测批次数）作等价列；**上榜天数的权威来源是 dws_lifecycle.n_days_obs**（仍在，未变）。
+evo = spark.read.parquet(f'{WH}/dws_evolution_feats').select(
+    'bvid', 'cluster_type',
+    F.col('n_obs').alias('n_days'), F.col('n_obs').alias('n_turns'))
 lc = spark.read.parquet(f'{WH}/dws_lifecycle').select('bvid', 'n_days_obs', 'half_decay_days', 'hk_halflife')
 ev_cnt = (spark.read.parquet(f'{WH}/dws_rhythm_events').groupBy('bvid')
           .agg(F.count('*').alias('n_events')))
