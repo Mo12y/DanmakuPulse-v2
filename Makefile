@@ -25,7 +25,7 @@ SUBMIT_M6 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py,/opt/work/jobs/m2_l
 # M4 链 v2（2026-10-14）：跨批轨迹/演化分型——闭包依赖 m4_track_common（+l2_common）
 SUBMIT_M4 = $(SUBMIT) --py-files /opt/work/jobs/m4_track_common.py,/opt/work/jobs/l2_common.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize l2-candidates l2-eval m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -122,6 +122,13 @@ m2-l2-novelty: ## L2 Novelty 分段（dws_segments）
 
 m2-l2-finalize: ## L2 收尾：回填 L1 指纹（peak_*/herd/lag_delta）+ feat_z_part
 	$(SUBMIT) /opt/work/jobs/m2_l2_finalize.py
+
+l2-candidates: ## 21 号 3：导出 theta 截断前的全候选（评估/标定用，非流水线环节）
+	$(SUBMIT_L2) /opt/work/jobs/m2_l2_candidates_export.py
+	@echo "-> data-out/l2_candidates.csv"
+
+l2-eval: ## 21 号 4 表2：逐方法 P/R/AP 对比（TRUTH=<人工标注 csv>）
+	$(PY) tools/eval_l2_peaks.py --cand data-out/l2_candidates.csv --truth $(TRUTH)
 
 m2-l2: m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize ## L2 结构层全链（B2）
 
