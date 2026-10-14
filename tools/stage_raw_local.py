@@ -8,6 +8,7 @@ stage_raw_local.py — data/cli_collected/ 三件套 → data/raw-local/batch_da
   20260914：快照 = 旧仓库 legacy hotlist_videos.json（fetched_at=2026-09-14T13:12 与 meta 一致）
   20260917：快照 = hotlist_videos_20260917.json
 日频新批次：自动发现（CSV + hotlist_videos_<date>.json 齐全才算完整批次）
+fetch_times sidecar（2026-10-14 起）：若有 fetch_times_<date>.csv 一并暂存为 fetch_times.csv
 幂等：覆盖复制。
 """
 import csv
@@ -36,6 +37,9 @@ def stage(bd, csv_name, snapshot_name):
     meta_name = csv_name[:-len('.csv')] + '.meta.json'  # 实际命名无 .csv 段（2026-10-12 勘察）
     shutil.copy2(os.path.join(SRC, csv_name), os.path.join(d, 'danmaku.csv'))
     shutil.copy2(os.path.join(SRC, meta_name), os.path.join(d, 'meta.json'))
+    ft_src = os.path.join(SRC, f'fetch_times_{bd}.csv')
+    if os.path.isfile(ft_src):
+        shutil.copy2(ft_src, os.path.join(d, 'fetch_times.csv'))
     if snapshot_name:
         shutil.copy2(os.path.join(SRC, snapshot_name), os.path.join(d, 'hotlist.json'))
     else:
@@ -43,7 +47,8 @@ def stage(bd, csv_name, snapshot_name):
         marker = os.path.join(d, 'SNAPSHOT_LOST')
         open(marker, 'w').write('snapshot permanently lost (see config/batch_lineage.json)\n')
     print(f'  [ok] {bd}: danmaku.csv + meta.json'
-          + (f' + {snapshot_name}' if snapshot_name else '（快照缺失，占位标记）'))
+          + (f' + {snapshot_name}' if snapshot_name else '（快照缺失，占位标记）')
+          + (' + fetch_times.csv' if os.path.isfile(ft_src) else ''))
 
 
 def main():

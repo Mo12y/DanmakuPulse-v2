@@ -8,7 +8,7 @@ SRC=/mnt/data/raw-local
 for d in "$SRC"/batch_date=*/; do
   bd=$(basename "$d" | cut -d= -f2)
   hdfs dfs -mkdir -p "/raw/batch_date=$bd"
-  for f in danmaku.csv meta.json hotlist.json; do
+  for f in danmaku.csv meta.json hotlist.json fetch_times.csv; do
     if [ -f "$d$f" ]; then
       hdfs dfs -put -f "$d$f" "/raw/batch_date=$bd/$f"
     fi

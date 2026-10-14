@@ -162,8 +162,8 @@ def main():
            .join(clus.select('bvid', 'batch_date', 'cluster_id', 'k', 'silhouette',
                              F.col('cluster_id_kshape'), F.col('ari_kmeans_kshape')),
                  ['bvid', 'batch_date'], 'left')
-           .join(evo.select('bvid', 'batch_date', F.col('cluster_type').alias('evo_type')),
-                 ['bvid', 'batch_date'], 'left')
+           .join(evo.select('bvid', F.col('cluster_type').alias('evo_type')),
+                 'bvid', 'left')
            .withColumn('cluster_method', F.lit('kmeans'))
            .withColumn('engine_version', F.lit(ENGINE_VERSION)))
     sel = (['bvid', 'batch_date', 'tname', 'duration', 'n_danmaku'] + FEAT_COLS
@@ -196,19 +196,24 @@ def main():
     # ── ⑦ 榜单（latest / history）──
     hsel = ['bvid', 'batch_date', 'cadence', 'rank_proxy', 'title', 'tname', 'up_name',
             'play', 'danmaku_reported', 'source', 'prev_batch_date', 'rank_delta',
-            'play_delta', 'danmaku_delta']
+            'play_delta', 'danmaku_delta', 'video_fetched_at', 'days_elapsed', 'pair_note']
     write_pg(onl.select(*hsel), 'ads_hotlist_history')
     latest_bd = onl.agg(F.max('batch_date')).collect()[0][0]
     write_pg(onl.filter(F.col('batch_date') == latest_bd).select(*hsel), 'ads_hotlist_latest')
 
     # ── ⑧ UP 档案 / ⑨ 演化分型 / ⑩ 生命周期 ──
     write_pg(up, 'ads_up_profile')
-    write_pg(evo.select('bvid', 'batch_date', 'n_days', 'up_frac', 'n_turns', 'range_ratio',
-                        'peak_cnt_sig', 'peak_gap_avg', 'peak_prominence', 'skew', 'kurt',
-                        'max_idx_norm', 'cluster_id', 'cluster_type', 'silhouette',
+    write_pg(evo.select('bvid', 'last_batch', 'n_obs', 'span_days', 'g_play', 'g_like',
+                        'g_reported', 'rank_last', 'rank_delta', 'eng_shift',
+                        'sat_last', 'cluster_id', 'cluster_type', 'silhouette',
                         'engine_version'), 'ads_evolution_feats')
     life = spark.read.parquet(f'{wh}/dws_lifecycle')
-    write_pg(life.select('bvid', 'n_days_obs', 'total_cnt', 'peak_day', 'peak_cnt',
+    write_pg(life.select('bvid', 'n_obs', 'first_batch', 'last_batch', 'span_days',
+                         'play_last', 'danmaku_reported_last', 'rank_last',
+                         'coverage_last', 'pool_saturation_last', 'series_admissible',
+                         'g_play_daily', 'g_reported_daily',
+                         'metric_halflife_d', 'metric_halflife_n_rates',
+                         'n_days_obs', 'total_cnt', 'peak_day', 'peak_cnt',
                          'half_decay_days', 'halflife_d', 'halflife_src',
                          'halflife_rank', 'engine_version'), 'ads_lifecycle')
 

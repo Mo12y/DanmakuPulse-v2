@@ -35,9 +35,10 @@ TABLES = [
     ('dws_rhythm_events', '/warehouse/dws_rhythm_events'),
     ('dws_sync_features', '/warehouse/dws_sync_features'),
     ('dws_segments', '/warehouse/dws_segments'),
-    ('dws_evolution_feats', '/warehouse/dws_evolution_feats'),
     ('dws_onlist_track', '/warehouse/dws_onlist_track'),
     ('dws_video_daily', '/warehouse/dws_video_daily'),
+    ('dws_metric_track', '/warehouse/dws_metric_track'),
+    ('ods_video_fetch_times', '/warehouse/ods_video_fetch_times'),
 ]
 
 # 非分区表（含 batch_date 作为普通列，不 MSCK）
@@ -48,6 +49,7 @@ TABLES_PLAIN = [
     ('dws_curve_clusters', '/warehouse/dws_curve_clusters'),   # 平铺小表（509 行，非分区）
     ('dws_hawkes_params', '/warehouse/dws_hawkes_params'),     # 平铺小表（231 行，非分区）
     ('dws_lifecycle', '/warehouse/dws_lifecycle'),
+    ('dws_evolution_feats', '/warehouse/dws_evolution_feats'),  # v2 起平铺（原 batch_date 分区）
     ('dws_up_profile', '/warehouse/dws_up_profile'),
     ('ml_features', '/warehouse/ml_features'),   # M6 特征矩阵（平铺）
     ('ml_panel', '/warehouse/ml_panel'),         # M6 截断面板（平铺）

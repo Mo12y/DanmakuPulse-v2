@@ -14,6 +14,9 @@ m4_onlist.py — M4 上榜追踪（08 §7）
    消费方按 cadence 列自行过滤。
 差异口径：rank_delta = prev.rank_proxy − cur.rank_proxy（>0 = 名次上升）；
    play_danmaku 增速 = cur − prev（数据天然递增，负值=缩水/删档，保留不裁剪）。
+2026-10-14（收口批次 ④⑤）：delta 按**采集时刻**记账（days_elapsed 取视频级 fetched_at 差）；
+   采集时刻倒挂 pair（如 1012 第三窗口 45 视频的 1012 观测晚于 1013 批）→
+   pair_note='excluded_fetch_order'、增量置空（不再进任何跨批差分）。
 """
 import argparse
 import json
@@ -51,6 +54,19 @@ def main():
     hot = hot.join(meta, 'batch_date', 'left').withColumn(
         'cadence', F.coalesce(F.col('cadence'), F.lit('daily')))
 
+    # 视频级采集时刻（2026-10-14）：delta 记账基准 + 采集窗口倒挂排除
+    try:
+        ft = (spark.read.parquet(f'{wh}/ods_video_fetch_times')
+              .select('bvid', F.col('batch_date').cast('int').alias('batch_date'),
+                      F.col('fetched_at').alias('video_fetched_at')))
+        hot = (hot.join(ft, ['bvid', 'batch_date'], 'left')
+               .withColumn('t_cur', F.unix_timestamp(F.to_timestamp('video_fetched_at'))))
+        print('[ft] ods_video_fetch_times 已接入')
+    except Exception as e:
+        hot = (hot.withColumn('video_fetched_at', F.lit(None).cast('string'))
+               .withColumn('t_cur', F.lit(None).cast('long')))
+        print(f'[ft] 无采集时刻表（{type(e).__name__}）→ 批级回退（assumed_batch_order）')
+
     # ── 批序：同 cadence 类内的紧邻前批（仅 daily 计算差分；weekly_legacy 显式不做）──
     batches = sorted([(r['batch_date'], r['cadence'])
                       for r in hot.select('batch_date', 'cadence').distinct().collect()])
@@ -71,40 +87,65 @@ def main():
         prev = hot.select(
             'bvid', F.col('batch_date').alias('prev_batch_date'),
             F.col('rank_proxy').alias('p_rank'), F.col('play').alias('p_play'),
-            F.col('danmaku_reported').alias('p_dm'))
+            F.col('danmaku_reported').alias('p_dm'), F.col('t_cur').alias('p_t'))
         cur = (cur.join(pairs, 'batch_date', 'left')
                .join(prev, ['bvid', 'prev_batch_date'], 'left'))
     else:
         cur = (cur.withColumn('prev_batch_date', F.lit(None).cast('int'))
                .withColumn('p_rank', F.lit(None).cast('int'))
                .withColumn('p_play', F.lit(None).cast('long'))
-               .withColumn('p_dm', F.lit(None).cast('long')))
+               .withColumn('p_dm', F.lit(None).cast('long'))
+               .withColumn('p_t', F.lit(None).cast('long')))
 
-    out = (cur.withColumn('rank_delta', F.col('p_rank') - F.col('rank_proxy'))
-           .withColumn('play_delta', F.col('play') - F.col('p_play'))
-           .withColumn('danmaku_delta', F.col('danmaku_reported') - F.col('p_dm'))
+    # 有效性：pair 存在 且 采集时刻未倒挂（t_cur > t_prev；时刻缺失时回退并标注）
+    pair_exists = F.col('p_rank').isNotNull()
+    t_both = F.col('t_cur').isNotNull() & F.col('p_t').isNotNull()
+    order_bad = t_both & (F.col('t_cur') <= F.col('p_t'))
+    usable = pair_exists & (~order_bad)
+
+    out = (cur
+           .withColumn('rank_delta',
+                       F.when(usable, F.col('p_rank') - F.col('rank_proxy')))
+           .withColumn('play_delta', F.when(usable, F.col('play') - F.col('p_play')))
+           .withColumn('danmaku_delta',
+                       F.when(usable, F.col('danmaku_reported') - F.col('p_dm')))
+           .withColumn('days_elapsed',
+                       F.when(~pair_exists, F.lit(None).cast('double'))
+                       .when(order_bad, F.lit(None).cast('double'))
+                       .when(t_both, (F.col('t_cur') - F.col('p_t')) / F.lit(86400.0))
+                       .otherwise((F.col('batch_date') - F.col('prev_batch_date')).cast('double')))
+           .withColumn('pair_note',
+                       F.when(~pair_exists, F.lit('no_prev'))
+                       .when(order_bad, F.lit('excluded_fetch_order'))
+                       .when(t_both, F.lit('ok'))
+                       .otherwise(F.lit('assumed_batch_order')))
            # prev_batch_date 仅在「前批确有该视频（可比较）」时保留（新上榜 → NULL）
            .withColumn('prev_batch_date',
-                       F.when(F.col('p_rank').isNotNull(), F.col('prev_batch_date')))
+                       F.when(pair_exists, F.col('prev_batch_date')))
            .withColumn('engine_version', F.lit(ENGINE_VERSION))
            .select('bvid', 'batch_date', 'cadence', 'rank_proxy', 'play', 'like', 'coin',
                    'favorite', 'share', 'reply', 'danmaku_reported', 'title', 'tname',
-                   'up_mid', 'up_name', 'source', 'prev_batch_date', 'rank_delta',
-                   'play_delta', 'danmaku_delta', 'engine_version'))
+                   'up_mid', 'up_name', 'source', 'video_fetched_at', 'prev_batch_date',
+                   'days_elapsed', 'rank_delta', 'play_delta', 'danmaku_delta',
+                   'pair_note', 'engine_version'))
     out.write.mode('overwrite').partitionBy('batch_date').parquet(f'{wh}/dws_onlist_track')
     n = out.count()
 
     per_batch = {int(r['batch_date']): r['count'] for r in
                  out.groupBy('batch_date').count().collect()}
     n_delta = out.filter(F.col('rank_delta').isNotNull()).count()
+    n_ok = out.filter(F.col('pair_note') == 'ok').count()
+    n_excl = out.filter(F.col('pair_note') == 'excluded_fetch_order').count()
+    n_assumed = out.filter(F.col('pair_note') == 'assumed_batch_order').count()
     report = {
         'job': 'm4_onlist', 'engine_version': ENGINE_VERSION,
         'n_rows': n, 'per_batch': per_batch,
-        'n_delta_computed': n_delta,
+        'n_delta_computed': n_delta, 'n_delta_both_times_ok': n_ok,
+        'n_excluded_fetch_order': n_excl, 'n_assumed_batch_order': n_assumed,
         'prev_pairs_daily': prev_pairs,
         'note': ('冻结决策：weekly_legacy 不做跨批差分（delta 列 NULL）；'
-                 'delta 仅在同 cadence 连续批对间计算（当前 daily 批对为空 → 全部 NULL，'
-                 '待 daily 批次（20261012/13…）进入 ods_hotlist_video 后自动生效）'),
+                 'delta 仅在同 cadence 连续日频批对间计算，且按采集时刻记账；'
+                 '采集时刻倒挂 pair（1012 第三窗口）已排除（pair_note=excluded_fetch_order）'),
     }
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir, 'm4_onlist_report.json'), 'w', encoding='utf-8') as f:
