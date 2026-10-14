@@ -41,6 +41,13 @@ import pyspark.sql.types as T
 from pyspark.sql import SparkSession
 
 ENGINE_VERSION = 'b2-v1'
+def _isfinite(x):
+    try:
+        return x == x and x not in (float("inf"), float("-inf"))
+    except Exception:
+        return False
+
+
 METHODS = ('d1', 'd2', 'd3', 'd4')
 IOU_THR = 0.3  # 08 §4.2 固定常数
 
@@ -157,13 +164,22 @@ def detect_d4(c, p):
 
 
 def norm_minmax(segs):
-    """候选原始分 → [0,1] min-max（单候选/同分 → 1.0；08 §4.2）。"""
+    """候选原始分 -> [0,1] min-max（单候选/同分 -> 1.0；08 §4.2）。
+
+    2026-10-14 修复：detect_d3 对邻域均值=0 的孤立尖峰给出 raw=+inf（prom=inf）。
+    原实现 hi=max(raws)=inf -> 所有有限候选 (raw-lo)/(inf-lo)=0.0，
+    且 inf 自身 inf/inf=NaN，被 fuse_video 的 max(0.0,nan)=0.0 吞掉。
+    后果：只要某视频 D3 出现一个孤立尖峰，该视频 D3 全部候选分数归零，
+    融合少掉 w_d3 一项（实测 12 个 video-batch、922 条候选受影响）。
+    修法：inf 视为最显著 -> 1.0，且仅用有限值算 lo/hi。
+    """
     if not segs:
         return segs
-    raws = [s['raw'] for s in segs]
-    lo, hi = min(raws), max(raws)
+    finite = [s['raw'] for s in segs if _isfinite(s['raw'])]
+    lo = min(finite) if finite else 0.0
+    hi = max(finite) if finite else 1.0
     for s in segs:
-        s['score'] = 1.0 if hi <= lo else (s['raw'] - lo) / (hi - lo)
+        s['score'] = 1.0 if not _isfinite(s['raw']) else (1.0 if hi <= lo else (s['raw'] - lo) / (hi - lo))
     return segs
 
 
