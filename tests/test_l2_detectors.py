@@ -185,3 +185,37 @@ def test_finalize_zcols_dedup_on_rerun():
     expr = m.group(1)
     assert 'z_cols' in expr, (
         f'src_cols 未排除 z_cols（重跑会重名列）：{expr!r}')
+
+
+def test_norm_minmax_inf_regression():
+    """回归（2026-10-14 CHANGELOG / commit b1b95c0）：raw=+inf 不得把同批有限候选压成 0.0。
+
+    原 bug: hi=max(raws)=inf -> 有限候选 (raw-lo)/(inf-lo)=0.0，inf 自身 inf/inf=NaN。
+    """
+    segs = [{'start': 1, 'end': 1, 'raw': 2.0},
+            {'start': 5, 'end': 5, 'raw': float('inf')},
+            {'start': 9, 'end': 9, 'raw': 6.0}]
+    sc = [x['score'] for x in m2e.norm_minmax(segs)]
+    assert all(np.isfinite(v) for v in sc), 'norm_minmax 不得产生 NaN: %r' % (sc,)
+    assert sc[1] == 1.0, 'inf（邻域全 0 的孤立尖峰）应记 1.0: %r' % (sc,)
+    assert sc[0] == 0.0 and sc[2] == 1.0, '有限值应在 [0,1] 正常展开，不得全为 0: %r' % (sc,)
+
+
+def test_d3_mixed_inf_and_finite_no_collapse():
+    """回归（2026-10-14 CHANGELOG / b1b95c0）——必须同时有 inf 与有限候选才触发旧 bug：
+
+    旧代码 hi=max(raws)=inf -> 有限候选 (raw-lo)/(inf-lo)=0.0，inf 自身 inf/inf=NaN；
+    结果 norm_minmax 后**没有任何 score > 0**，D3 在本视频融合中静默归零。
+    注意：单个 inf 候选时旧代码走 hi<=lo 分支得 1.0，**测不出**该 bug（故本用例必须 >=2 个候选）。
+    """
+    c = np.zeros(81)
+    c[20] = 1.0                                  # 邻域全 0 -> raw=+inf
+    c[58], c[59], c[60] = 0.5, 0.85, 0.6         # 邻域非 0 -> 有限 prom
+    c[70], c[71], c[72] = 0.7, 1.0, 0.8
+    segs = m2e.detect_d3(c, P)
+    assert len(segs) >= 2, '本回归用例需要 >=2 个候选，实际 %d' % len(segs)
+    assert any(not np.isfinite(x['raw']) for x in segs), '应含一个 raw=+inf'
+    assert any(np.isfinite(x['raw']) for x in segs), '应含有限 raw'
+    sc = [x['score'] for x in m2e.norm_minmax([dict(x) for x in segs])]
+    assert all(np.isfinite(v) for v in sc), 'norm_minmax 后不得有 NaN: %r' % (sc,)
+    assert sum(1 for v in sc if v > 0) >= 1, '不得全部塌成 0（旧 bug 的症状）: %r' % (sc,)
