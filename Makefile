@@ -22,8 +22,10 @@ LEGACY_BATCHES := 20260902,20260907,20260914,20260917
 SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 # M6 链：特征矩阵闭包依赖 l2_common + m2_l2_events 纯函数（--py-files 分发）
 SUBMIT_M6 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py,/opt/work/jobs/m2_l2_events.py
+# M4 链 v2（2026-10-14）：跨批轨迹/演化分型——闭包依赖 m4_track_common（+l2_common）
+SUBMIT_M4 = $(SUBMIT) --py-files /opt/work/jobs/m4_track_common.py,/opt/work/jobs/l2_common.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -142,13 +144,16 @@ m2-l3: m2-l3-hawkes ## L3 机制层全链（当前仅 Hawkes）
 m4-onlist: ## M4 上榜追踪（dws_onlist_track；weekly_legacy 不做跨批差分——冻结决策）
 	$(SUBMIT) /opt/work/jobs/m4_onlist.py
 
-m4-evolution: ## M4 演化（dws_video_daily + dws_evolution_feats 分型 + dws_lifecycle 半衰期）
-	$(SUBMIT_L2) /opt/work/jobs/m4_evolution.py
+m4-track: ## M4 跨批轨迹（dws_metric_track；delta 按采集时刻记账 + 采集窗口倒挂排除）
+	$(SUBMIT_M4) /opt/work/jobs/m4_track.py
+
+m4-evolution: ## M4 演化 v2（dws_metric_track 轨迹分型 + dws_lifecycle 半衰期/饱和门控）
+	$(SUBMIT_M4) /opt/work/jobs/m4_evolution.py
 
 m4-up: ## M4 UP 档案（dws_up_profile）
 	$(SUBMIT) /opt/work/jobs/m4_up.py
 
-m4: m4-onlist m4-evolution m4-up ## M4 全链（DoD：分型轮廓≥0.4 + 每型≥5%）
+m4: m4-onlist m4-track m4-evolution m4-up ## M4 全链（跨批轨迹→演化分型 v2→生命周期）
 
 # ── B2.3 服务层（08 §10：dws → PG ads 表；fastapi 重建见 docker compose build fastapi）──
 # ── B4.2 M6：特征矩阵（日级）+ T1 消融训练（周级）（预注册 14 号）──
@@ -225,10 +230,12 @@ replay: ## 幂等验收：全链 ETL 两次 → 规范导出比对（整数精�
 collect: ## 手动触发一次日频采集（Top200，约 2-4 小时）
 	bash collect/bili_daily.sh
 
-cron-install: ## 安装日频 crontab（每日 01:00 采集+灌 raw）
+cron-install: ## 安装日频 crontab（01:00 采集 + 每小时兜底守卫——覆盖 VM 挂起漏跑）
 	(crontab -l 2>/dev/null | grep -v daily_cron; \
-	 echo '0 1 * * * cd $(CURDIR) && bash collect/daily_cron.sh >> logs/cron_daily.log 2>&1') | crontab -
-	crontab -l | tail -2
+	 echo '0 1 * * * cd $(CURDIR) && bash collect/daily_cron.sh >> logs/cron_daily.log 2>&1'; \
+	 echo '17 * * * * cd $(CURDIR) && bash collect/daily_cron_guard.sh >> logs/cron_daily.log 2>&1'; \
+	 echo '@reboot sleep 600 && bash $(CURDIR)/collect/daily_cron_guard.sh >> $(CURDIR)/logs/cron_daily.log 2>&1') | crontab -
+	crontab -l | tail -3
 
 goldens: ## 生成对拍基准（宿主机旧 venv，只读旧仓库）+ 上传 HDFS /opt/goldens（集群 parity 实际读取源）
 	$(VENV) tools/export_goldens.py --old-root ~/projects/danmaku --out tests/goldens

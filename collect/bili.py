@@ -24,6 +24,9 @@ B站弹幕采集CLI工具 — 终端独立运行，不需要AI对话
   - 批次日 = 榜单快照的 fetched_at 日期（不是"开始跑的那天"）→ CSV 名与批次清单都不漂
   - 榜单快照按批次落盘 data/cli_collected/hotlist_videos_<batch_date>.json，--fresh 绝不覆盖
   - 批次清单 <csv>.meta.json 记录 windows/coverage/status（部分批次必须可区分）
+  - 视频级采集时刻落盘 data/cli_collected/fetch_times_<batch_date>.csv（bvid,fetched_at,src；
+    2026-10-14 起）——M4 纵向 delta 按采集时刻记账（batch_date 只是日期标签，1012 批
+    实际跨 26 小时三段窗口）
   - 采集顺序**全局随机置换** → 中断留下的是随机子集，不是榜单前缀；
     名次请查榜单快照：python scripts/rank_from_snapshot.py --batch-date <batch_date>
 
@@ -527,6 +530,7 @@ class BatchManifest:
         else:
             self.d = self._fresh(batch_date, csv_path, list_fetched_at, list_count, count)
             self._save()
+        self._load_times()
 
     @staticmethod
     def _fresh(batch_date, csv_path, list_fetched_at, list_count, count):
@@ -550,6 +554,48 @@ class BatchManifest:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.d, f, ensure_ascii=False, indent=2)
         os.replace(tmp, self.path)
+
+    # ── 视频级采集时刻 sidecar（2026-10-14 新增；M4 纵向「按采集时刻记账」输入）──
+    # 落盘 <DATA_DIR>/fetch_times_<batch_date>.csv（列：bvid,fetched_at,src）。
+    # 纪律：写入失败只告警、绝不中断采集（采集完整性优先于 sidecar）。
+    def _times_path(self):
+        bd = self.d.get("batch_date") or "unknown"
+        return os.path.join(os.path.dirname(self.path), f"fetch_times_{bd}.csv")
+
+    def _load_times(self):
+        self._times = {}
+        p = self._times_path()
+        try:
+            if os.path.exists(p):
+                with open(p, encoding="utf-8-sig", newline="") as f:
+                    for row in csv.DictReader(f):
+                        if row.get("bvid"):
+                            self._times[row["bvid"]] = (row.get("fetched_at", ""),
+                                                        row.get("src", "collector"))
+        except Exception as e:
+            safe_print(f"  [WARN] fetch_times sidecar 读取失败（忽略，继续采集）：{e}")
+
+    def note_time(self, bvid, ts=None):
+        """记录一个视频的采集时刻（_save_one 调用；任何异常不外抛）。"""
+        try:
+            self._times[bvid] = (ts or datetime.now().isoformat(timespec="seconds"),
+                                 "collector")
+            self._write_times()
+        except Exception as e:
+            safe_print(f"  [WARN] fetch_times sidecar 写入失败（忽略，继续采集）：{e}")
+
+    def _write_times(self):
+        if not self._times:
+            return
+        p = self._times_path()
+        tmp = p + ".tmp"
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["bvid", "fetched_at", "src"])
+            for bvid in sorted(self._times):
+                t, src = self._times[bvid]
+                w.writerow([bvid, t, src])
+        os.replace(tmp, p)
 
     def start_window(self):
         self.d["windows"].append({
@@ -670,6 +716,7 @@ def batch_crawl(videos, csv_path, label="",
         first_write = False
         if manifest is not None:
             manifest.note_video(v.get("status", ""))
+            manifest.note_time(v["bvid"])   # 视频级采集时刻（fetch_times sidecar）
             manifest._save()
 
     idx = 0

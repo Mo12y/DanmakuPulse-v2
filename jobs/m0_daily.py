@@ -7,6 +7,7 @@ m0_daily.py — M0 日频增量装载（B0.2「次日新批次自动到达」落
   ① {wh}/ods_danmaku_full   新批次弹幕（ODS 口径与 m0_min 逐字一致：cast + time_offset 非空过滤）
   ② {wh}/ods_batch_meta     新批次元数据行（cadence：lineage 有则沿用，无则 'daily'；snapshot_present 实测）
   ③ {wh}/ods_hotlist_video  新批次榜单快照（有 hotlist.json 时；rank_proxy = videos 数组下标）
+  ④ {wh}/ods_video_fetch_times  视频级采集时刻（有 fetch_times.csv 时；2026-10-14 起）
 
 职责边界（⚠️ 关键）：
   - 本作业**不写** dwd_danmaku_clean_min——对拍链产物冻结于 4 批 legacy，由
@@ -132,12 +133,35 @@ def main():
         hot.write.mode('overwrite').partitionBy('batch_date').parquet(f'{wh}/ods_hotlist_video')
         hot_n = hot.count()
 
+    # ── 4) ods_video_fetch_times（视频级采集时刻 sidecar；无 sidecar 的批次零触碰）──
+    ft_parts, ft_batches = [], []
+    for bd in batches:
+        p = f'{raw}/batch_date={bd}/fetch_times.csv'
+        if fs.exists(jvm.org.apache.hadoop.fs.Path(p)):
+            t = spark.read.option('header', True).csv(p)
+            t = t.toDF(*[c.lstrip('\ufeff') for c in t.columns])
+            t = (t.select(F.col('bvid'), F.col('fetched_at'), F.col('src'))
+                 .withColumn('batch_date', F.lit(bd)))
+            ft_parts.append(t)
+            ft_batches.append(bd)
+    ft_n = 0
+    if ft_parts:
+        ft = ft_parts[0]
+        for t in ft_parts[1:]:
+            ft = ft.unionByName(t)
+        ft.write.mode('overwrite').partitionBy('batch_date').parquet(
+            f'{wh}/ods_video_fetch_times')
+        ft_n = ft.count()
+    else:
+        print('[ftimes] 指定批次均无 fetch_times.csv → ods_video_fetch_times 未触碰')
+
     report = {
         'job': 'm0_daily', 'engine_version': ENGINE_VERSION,
         'batches': batches, 'ods_rows_by_batch': per_batch_rows, 'ods_rows_total': n_ods,
         'snapshot_map': {r[0]: r[3] for r in snap_rows},
         'cadence_map': {r[0]: r[1] for r in snap_rows},
         'hotlist_rows': hot_n,
+        'fetch_times_rows': ft_n, 'fetch_times_batches': ft_batches,
         'note': 'dynamic partition overwrite——仅替换指定批次分区；不写 dwd_min（对拍链冻结 4 批）',
     }
     os.makedirs(args.out_dir, exist_ok=True)
