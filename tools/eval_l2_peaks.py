@@ -83,6 +83,7 @@ def main():
     ap_.add_argument('--cand', default='data-out/l2_candidates.csv')
     ap_.add_argument('--truth', required=True)
     ap_.add_argument('--out', default='data-out/l2_eval_report.json')
+    ap_.add_argument('--sweep', action='store_true', help='扫描 theta 找 F1 最优点（21 号 3）')
     a = ap_.parse_args()
     cand = load_cand(a.cand)
     truth = load_truth_sheet(a.truth) if a.truth.endswith('mark_sheet.csv') else load_truth_csv(a.truth)
@@ -105,6 +106,21 @@ def main():
             d = res['fused']['F1@0.3'] - res[best]['F1@0.3']
             print('DoD (08 4.2) 融合 F1 >= 最佳单法: %s (fused %.3f vs %s %.3f, diff %+.3f)' % ('PASS' if d >= 0 else 'FAIL', res['fused']['F1@0.3'], best, res[best]['F1@0.3'], d))
     import json
+    if a.sweep and cand.get('fused'):
+        print()
+        print('=== theta 扫描（fused，IoU>=0.3）===')
+        print('%6s %8s %8s %8s %8s' % ('theta', 'n_ev', 'P', 'R', 'F1'))
+        best = None
+        for t in [round(x, 2) for x in np.arange(0.0, 1.001, 0.05)]:
+            sub = {k: [c for c in v if c[2] >= t] for k, v in cand['fused'].items()}
+            P, R, F, TP, FP, FN = prf(sub, truth, 0.3)
+            n = sum(len(v) for v in sub.values())
+            print('%6.2f %8d %8.3f %8.3f %8.3f' % (t, n, P, R, F))
+            if best is None or F > best[1]:
+                best = (t, F, P, R, n)
+        print('=> F1 最优: theta=%.2f  F1=%.3f  P=%.3f  R=%.3f  n_ev=%d' % best)
+        res['_theta_sweep_best'] = {'theta': best[0], 'F1': best[1], 'P': best[2], 'R': best[3], 'n_ev': best[4]}
+
     json.dump(res, open(a.out, 'w'), ensure_ascii=False, indent=1)
     print('->', a.out)
 if __name__ == '__main__':
