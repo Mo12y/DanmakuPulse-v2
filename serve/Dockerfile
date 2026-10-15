@@ -3,7 +3,7 @@ WORKDIR /app
 COPY requirements.txt .
 # 国内 pip 镜像（tuna）
 RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
-COPY app.py dict_zh.py diagnosis.py ./
+COPY app.py dict_zh.py diagnosis.py auth.py seed_admin.py ./
 COPY v3data/ v3data/
 COPY static/ static/
 EXPOSE 8000

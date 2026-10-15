@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.lbox{width:100%;max-width:392px}
+.lbrand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;margin-bottom:6px}
+.lbrand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc)}
+.lsub{color:var(--dim);font-size:13px;margin-bottom:18px}
+.lcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:26px 24px}
+.lcard h1{font-size:19px;font-weight:800;margin-bottom:4px}
+.lcard .hint{font-size:12.5px;color:var(--faint);margin-bottom:18px}
+.lcard label{display:block;font-size:13px;color:var(--dim);margin:12px 0 5px}
+.lcard input{width:100%;padding:10px 12px;font-size:14px}
+.lcard button{width:100%;margin-top:20px;padding:11px;font-size:14.5px;font-weight:700;
+  background:var(--acc);border:1px solid var(--acc);color:#fff;border-radius:9px;cursor:pointer;font-family:inherit}
+.lcard button:hover{opacity:.92}
+.lerr{margin-top:14px;background:var(--warn-soft);color:var(--warn);border-radius:9px;
+  padding:9px 12px;font-size:13px;font-weight:600}
+.lfoot{margin-top:16px;font-size:12px;color:var(--faint);line-height:1.7}
+@media (max-width:480px){ .lcard{padding:20px 16px} }
+</style>
+</head>
+<body>
+<div class="lbox">
+  <div class="lbrand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
+  <div class="lsub">基于 Spark 的 B站热榜视频弹幕互动节奏分析系统</div>
+  <form class="lcard" method="post" action="/login">
+    <h1>进入系统</h1>
+    <div class="hint">请用管理员分配的账号登录</div>
+    <input type="hidden" name="next" value="<!--NEXT-->">
+    <label for="u">用户名</label>
+    <input id="u" name="username" autocomplete="username" autofocus required>
+    <label for="p">密码</label>
+    <input id="p" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">进入系统</button>
+    <!--ERR-->
+  </form>
+  <div class="lfoot">
+    本系统只对已授权账号开放，不提供注册。<br>
+    诊断卡、市场总览、分区画像对所有账号开放；用户管理与原始技术页仅管理员可见。
+  </div>
+</div>
+</body>
+</html>
+

@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <title>弹幕节奏分析 · B0 验收页（只读）</title>
+<link rel="stylesheet" href="v3.css">
 <script src="vendor/echarts.min.js"></script>
+<script src="v3nav.js"></script>
 <style>
   :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#d7dce4; --dim:#8b93a3; --acc:#4f8cff; }
   * { box-sizing:border-box; margin:0; }
@@ -29,7 +31,7 @@
 </head>
 <body>
 <h1>弹幕节奏分析 · B0 验收页（只读）</h1>
-<div style="margin:6px 0 12px"><a href="diagnosis.html" style="color:#2b6cff;margin-right:14px;text-decoration:none;font-size:13px;font-weight:700">★ 视频诊断卡（新）</a><a href="overview.html" style="color:#4f8cff;margin-right:14px;text-decoration:none;font-size:13px">运营总览</a><a href="rhythm.html" style="color:#4f8cff;margin-right:14px;text-decoration:none;font-size:13px">视频节奏详情</a><a href="partition.html" style="color:#4f8cff;margin-right:14px;text-decoration:none;font-size:13px">分区画像</a><span style="color:#8b93a3;font-size:13px">B0 验收页（本页）</span></div>
+<div class="topbar" id="v3top"></div>
 <div class="sub">Spark SQL 原生 L1-min：101 点密度曲线 + 8 维节奏指标 ｜ 数据源：HDFS → PG ads（幂等全量重建）</div>
 
 <div class="row" id="anchors"></div>

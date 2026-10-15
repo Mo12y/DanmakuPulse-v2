@@ -4,14 +4,18 @@
 B0 验收端点（/api/anchors、/api/videos、/api/video/{bvid}）保留不动——锚点页依赖。
 """
 import os
+from urllib.parse import parse_qs, quote
 
 import psycopg
-from fastapi import FastAPI, HTTPException, Query, Response
-
+import auth
 import diagnosis
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 app = FastAPI(title='danmaku-b2', version='b2-v1')
 DSN = os.environ['ADS_PG_DSN']
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+LOGIN_HTML = os.path.join(STATIC_DIR, 'login.html')
 
 METRICS_COLS = ('bvid, title, tname, duration, play, danmaku_count, '
                 'peak_count, main_peak_pct, peak_fwhm, cold_pct, '
@@ -20,6 +24,201 @@ METRICS_COLS = ('bvid, title, tname, duration, play, danmaku_count, '
 FP_FEATS = ['dm_per_min', 'wdm_per_min', 'rhythm_entropy', 'burst_cv', 'w_burst_cv',
             'early_lag_ratio', 'color_ratio', 'top_mode_ratio', 'pos_ratio', 'neg_ratio',
             'neu_ratio', 'no_hit_ratio', 'avg_text_len', 'opening_5pct', 'ending_5pct', 'mid_ratio']
+
+
+@app.on_event('startup')
+def _startup():
+    auth.ensure_tables()
+    print('[app] 用户表就绪' if True else '', flush=True)
+
+
+def _safe_next(nxt):
+    """next 必须是站内绝对路径（照抄旧系统两行判断：挡 //host 与 /\\host 开放重定向）"""
+    if not nxt or not nxt.startswith('/') or nxt[1:2] in ('/', '\\'):
+        return '/'
+    return nxt
+
+
+@app.middleware('http')
+async def _gate(request: Request, call_next):
+    """复刻旧 app.py 的 before_request 三分支。
+    注意：nginx 只把 /api/ 和 /login 反代进来，静态页面的门禁在 nginx 层（auth_request），
+    这里挡的是 API——保证未登录/越权时返回的仍是 JSON，而不是被 nginx 换成 302。"""
+    path = request.url.path
+    if path in auth.public_paths() or path.startswith('/api/session'):
+        return await call_next(request)
+    user = auth.read_session(request.cookies.get(auth.COOKIE_NAME))
+    request.state.user = user
+    if not user:
+        if path.startswith('/api/'):
+            return JSONResponse({'code': 401, 'error': '未登录，请先登录', 'login_required': True},
+                                status_code=401)
+        return RedirectResponse('/login?next=' + quote(path), status_code=302)
+    if path.startswith(auth.ADMIN_PREFIXES) and user.get('role') != 'admin':
+        if path.startswith('/api/'):
+            return JSONResponse({'code': 403, 'error': '需要管理员权限', 'forbidden': True},
+                                status_code=403)
+        return FileResponse(os.path.join(STATIC_DIR, '403.html'), status_code=403)
+    return await call_next(request)
+
+
+def _login_html(next_val, error=None):
+    html = open(LOGIN_HTML, encoding='utf-8').read()
+    esc = (next_val or '/').replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;')
+    html = html.replace('<!--NEXT-->', esc)
+    html = html.replace('<!--ERR-->', ('<div class="lerr">%s</div>' % error) if error else '')
+    return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/login')
+def login_page(request: Request, next: str = Query('/')):
+    nxt = _safe_next(next)
+    if auth.read_session(request.cookies.get(auth.COOKIE_NAME)):
+        return RedirectResponse(nxt, status_code=302)
+    return _login_html(nxt)
+
+
+@app.post('/login')
+async def login_submit(request: Request):
+    """自己解 form-urlencoded：FastAPI 的 Form() 需要 python-multipart，
+    为了解析一个登录表单给镜像加依赖不划算（标准库 3 行搞定）。"""
+    raw = (await request.body()).decode('utf-8', 'ignore')
+    f = {k: v[0] for k, v in parse_qs(raw, keep_blank_values=True).items()}
+    nxt = _safe_next(f.get('next') or '/')
+    uname = (f.get('username') or '').strip()
+    password = f.get('password') or ''
+    u = auth.user_by_name(uname) if uname else None
+    if u and auth.check_password(u['password_hash'], password):
+        token = auth.sign_session({'id': u['id'], 'username': u['username'], 'role': u['role']})
+        resp = RedirectResponse(nxt, status_code=302)
+        resp.headers['Set-Cookie'] = auth.cookie_header(token)
+        return resp
+    # 失败：不走 302，直接回 200 + 错误文案（与旧系统一致；且不区分"用户不存在/密码错"）
+    return _login_html(nxt, '用户名或密码错误')
+
+
+@app.get('/logout')
+def logout():
+    resp = RedirectResponse('/login', status_code=302)
+    resp.headers['Set-Cookie'] = auth.cookie_header('', max_age=0)
+    return resp
+
+
+@app.get('/api/session')
+def api_session(request: Request, need: str = Query(None)):
+    """给 nginx auth_request 用的门禁探针：200=放行 / 401=未登录 / 403=权限不足。
+    绝不能缓存，否则登出后还能进。"""
+    u = auth.read_session(request.cookies.get(auth.COOKIE_NAME))
+    h = {'Cache-Control': 'no-store'}
+    if not u:
+        return JSONResponse({'code': 401, 'error': '未登录', 'login_required': True},
+                            status_code=401, headers=h)
+    if need == 'admin' and u.get('role') != 'admin':
+        return JSONResponse({'code': 403, 'error': '需要管理员权限', 'forbidden': True},
+                            status_code=403, headers=h)
+    return JSONResponse({'code': 0, 'data': {'id': u['id'], 'username': u['username'],
+                                             'role': u['role']}}, headers=h)
+
+
+@app.get('/api/me')
+def api_me(request: Request, resp: Response):
+    u = getattr(request.state, 'user', None)
+    return ok(resp, {'username': u['username'], 'role': u['role'],
+                     'is_admin': u.get('role') == 'admin'})
+
+
+# ── 用户管理（仅管理员；门禁在 auth.ADMIN_PREFIXES）──
+
+@app.get('/api/users')
+def api_users(resp: Response):
+    rows = auth.list_users()
+    return ok(resp, rows, meta={'n': len(rows)})
+
+
+@app.post('/api/users')
+async def api_user_create(request: Request, resp: Response):
+    d = await request.json()
+    username = (d.get('username') or '').strip()
+    password = d.get('password') or ''
+    role = d.get('role') if d.get('role') in auth.ROLES else 'user'
+    if not username or not password:
+        raise HTTPException(400, '用户名和密码都不能为空')
+    if len(username) > 60 or len(password) < 4:
+        raise HTTPException(400, '用户名 ≤60 字符，密码 ≥4 位')
+    try:
+        u = auth.create_user(username, password, role)
+    except Exception as e:
+        if 'duplicate key' in str(e) or 'unique' in str(e).lower():
+            raise HTTPException(409, '用户名已存在')
+        raise HTTPException(500, '创建失败：%s' % e)
+    return ok(resp, u)
+
+
+@app.post('/api/users/{uid}/role')
+async def api_user_role(uid: int, request: Request, resp: Response):
+    d = await request.json()
+    role = d.get('role')
+    if role not in auth.ROLES:
+        raise HTTPException(400, 'role 只能是 admin 或 user')
+    if not auth.user_by_id(uid):
+        raise HTTPException(404, '用户不存在')
+    # 旧系统没有这条保护（审计已记为缺口）：最后一个管理员降级 = 没人能进管理域
+    if role != 'admin' and auth.is_last_admin(uid):
+        raise HTTPException(409, '这是最后一个管理员，不能降级——请先指定另一个管理员')
+    auth.set_role(uid, role)
+    me = getattr(request.state, 'user', None)
+    if me and me.get('id') == uid:      # 改自己 → 立刻刷新会话（旧系统同款）
+        token = auth.sign_session({'id': uid, 'username': me['username'], 'role': role})
+        r = JSONResponse({'code': 0, 'data': {'id': uid, 'role': role}, 'meta': {'n': 1}})
+        r.headers['Set-Cookie'] = auth.cookie_header(token)
+        return r
+    return ok(resp, {'id': uid, 'role': role})
+
+
+# ── 收藏（登录即可；uid 一律取自会话）──
+
+def _title_of(bvid):
+    try:
+        for r in diagnosis.index():
+            if r['bvid'] == bvid:
+                return r.get('title') or '', r.get('tname') or ''
+    except Exception:
+        pass
+    return '', ''
+
+
+@app.get('/api/favorites')
+def api_favorites(request: Request, resp: Response):
+    uid = request.state.user['id']
+    rows = auth.q('SELECT bvid, created_at FROM favorites WHERE user_id = %s '
+                  'ORDER BY created_at DESC', (uid,))
+    for r in rows:
+        t, tn = _title_of(r['bvid'])
+        r['title'], r['tname'] = t, tn
+        r['created_at'] = r['created_at'].strftime('%Y-%m-%d %H:%M') if r['created_at'] else ''
+    return ok(resp, rows, meta={'n': len(rows)})
+
+
+@app.post('/api/favorites')
+async def api_fav_toggle(request: Request, resp: Response):
+    uid = request.state.user['id']
+    d = await request.json()
+    bvid = (d.get('bvid') or '').strip()
+    if not bvid:
+        raise HTTPException(400, 'bvid 不能为空')
+    hit = auth.q1('SELECT id FROM favorites WHERE user_id = %s AND bvid = %s', (uid, bvid))
+    if hit:
+        auth.q('DELETE FROM favorites WHERE id = %s', (hit['id'],), fetch=False)
+        return ok(resp, {'bvid': bvid, 'favorited': False})
+    auth.q('INSERT INTO favorites (user_id, bvid) VALUES (%s,%s)', (uid, bvid), fetch=False)
+    return ok(resp, {'bvid': bvid, 'favorited': True})
+
+
+@app.get('/api/favorites/status')
+def api_fav_status(request: Request, resp: Response, bvid: str = Query(..., min_length=4)):
+    uid = request.state.user['id']
+    hit = auth.q1('SELECT 1 AS x FROM favorites WHERE user_id = %s AND bvid = %s', (uid, bvid))
+    return ok(resp, {'bvid': bvid, 'favorited': bool(hit)})
 
 
 def q(sql, params=()):

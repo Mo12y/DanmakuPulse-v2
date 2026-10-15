@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>我的收藏 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.fcard{border:1px solid var(--line);border-radius:13px;padding:14px 16px;background:var(--card);
+  display:flex;flex-direction:column;cursor:pointer;transition:.15s}
+.fcard:hover{border-color:var(--acc);box-shadow:var(--shadow)}
+.ft{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:6px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fm{font-size:12.5px;color:var(--dim)}
+.fgo{margin-top:auto;padding-top:10px;font-size:12.5px;color:var(--acc);font-weight:700}
+.empty{padding:44px;text-align:center;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar" id="v3top"></div>
+  <div class="card">
+    <div class="verdict">
+      <span class="tone ok">● 我的</span>
+      <div class="vmain">
+        <div class="vproblem">我的收藏</div>
+        <div class="vhead">把想回看的视频存下来，点开就是它的完整诊断卡。</div>
+        <div class="vdetail" id="cnt"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sechead"><span class="secno">①</span><span class="sectitle">收藏的视频</span>
+        <span class="secnote">在诊断卡页点「收藏这支」即可加入</span></div>
+      <div class="fgrid" id="list"></div>
+    </div>
+  </div>
+</div>
+<script src="v3nav.js"></script>
+<script>
+var $ = function (s) { return document.querySelector(s); };
+V3.ready(function () { load(); });
+function load() {
+  fetch('/api/favorites', { credentials: 'same-origin' }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      var rows = j.data || [];
+      $('#cnt').textContent = rows.length ? ('共 ' + rows.length + ' 支') : '还没有收藏';
+      $('#list').innerHTML = rows.length ? rows.map(function (f) {
+        return '<div class="fcard" data-b="' + V3.esc(f.bvid) + '">' +
+          '<div class="ft">' + V3.esc(f.title || f.bvid) + '</div>' +
+          '<div class="fm">' + V3.esc(f.tname || '') + ' ｜ ' + V3.esc(f.created_at) + '</div>' +
+          '<div class="fgo">看它的诊断卡 →</div></div>';
+      }).join('') : '<div class="empty">还没有收藏。去诊断卡点一下「收藏这支」。</div>';
+      document.querySelectorAll('.fcard[data-b]').forEach(function (el) {
+        el.onclick = function () { location.href = 'diagnosis.html?bvid=' + el.dataset.b; };
+      });
+    });
+}
+</script>
+</body>
+</html>
+
