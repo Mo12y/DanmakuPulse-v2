@@ -51,6 +51,10 @@ seed-data: ## 一次性：历史 4 批三件套从旧仓库复制（旧仓库只
 stage: ## cli_collected → raw-local 暂存（映射唯一事实源 = tools/stage_raw_local.py）
 	python3 tools/stage_raw_local.py
 
+
+session-secret: ## 生成会话签名密钥写入 compose/.env（不进 git；缺失时自动补）
+	@python3 -c "import io,secrets;p='compose/.env';t=io.open(p,encoding='utf-8').read();n=chr(10);t=t if 'ADS_SESSION_SECRET=change-me
+
 up: ## 起 B0 9 服务底座
 	$(COMPOSE) up -d --build
 
