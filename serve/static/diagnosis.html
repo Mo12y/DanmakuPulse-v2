@@ -76,6 +76,35 @@
 .actb{font-size:12.5px;color:var(--faint);margin-top:4px}
 .caveat{font-size:12.5px;color:var(--dim);background:var(--neutral-soft);border-radius:10px;
   padding:11px 14px;margin-top:14px}
+/* 可点关键词：结论 → 证据 */
+.jump{color:var(--acc);cursor:pointer;border-bottom:1px dashed var(--acc);transition:.12s}
+.jump:hover{background:var(--acc-soft);border-radius:4px}
+.vproblem .jump{border-bottom-width:2px}
+.jumphint{font-size:12.5px;color:var(--faint);margin-top:6px}
+/* 证据面板：这一段观众在刷什么 */
+.dmcmp{display:flex;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+  border-radius:10px;padding:11px 14px;margin-bottom:10px;font-size:13px;align-items:baseline}
+.dmcmp b{font-size:19px;font-variant-numeric:tabular-nums}
+.dmcmp .u b{color:var(--acc)} .dmcmp .p b{color:var(--neutral)}
+.dmwhy{font-size:12.5px;color:var(--dim);margin-bottom:10px}
+.dmlist{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;
+  background:var(--card);padding:6px 12px}
+.dmline{display:grid;grid-template-columns:52px 1fr;gap:10px;font-size:13px;padding:4px 0;
+  border-bottom:1px dashed var(--line)}
+.dmline:last-child{border-bottom:0}
+.dmline .dt{color:var(--faint);font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums}
+.dmempty{font-size:13px;color:var(--dim);padding:14px 4px}
+/* 行动建议可点 */
+.act{cursor:pointer;border-radius:8px;transition:.12s}
+.act:hover{background:var(--acc-soft)}
+.actmore{font-size:12px;color:var(--acc);font-weight:700;margin-top:5px}
+/* 空状态 */
+.empty{padding:56px 24px;text-align:center}
+.empty h2{font-size:23px;font-weight:800;margin-bottom:10px}
+.empty p{color:var(--dim);font-size:14px;margin-bottom:20px;line-height:1.9}
+.empty .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.empty .eg{margin-top:22px;font-size:12.5px;color:var(--faint)}
+.hideWhenEmpty{display:none!important}
 @media (max-width:720px){
   .posrow{grid-template-columns:74px 1fr 84px;gap:9px}
   .poshuman{display:none}
@@ -117,18 +146,51 @@ const DMCOLOR = { good:'var(--good)', bad:'var(--warn)', neutral:'var(--neutral)
 let IDX = [], CUR = null, CHART = null, FOCUS = null, BENCH = null, PEAK = null;
 
 /* ── 启动 ── */
+const EXAMPLE = {bvid: 'BV1PJpE6QEx6', why: '电子竞技区，开场吸引力只有同类的 42%——正好用来演示"点结论 → 看这一段观众在刷什么"'};
+
 (async function init(){
   const usp = new URLSearchParams(location.search);
   try {
     IDX = await api('/api/diagnosis/index');
     fillPicker();
-    const bv = usp.get('bvid') && IDX.some(x => x.bvid === usp.get('bvid')) ? usp.get('bvid') : IDX[0].bvid;
-    $('#picker').value = bv;
-    await load(bv);
+    const want = usp.get('bvid');
+    if (want && IDX.some(x => x.bvid === want)) {
+      $('#picker').value = want;
+      setName(true);
+      await load(want);
+    } else {
+      emptyState();
+    }
   } catch(e) {
     $('#content').innerHTML = '<div class="err">加载失败：' + esc(e.message) + '</div>';
   }
 })();
+
+/* 工具条上的按钮只在真的有卡片时才出现 */
+function setName(has){
+  ['#favBtn', '#shotBtn', '#randBtn'].forEach(function(k){
+    const el = $(k); if (el) el.classList.toggle('hideWhenEmpty', !has);
+  });
+}
+
+/* 空状态：没给 bvid 时给一个"试试这个视频"，降低试用门槛 */
+function emptyState(){
+  setName(false);
+  $('#content').innerHTML =
+    '<div class="empty">' +
+      '<h2>输一个 BV 号，看看这支视频的节奏问题出在哪</h2>' +
+      '<p>系统会告诉你四件事：<b>你在同类里排第几</b>、<b>哪几维偏离了同类</b>、' +
+      '<b>节奏最像谁以及它后来怎样</b>、<b>一句话该怎么调</b>。<br>' +
+      '不知道输什么就用下面这个例子——它是真实采集的视频。</p>' +
+      '<div class="row">' +
+        '<button class="btn primary" id="tryBtn" style="padding:11px 22px;font-size:14.5px">试试这个视频</button>' +
+        '<button class="btn" id="pickBtn" style="padding:11px 22px;font-size:14.5px">从列表里挑一支</button>' +
+      '</div>' +
+      '<div class="eg">例：' + esc(EXAMPLE.bvid) + '　' + esc(EXAMPLE.why) + '</div>' +
+    '</div>';
+  $('#tryBtn').onclick = function(){ $('#picker').value = EXAMPLE.bvid; setName(true); load(EXAMPLE.bvid); };
+  $('#pickBtn').onclick = function(){ $('#picker').focus(); $('#picker').click(); };
+}
 
 function fillPicker(){
   const groups = {};
@@ -216,12 +278,17 @@ function selectBench(i, toggle){
     BENCH = i;
   }
   document.querySelectorAll('.bcard').forEach((y, k) => y.classList.toggle('on', k === BENCH));
+  const bseg = (BENCH != null) ? (CUR.benchmarks[BENCH].learn_seg || null) : null;
+  FOCUS = bseg;
   drawChart();
   if (BENCH == null) { $('#cap').textContent = CUR.curve ? CUR.curve.summary : ''; $('#dmbox').innerHTML = ''; return; }
   const b = CUR.benchmarks[BENCH];
   $('#cap').innerHTML = esc(CUR.curve ? CUR.curve.summary : '') +
     '<br><b>对标《' + esc(b.title) + '》</b>：' + esc(b.like_text) +
-    '　上图橙色虚线 = 它的曲线（同类中位 = 灰色虚线，你 = 蓝色实线）。';
+    '　上图橙色虚线 = 它的曲线（同类中位 = 灰色虚线，你 = 蓝色实线）。' +
+    (b.learn_seg ? '<br><b style="color:#f59e0b">它这里比你好</b>：' + esc(b.learn_label || '') +
+      '（第 ' + b.learn_seg[0] + '–' + b.learn_seg[1] + '%）——' +
+      '它在这一段更接近同类中位，' + esc(b.outcome_text) + '。' : '');
   $('#dmbox').innerHTML = '<div class="dmpanel"><h4>看它的完整诊断卡</h4>' +
     '<button class="btn" onclick="location.search=\'?bvid=' + b.bvid + '\'">打开《' + esc(b.title) + '》的诊断卡 ↗</button>' +
     '<div style="font-size:12.5px;color:var(--dim);margin-top:8px">后来表现：' + esc(b.outcome_text) + '</div></div>';
@@ -231,11 +298,22 @@ function selectBench(i, toggle){
 function verdictHTML(d){
   const v = d.verdict, t = TONE[v.tone] || TONE.ok;
   const vi = d.video;
+  const devs = d.deviations || [];
+  // 结论 → 证据：大字问题与结论里的【维度】都做成可点，点了就落到那一维的证据段
+  const byLabel = {};
+  devs.forEach((x, i) => { byLabel[x.label] = i; });
+  const ci = devs.findIndex(x => x._dim && x._dim === v._concern_dim);
+  const jump = (i, txt) => '<span class="jump" data-jump="' + i + '" title="点这里看证据：这一段观众在刷什么">' + txt + '</span>';
+  const problem = ci >= 0 ? jump(ci, esc(v.problem_5s)) : esc(v.problem_5s);
+  const head = esc(v.headline).replace(/【([^】]{2,14})】/g, function(m, lab){
+    return byLabel[lab] != null ? jump(byLabel[lab], '【' + lab + '】') : m;
+  });
   return '<div class="verdict" id="sec-verdict">' +
     '<span class="tone ' + t[1] + '">' + (v.tone === 'ok' ? '●' : '▲') + ' ' + t[0] + '</span>' +
     '<div class="vmain">' +
-      '<div class="vproblem">' + esc(v.problem_5s) + '</div>' +
-      '<div class="vhead">' + esc(v.headline) + '</div>' +
+      '<div class="vproblem">' + problem + '</div>' +
+      '<div class="vhead">' + head + '</div>' +
+      (ci >= 0 ? '<div class="jumphint">↑ 点上面加下划线的词，直接跳到曲线上的对应段和那一段的真实弹幕</div>' : '') +
       (v.detail ? '<div class="vdetail">' + esc(v.detail) + '</div>' : '') +
       '<div class="video">' +
         '<span>' + esc(vi.title || vi.bvid) + '</span>' +
@@ -386,7 +464,8 @@ function devHTML(d){
         '<div class="devtext">' + esc(x.compare_text) + '</div>' +
         '<div class="devadv"><b>怎么调：</b>' + esc(x.advice) + '</div>' +
         '<div class="devfoot">' +
-          '<span class="linkish">▸ 在上图看这一段（' + esc(x.seg_name) + '）</span>' +
+          '<span class="linkish">▸ 看证据：上图高亮 ' + esc(x.drill_seg_name || x.seg_name) +
+            '，并列出这一段观众在刷什么</span>' +
           (x.ref ? '<span>同类参照：《' + esc(x.ref.title) + '》</span>' : '') +
           (x.direction === 'neutral' ? '<span>形状维差异，无好坏证据</span>' : '<span>该维与后续表现有稳定关联</span>') +
         '</div>' +
@@ -408,6 +487,8 @@ function benchHTML(d){
         '<div class="blike">' + esc(b.like_text) + '</div>' +
         '<div class="bout' + (b.has_outcome ? '' : ' none') + '">后来：' + esc(b.outcome_text) + '</div>' +
         '<div class="blearn">' + esc(b.learn_text) + '</div>' +
+        (b.learn_seg ? '<div class="blearn" style="border-top:0;padding-top:2px;color:var(--acc)">' +
+          '▸ 点卡片：把它叠到上图，并高亮它比你好的那一段（' + esc(b.learn_seg_name || '') + '）</div>' : '') +
         '<div class="bgo">看它的诊断卡 ↗</div>' +
       '</div>').join('') + '</div>' +
   '</div>';
@@ -418,11 +499,16 @@ function actionHTML(d){
   const v = d.verdict;
   return '<div class="sec" id="sec-action">' +
     '<div class="sechead"><span class="secno">⑤</span><span class="sectitle">怎么调</span></div>' +
+    '<div class="sechead" style="margin-top:-6px"><span class="secnote">点任意一条：直接定位到该照谁、照哪一段</span></div>' +
     v.actions.map(a =>
-      '<div class="act">' +
+      '<div class="act" data-act="' + a.n + '">' +
         '<div class="actn">' + a.n + '</div>' +
         '<div><div class="actt">' + esc(a.text) + '</div>' +
-        '<div class="actb">依据：' + esc(a.basis || '') + '</div></div>' +
+        '<div class="actb">依据：' + esc(a.basis || '') + '</div>' +
+        (a.ref ? '<div class="actmore">▸ 点这里：' +
+          (a.seg ? '高亮《' + esc(a.ref.title) + '》该照的那一段（第 ' + a.seg[0] + '–' + a.seg[1] + '%）'
+                 : '把《' + esc(a.ref.title) + '》叠到上图') + '</div>' : '') +
+        '</div>' +
       '</div>').join('') +
     '<div class="caveat">' + esc(v.caveat) + '　' + esc(v.curve_caveat) + '</div>' +
   '</div>';
@@ -435,22 +521,97 @@ function bind(){
     document.querySelectorAll('.posrow.more').forEach(x => x.classList.toggle('hidden'));
     mp.textContent = mp.textContent.includes('查看其余') ? '收起 ▴' : '查看其余 ' + (CUR.position.dims.length - 6) + ' 项 ▾';
   };
-  document.querySelectorAll('.dev').forEach(el => el.onclick = () => {
-    const i = +el.dataset.dev, x = CUR.deviations[i];
-    document.querySelectorAll('.dev').forEach(y => y.classList.remove('dim'));
-    el.classList.add('dim');
-    FOCUS = x.seg ? x.seg : null;
-    drawChart();
-    $('#cap').innerHTML = '<b>' + esc(x.label) + '</b>：' + esc(x.compare_text) +
-      '（高亮段 = 上图橙色区域）';
-    $('#shot').scrollIntoView({behavior: 'smooth', block: 'start'});
+  document.querySelectorAll('.dev').forEach(el => el.onclick = () => drillDeviation(+el.dataset.dev, false));
+  document.querySelectorAll('.jump[data-jump]').forEach(el => el.onclick = ev => {
+    ev.stopPropagation();
+    drillDeviation(+el.dataset.jump, true);
   });
+  document.querySelectorAll('.act[data-act]').forEach(el => el.onclick = () => runAction(+el.dataset.act));
   document.querySelectorAll('.bcard').forEach(el => el.onclick = () => selectBench(+el.dataset.bench, true));
   document.querySelectorAll('.chip[data-peak]').forEach(el => el.onclick = () => {
     const pct = +el.dataset.peak;
     const i = (CUR.curve.peaks || []).findIndex(p => p.pct === pct);
     showPeak(i);
   });
+}
+
+/* ── 证据钻取：点结论关键词或偏离卡 → 高亮该段 + 拉这一段的真实弹幕 ── */
+function pctToSec(pct){
+  const dur = (CUR.video && CUR.video.duration) || 0;
+  return pct / 100 * dur;
+}
+
+function drillDeviation(i, scroll){
+  const x = CUR.deviations[i]; if (!x) return;
+  BENCH = null;
+  document.querySelectorAll('.bcard').forEach(y => y.classList.remove('on'));
+  document.querySelectorAll('.dev').forEach((y, k) => y.classList.toggle('dim', k === i));
+  FOCUS = x.drill_seg || x.seg || null;
+  drawChart();
+  const seg = FOCUS || [0, 100];
+  $('#cap').innerHTML = '<b>' + esc(x.label) + '</b>：' + esc(x.compare_text) +
+    '　<span style="color:var(--dim)">高亮段 = 上图橙色区域（' + esc(x.drill_seg_name || '') + '）</span>';
+  const anchor = scroll ? $('#sec-verdict') : $('#sec-curve');
+  if (anchor) anchor.scrollIntoView({behavior: 'smooth', block: 'start'});
+  setTimeout(() => loadDanmaku(x, seg), scroll ? 420 : 0);
+}
+
+async function loadDanmaku(x, seg){
+  const box = $('#dmbox'); if (!box) return;
+  const dur = (CUR.video && CUR.video.duration) || 0;
+  if (!dur) { box.innerHTML = '<div class="dmpanel"><div class="dmempty">这支视频没有时长数据，无法定位时间段。</div></div>'; return; }
+  const t0 = pctToSec(seg[0]), t1 = pctToSec(seg[1]);
+  box.innerHTML = '<div class="dmpanel"><div class="dmempty">正在取第 ' + seg[0] + '–' + seg[1] +
+    '%（' + mmss(t0) + '–' + mmss(t1) + '）的弹幕…</div></div>';
+  try {
+    const d = await api('/api/danmaku_at?bvid=' + encodeURIComponent(CUR.video.bvid) +
+      '&t0=' + t0.toFixed(1) + '&t1=' + t1.toFixed(1) + '&limit=80');
+    renderDanmaku(x, seg, d, t0, t1);
+  } catch(e) {
+    box.innerHTML = '<div class="dmpanel"><div class="dmempty">取弹幕失败：' + esc(e.message) + '</div></div>';
+  }
+}
+
+function renderDanmaku(x, seg, d, t0, t1){
+  const mine = d.n_in_range;
+  const peer = x.peer_count;
+  const ratio = (peer && mine != null) ? Math.round(mine / peer * 100) : null;
+  const cmp = peer ? '<div class="dmcmp">' +
+      '<span class="u">你这一段：<b>' + mine + '</b> 条</span>' +
+      '<span class="p">同类中位：<b>' + peer + '</b> 条</span>' +
+      (ratio != null ? '<span>你 = 同类的 <b>' + ratio + '%</b></span>' : '') +
+    '</div>' : '';
+  const list = d.items && d.items.length
+    ? '<div class="dmlist">' + d.items.map(it =>
+        '<div class="dmline"><span class="dt">' + mmss(it.t) + '</span><span>' + esc(it.txt) + '</span></div>').join('') +
+      '</div>' + (d.truncated ? '<div class="dmwhy" style="margin-top:8px">（只显示前 ' + d.returned + ' 条，这一段共 ' + mine + ' 条）</div>' : '')
+    : '<div class="dmlist"><div class="dmempty">这一段时间里没有弹幕——' +
+      (ratio != null && ratio < 60 ? '这本身就是"这一段没抓住人"的直接证据。' : '可以换个偏离维再看看。') + '</div></div>';
+  $('#dmbox').innerHTML = '<div class="dmpanel">' +
+    '<h4>' + esc(x.label) + '｜第 ' + seg[0] + '–' + seg[1] + '%（' + mmss(t0) + '–' + mmss(t1) +
+      '）这一段，观众在刷什么</h4>' +
+    '<div class="dmwhy">' + esc(x.drill_why || '') + '　' + esc(x.compare_text) + '</div>' +
+    cmp + list +
+    '<div style="font-size:12px;color:var(--faint);margin-top:9px">' +
+      '弹幕按发送时间排序，原文未做任何筛选或改写；"同类中位"由同分区各视频的曲线换算，是估计值。' +
+    '</div></div>';
+}
+
+/* ── 行动落地：点建议 → 定位到该照谁、照哪一段 ── */
+function runAction(n){
+  const a = (CUR.verdict.actions || []).find(x => x.n === n); if (!a) return;
+  const bi = a.ref ? (CUR.benchmarks || []).findIndex(b => b.bvid === a.ref.bvid) : -1;
+  if (bi >= 0) { selectBench(bi, false); }
+  if (a.seg) {
+    FOCUS = a.seg;
+    drawChart();
+    const b = bi >= 0 ? CUR.benchmarks[bi] : null;
+    $('#cap').innerHTML = '<b>照着做</b>：' + esc(a.text) +
+      '　<span style="color:var(--dim)">上图橙色区域 = 该照的那一段（第 ' + a.seg[0] + '–' + a.seg[1] + '%）' +
+      (b ? '；橙色虚线 = 《' + esc(b.title) + '》的曲线' : '') + '</span>';
+  }
+  document.querySelectorAll('.act').forEach(el => el.classList.toggle('dim', +el.dataset.act === n));
+  const anchor = $('#sec-curve'); if (anchor) anchor.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 /* 钻取：点爆点 → 看当时弹幕 */
@@ -501,6 +662,19 @@ function drawTech(d){
       (x.display ? '主视图显示人话' : '只在技术层') + ' ｜ ' +
       (x.direction === 'evidence' ? '有方向（控龄关联）' : '中性差异（无好坏证据）') + '</td></tr>').join('') +
     '</table>' +
+    '<h4>结果对参数的敏感性（给答辩看，不进主卡）</h4><table>' +
+    '<tr><th>参数 / 尺度</th><th>实测</th><th>对本页的影响</th></tr>' +
+    '<tr><td>分桶尺度 5s→15/30/60s</td><td>551 个事件仍是局部极大的比例：99.6% / 92.1% / 87.5% / <b>80.0%</b></td>' +
+      '<td>约 <b>1/5 的事件属"细粒度现象"</b>（5 秒尺度是峰、1 分钟尺度只是波动的一部分）。本页"爆点"标记与"点爆点看弹幕"受此限制</td></tr>' +
+    '<tr><td>融合阈值 fusion_theta=0.5</td><td>只保留全部候选的 <b>3.95%</b>；<b>43.4%（363 个）视频-批次零事件</b>；θ=0.3 时零事件降到 6.2%</td>' +
+      '<td>只影响"有没有检出爆点"。<b>结论区、定位、偏离、相似对标都不依赖 θ</b>（用的是指纹表与分区基准）</td></tr>' +
+    '<tr><td>"峰"的定义常数</td><td>d3_gap_min=10（50 秒最小峰距）、flux_win=3（15 秒窗）、fusion_theta=0.5 —— <b>三个都未标定</b></td>' +
+      '<td>论文必须声明尺度：本系统的"节奏事件"= 5 秒桶尺度上超出局部基线 2√λ 的显著峰</td></tr>' +
+    '<tr><td>低弹幕量噪声</td><td>41.5% 的视频-批次桶内均值 λ&lt;10，相对噪声 1/√λ ≥ 38%</td>' +
+      '<td>这些视频的小峰需按"峰高−局部基线 &gt; 2√λ"过滤后再看</td></tr>' +
+    '</table>' +
+    '<div style="margin-top:8px">出处：docs/05-新系统重构/22_theta敏感性扫描.md §1·§2、24_分桶合理性与多尺度稳定性.md §2·§3·§4。' +
+    '这两项（θ 扫描、多尺度稳定性）是<b>严谨性展示</b>，所以只放在这里，不放主卡。</div>' +
     '<h4>已知边界</h4><div>· 形状维（开场/中段/收尾/起伏/高潮）与后续热度没有稳定关联（32 号 P6：量&gt;形状），' +
     '所以主视图把它们标成"中性差异"，只讲事实不讲对错。<br>' +
     '· 结果变量（上榜跨度 / 热度半衰期）覆盖不全，只有部分视频有；没有时如实写"暂无后续追踪数据"。<br>' +

@@ -329,6 +329,7 @@ def _deviations(rec, base, pct_map, benchmarks):
         med = base['feats'][dim]['med']
         pct = pct_map.get(dim)
         direction, human = _direction(dim, z)
+        drill = _drill_seg(_load(), rec, base, dim, z)
         bench = None
         for b in benchmarks:
             if dim in (b.get('_learn_dim'), b.get('_diff_dim')):
@@ -345,6 +346,12 @@ def _deviations(rec, base, pct_map, benchmarks):
             'advice': _advice(dim, z, bench),
             'ref': ({'bvid': bench['bvid'], 'title': bench['title']} if bench else None),
             'seg': list(d['seg']), 'seg_name': d['seg_name'],
+            'drill_seg': drill[0],
+            'drill_seg_name': ('第 %d–%d%%' % (drill[0][0], drill[0][1])),
+            'drill_why': drill[1] or ('词典给这一维定的观察窗口是「%s」' % d['seg_name']),
+            'peer_count': (round(segment_peer_count(_load(), rec.get('tname'),
+                                                    drill[0][0], drill[0][1],
+                                                    exclude=rec['bvid']) or 0) or None),
             'value': round(v, 6) if v is not None else None,
             'median': round(med, 6) if med is not None else None,
         })
@@ -497,6 +504,8 @@ def _benchmarks(rec, base, pool_idx):
             '_same_dims': same_dims, '_diff_dim': diff_dim, 'diff_label': label_of(diff_dim),
             'same_labels': [label_of(x) for x in same_dims],
             '_learn_dim': learn, 'learn_label': label_of(learn) if learn else None,
+            'learn_seg': _seg_of(learn) if learn else None,
+            'learn_seg_name': (DICT.get(learn) or {}).get('seg_name') if learn else None,
             'like_text': like, 'learn_text': learn_txt,
             'outcome_text': otext or '暂无后续追踪数据',
             'outcome_value': oval, '_outcome_key': o_key, 'outcome_rank': o_rank,
@@ -505,6 +514,68 @@ def _benchmarks(rec, base, pool_idx):
             'has_outcome': otext is not None,
         })
     return out
+
+
+def segment_peer_count(snap, tname, b0, b1, exclude=None, want='median'):
+    """同类在这一段里大概有多少条弹幕（供"证据钻取"和真实条数对照）。
+
+    口径：视频自己的曲线是"每 1% 桶占全片比例"，所以 sum(该段各桶) × 该视频总条数
+    = 该视频在段内的条数估计。对同分区每支视频都这么算，再取中位。
+    这是估计值（曲线口径），页面上以"同类中位 ≈ N 条"呈现，不当作精确计数。
+    """
+    tidx = [i for i, v in enumerate(snap['videos']) if v.get('tname') == tname]
+    vals = []
+    for i in tidx:
+        v = snap['videos'][i]
+        if exclude and v['bvid'] == exclude:
+            continue
+        cur = snap['curves'].get('%s|%s' % (v['bvid'], v['batch_date']))
+        n = v.get('n_danmaku')
+        if not cur or not n:
+            continue
+        share = sum(cur[max(0, b0):min(101, b1 + 1)])
+        vals.append(share * n)
+    if not vals:
+        return None
+    vals.sort()
+    return _pctl(vals, 0.5 if want == 'median' else 0.75)
+
+
+def _drill_seg(snap, rec, base, dim, z, width=10):
+    """钻取用哪一段：词典给了窄分段（开场/收尾…）就用它；
+    否则（整片类维度）**按数据找**——取"你与同类中位差得最多"的一段，
+    而不是把整片丢给用户看（整片钻取等于没钻）。"""
+    d = DICT.get(dim) or {}
+    seg = list(d.get('seg') or [0, 100])
+    if seg[1] - seg[0] < 60:
+        return seg, None
+    # 位置型维度（爆点位置）：看"同类尖峰在哪一段"才有对比意义
+    # （说"你的尖峰在第 23%"时，证据是"同类在第 5% 就爆了而你这里没有"）
+    if dim == 'main_peak_pct' and base and base.get('curve_med'):
+        med = _smooth(base['curve_med'])
+        pk = max(range(len(med)), key=lambda i: med[i])
+        return [max(0, pk - 4), min(100, pk + 5)], '同类的弹幕尖峰就在这一段，你这里没有'
+    cur = snap['curves'].get('%s|%s' % (rec['bvid'], rec['batch_date']))
+    if not cur or not base or not base.get('curve_med'):
+        return seg, None
+    you, med = _smooth(cur), _smooth(base['curve_med'])
+    best, bi = -1e9, 0
+    for i in range(0, max(1, 101 - width)):
+        ya = sum(you[i:i + width]) / width
+        ma = sum(med[i:i + width]) / width
+        score = (ma - ya) if z < 0 else (ya - ma)
+        if score > best:
+            best, bi = score, i
+    if best <= 0:
+        return seg, None
+    return [bi, bi + width - 1], ('这一段你和同类差得最多'
+                                  if z < 0 else '这一段你比同类高得最多')
+
+
+def _seg_of(dim):
+    d = DICT.get(dim) or {}
+    seg = d.get('seg')
+    return list(seg) if seg else None
 
 
 def _wan(v):
@@ -643,6 +714,9 @@ def _verdict(rec, position, deviations, benchmarks, partition_ok):
             ('，它后来%s' % b0['outcome_text']) if b0['has_outcome'] else '，它暂无后续追踪数据'))
     return {
         'headline': headline, 'detail': detail, 'problem_5s': problem, 'tone': tone,
+        '_concern_dim': (concern or {}).get('_dim'),
+        'concern_label': (concern or {}).get('label'),
+        'concern_seg': _seg_of((concern or {}).get('_dim')) if concern else None,
         'actions': _actions(position, concern, deviations, benchmarks),
         'caveat': ACTION_CAVEAT, 'curve_caveat': CURVE_CAVEAT,
         'partition_used_full_sample': not partition_ok,

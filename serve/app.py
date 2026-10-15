@@ -457,6 +457,49 @@ def video_diagnosis(bvid: str, resp: Response,
                              'dict_version': d['tech']['dict_version']})
 
 
+@app.get('/api/danmaku_at')
+def api_danmaku_at(resp: Response, bvid: str = Query(..., min_length=4),
+                   t: float = Query(None), window: float = Query(3.0, ge=0.2, le=60),
+                   t0: float = Query(None), t1: float = Query(None),
+                   limit: int = Query(80, ge=1, le=400)):
+    '''某时刻（或某区间）的真实弹幕——诊断卡"点偏离 → 看这段观众在刷什么"用。
+
+    两种用法二选一：
+      ?bvid=X&t=12.5&window=3    → 12.5 秒前后 ±3 秒
+      ?bvid=X&t0=0&t1=9.7        → 直接给区间（按播放进度换算过来的那一段）
+    '''
+    bd = diagnosis.latest_batch(bvid)
+    if not bd:
+        raise HTTPException(404, f'{bvid} 不在节奏诊断快照里')
+    if t0 is not None and t1 is not None:
+        a, b = min(t0, t1), max(t0, t1)
+    elif t is not None:
+        a, b = t - window, t + window
+    else:
+        raise HTTPException(400, '要么给 t（配 window），要么给 t0 与 t1')
+    if b < 0:
+        raise HTTPException(400, '时间不能为负')
+    if b - a > 120:
+        b = a + 120                      # 单次最多取 2 分钟，防止把整片拖出来
+    rows = q('''SELECT t, txt FROM v3_video_danmaku
+                WHERE bvid = %s AND batch_date = %s AND t >= %s AND t <= %s
+                ORDER BY t LIMIT %s''', (bvid, bd, a, b, limit + 1))
+    total = q1('''SELECT COUNT(*) AS n FROM v3_video_danmaku
+                  WHERE bvid = %s AND batch_date = %s AND t >= %s AND t <= %s''',
+               (bvid, bd, a, b))
+    truncated = len(rows) > limit
+    rows = rows[:limit]
+    for r in rows:
+        r['t'] = float(r['t'])
+    return ok(resp, {
+        'bvid': bvid, 'batch_date': bd,
+        't0': round(a, 1), 't1': round(b, 1),
+        'n_in_range': int(total['n']) if total else 0,
+        'returned': len(rows), 'truncated': truncated,
+        'items': rows,
+    })
+
+
 @app.get('/api/v3/overview')
 def v3_overview(resp: Response):
     '''市场总览：池子规模 + 各分区性格 + 全市场最不典型的视频'''
