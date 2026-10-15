@@ -35,8 +35,12 @@ log() { echo "[$(date +'%F %T')] $1" | tee -a "$LOG_FILE"; }
 
 log "════ 日频采集开始：Top $COUNT (pages=$PAGES, args=$FRESH) ════"
 export PYTHONUNBUFFERED=1   # 坑16：stdout 接管道必须 -u + unbuffered，否则 kill 丢缓冲
+# 2026-10-15 修复：pipefail + set -e 会让 SIGTERM(143) 在管道行直接终止脚本，
+# 下方「需续采」提示不可达（2026-10-15 11:48 实测）。临时关 -e 捕获退出码后恢复。
+set +e
 python -u collect/bili.py hotlist -n "$COUNT" --pages "$PAGES" $FRESH 2>&1 | tee -a "$LOG_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
+set -e
 
 # 143=SIGTERM（用户掐断/关机）：已采部分按批次 C 仍有效，不算失败
 # ⚠️ 2026-10-13 修复：143 不得再写 "✅ 完成"——daily_cron_guard.sh 以该标记判"今天已完成"，
@@ -49,6 +53,7 @@ if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 143 ]; then
 fi
 if [ "$EXIT_CODE" -eq 143 ]; then
   log "⚠️ 采集被中断（SIGTERM）——已采部分有效但未完成；续采 = bash collect/bili_daily.sh --resume <batch_date>（不给 --fresh）"
+  exit 143
 else
   log "✅ 完成。产物落 data/cli_collected/（灌 HDFS 由 make ingest / daily_cron.sh 负责）"
 fi
