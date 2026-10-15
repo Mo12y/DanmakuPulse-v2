@@ -3,8 +3,12 @@
 
 运行（服务需在线）：
   ~/danmaku-venv/bin/python -m pytest tests/test_api_contract.py -q
-覆盖：12 个端点的 200 状态、统一响应结构 {code,data,meta}、关键字段存在性、404 负例。
-服务未起时整组 skip（不阻塞无服务场景的套件）。
+覆盖：端点的 200 状态、统一响应结构 {code,data,meta}、关键字段存在性、404 负例。
+
+⚠️ 2026-10-15 起内部 /api/* 需要登录（与旧前端一致：只有 /api/open/* 是公开的）。
+   本文件因此先登录取会话 cookie；账号取环境变量 API_USER / API_PASS
+   （默认 admin / danmaku@2026，可用 tests/accept_auth.sh 的同一套账号）。
+   服务未起、或账号不存在 → 整组 skip（不阻塞无服务场景的套件）。
 """
 import json
 import os
@@ -15,12 +19,37 @@ import urllib.request
 import pytest
 
 BASE = os.environ.get('API_BASE', 'http://localhost:8000')
+API_USER = os.environ.get('API_USER', 'admin')
+API_PASS = os.environ.get('API_PASS', 'danmaku@2026')
+COOKIE = None
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None
+
+
+def _login():
+    """POST /login 拿会话 cookie（不让 urllib 跟 302，否则读不到 Set-Cookie）"""
+    body = urllib.parse.urlencode({'username': API_USER, 'password': API_PASS}).encode()
+    req = urllib.request.Request(BASE + '/login', data=body, method='POST')
+    op = urllib.request.build_opener(_NoRedirect)
+    try:
+        r = op.open(req, timeout=10)
+        raw = r.headers.get('Set-Cookie') or ''
+    except urllib.error.HTTPError as e:
+        raw = e.headers.get('Set-Cookie') or ''
+    except Exception:
+        return None
+    return raw.split(';')[0] if raw.startswith('ads_session=') else None
 
 
 def get(path, expect=200):
-    url = BASE + path
+    req = urllib.request.Request(BASE + path)
+    if COOKIE:
+        req.add_header('Cookie', COOKIE)
     try:
-        with urllib.request.urlopen(url, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=10) as r:
             body = json.loads(r.read().decode('utf-8'))
             assert r.status == expect, f'{path}: status {r.status}'
             return body
@@ -33,12 +62,17 @@ def get(path, expect=200):
 def probe():
     try:
         with urllib.request.urlopen(BASE + '/api/health', timeout=5) as r:
-            return r.status == 200
+            if r.status != 200:
+                return False
     except Exception:
         return False
+    global COOKIE
+    COOKIE = _login()
+    return COOKIE is not None        # 登不进去也 skip（账号没建）
 
 
-pytestmark = pytest.mark.skipif(not probe(), reason='服务未在线（先起 fastapi）')
+pytestmark = pytest.mark.skipif(
+    not probe(), reason='服务未在线，或账号不存在（先跑 tests/accept_auth.sh 建账号）')
 
 
 def _keys(d, *ks):
