@@ -258,6 +258,27 @@ def video_diagnosis(bvid: str, resp: Response,
                              'dict_version': d['tech']['dict_version']})
 
 
+@app.get('/api/v3/overview')
+def v3_overview(resp: Response):
+    '''市场总览：池子规模 + 各分区性格 + 全市场最不典型的视频'''
+    return ok(resp, diagnosis.overview_view())
+
+
+@app.get('/api/v3/partitions')
+def v3_partitions(resp: Response):
+    rows = diagnosis.partition_list()
+    return ok(resp, rows, meta={'n': len(rows)})
+
+
+@app.get('/api/v3/partition/{tname}')
+def v3_partition(tname: str, resp: Response):
+    '''分区画像：这个分区的观众习惯 + 标杆 / 最特别'''
+    d = diagnosis.partition_view(tname)
+    if not d:
+        raise HTTPException(404, f'分区 {tname} 无基准数据')
+    return ok(resp, d, meta={'n': 1})
+
+
 @app.get('/api/lifecycle/{bvid}')
 def lifecycle(bvid: str, resp: Response):
     """生命周期（M4；来自 dws_lifecycle → ads 未建表则回退 404）"""

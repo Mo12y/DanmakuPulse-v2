@@ -1,113 +1,166 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh" data-theme="light">
 <head>
 <meta charset="utf-8">
-<title>运营总览 · 弹幕互动节奏分析</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>市场总览 · 弹幕互动节奏分析系统</title>
 <link rel="icon" href="data:,">
-<script src="vendor/echarts.min.js"></script>
+<link rel="stylesheet" href="v3.css">
 <style>
-  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#d7dce4; --dim:#8b93a3; --acc:#4f8cff; }
-  * { box-sizing:border-box; margin:0; }
-  body { background:var(--bg); color:var(--fg); font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; padding:20px; }
-  h1 { font-size:18px; margin-bottom:4px; } .sub { color:var(--dim); font-size:12px; margin-bottom:16px; }
-  .nav { margin-bottom:14px; } .nav a { color:var(--acc); margin-right:14px; text-decoration:none; font-size:13px; }
-  .nav a.on { color:var(--fg); font-weight:600; }
-  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; min-width:150px; }
-  .card .k { color:var(--dim); font-size:12px; } .card .v { font-size:20px; font-weight:600; }
-  .chart { background:var(--card); border:1px solid var(--line); border-radius:10px; height:300px; padding:8px; margin-bottom:16px; }
-  .two { display:flex; gap:12px; flex-wrap:wrap; } .two > div { flex:1 1 420px; }
-  select { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  th { color:var(--dim); font-weight:500; } tr:hover td { background:#1d212b; }
-  .warn { color:#e5c07b; font-size:12px; margin:8px 0; }
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.stat{border:1px solid var(--line);border-radius:13px;padding:14px 16px;background:var(--card)}
+.stat .k{font-size:12.5px;color:var(--dim)}
+.stat .v{font-size:26px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
+.stat .n{font-size:12px;color:var(--faint)}
+.plist{border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.prow{display:grid;grid-template-columns:118px 54px 70px 92px 1fr 132px;gap:10px;align-items:center;
+  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+.prow:last-child{border-bottom:0}
+.prow:hover{background:var(--acc-soft)}
+.prow.head{background:var(--neutral-soft);cursor:default;font-size:12px;color:var(--dim);font-weight:600}
+.prow.head:hover{background:var(--neutral-soft)}
+.pname{font-weight:700}
+.psmall{color:var(--dim);font-size:12.5px}
+.ptrait{color:var(--fg)}
+.low{color:var(--faint);font-size:11.5px;background:var(--neutral-soft);border-radius:6px;padding:1px 6px;margin-left:5px}
+.bar{height:7px;background:var(--neutral-soft);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:4px}
+.ogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.ocard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--card);
+  cursor:pointer;transition:.15s;display:flex;flex-direction:column}
+.ocard:hover{border-color:var(--acc);box-shadow:var(--shadow)}
+.otitle{font-size:13.5px;font-weight:700;line-height:1.45;margin-bottom:6px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ometa{font-size:12px;color:var(--dim);margin-bottom:8px}
+.otag{font-size:12.5px;font-weight:700;color:var(--warn)}
+.ofoot{margin-top:auto;font-size:12px;color:var(--acc);font-weight:700}
+@media (max-width:860px){
+  .prow{grid-template-columns:1fr 1fr;gap:6px}
+  .prow.head{display:none}
+  .prow .hideSm{display:none}
+}
 </style>
 </head>
 <body>
-<h1>运营总览</h1>
-<div class="sub">基于 Spark 的 B站热榜视频弹幕互动节奏分析系统 · B2 生产链（只读）</div>
-<div class="nav"><a class="on" href="overview.html">运营总览</a><a href="diagnosis.html" style="color:#2b6cff;font-weight:700">★ 视频诊断卡</a><a href="rhythm.html">视频节奏详情</a><a href="partition.html">分区画像</a><a href="index.html">B0 验收页</a></div>
-
-<div class="row" id="cards"></div>
-<div class="two">
-  <div><div id="compChart" class="chart"></div></div>
-  <div><div id="evoChart" class="chart"></div></div>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
+    <div class="nav">
+      <a href="diagnosis.html">视频诊断卡</a>
+      <a class="on" href="overview.html">市场总览</a>
+      <a href="partition.html">分区画像</a>
+      <a href="rhythm.html">原始细节</a>
+      <a href="index.html">验收页</a>
+    </div>
+    <button class="btn" id="themeBtn" title="切换深浅色">◐</button>
+  </div>
+  <div class="card" id="content"><div class="loading">正在加载市场总览…</div></div>
+  <details class="tech">
+    <summary>技术详情（口径 / 数据源 / 参数 —— 主视图不显示这些术语）</summary>
+    <div class="techbody" id="techbody"></div>
+  </details>
 </div>
-
-<div class="row" style="align-items:center">
-  <span class="k" style="color:var(--dim)">榜单批次：</span>
-  <select id="batchSel"></select>
-  <span class="warn" id="cadenceWarn"></span>
-</div>
-<div class="card" style="padding:0; overflow:auto; max-height:420px">
-  <table id="hotTable"><thead><tr>
-    <th>排名</th><th>bvid</th><th>标题</th><th>分区</th><th>UP主</th><th>播放</th><th>弹幕</th><th>cadence</th>
-  </tr></thead><tbody></tbody></table>
-</div>
-
 <script>
-const $ = id => document.getElementById(id);
-const fmt = n => n == null ? '-' : (n >= 1e4 ? (n/1e4).toFixed(1)+'万' : n);
-const COLORS = ['#4f8cff','#4caf7d','#e5c07b','#e5534b','#9b7fff','#3bb3c3','#e58c4b','#c94f7c','#7f9b5a','#5a7f9b'];
+var $ = function(s){ return document.querySelector(s); };
+var api = function(p){ return fetch(p).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(j){ return j.data; }); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+var THEME_KEY = 'v3-theme';
 
-async function api(url){ const r = await fetch(url); if(!r.ok) throw new Error(url+' '+r.status); return (await r.json()).data; }
-
-(async function main(){
-  const ov = await api('/api/overview');
-  $('cards').innerHTML = [
-    ['最新批次', ov.latest_batch], ['当期榜单', ov.hotlist_size+' 条'],
-    ['池规模（唯一 bvid）', ov.n_videos_pool], ['池弹幕总量', fmt(ov.n_danmaku_pool)],
-    ['形态聚类', ov.cluster.k ? ('k='+ov.cluster.k+' · 轮廓 '+Number(ov.cluster.silhouette).toFixed(3)) : '-'],
-    ['演化分型样本', ov.evo_types.reduce((s,t)=>s+t.n,0)+' 视频'],
-  ].map(([k,v])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
-
-  // 分区构成（按批次分组堆叠）
-  const batches = [...new Set(ov.composition.map(r=>String(r.batch_date)))];
-  const byT = {};
-  ov.composition.forEach(r=>{ byT[r.tname] = (byT[r.tname]||0) + Number(r.n); });
-  const topT = Object.entries(byT).sort((a,b)=>b[1]-a[1]).slice(0,8).map(x=>x[0]);
-  const series = topT.map((t,i)=>({
-    name:t, type:'bar', stack:'x', barMaxWidth:44, itemStyle:{color:COLORS[i%COLORS.length]},
-    data: batches.map(b=>{ const r = ov.composition.find(x=>String(x.batch_date)===b && x.tname===t); return r?Number(r.n):0; })
-  }));
-  const rest = batches.map(b=>ov.composition.filter(x=>String(x.batch_date)===b && !topT.includes(x.tname)).reduce((s,x)=>s+Number(x.n),0));
-  if (rest.some(x=>x>0)) series.push({name:'其他', type:'bar', stack:'x', barMaxWidth:44, itemStyle:{color:'#555b68'}, data:rest});
-  const c1 = echarts.init($('compChart'), 'dark');
-  c1.setOption({
-    backgroundColor:'transparent', title:{text:'榜单分区构成（按批次）', left:8, textStyle:{fontSize:13}},
-    tooltip:{trigger:'axis'}, legend:{top:0, right:8, textStyle:{fontSize:11}},
-    grid:{left:40,right:12,top:36,bottom:24}, xAxis:{type:'category',data:batches}, yAxis:{type:'value'},
-    series
-  });
-
-  // 演化分型
-  const c2 = echarts.init($('evoChart'), 'dark');
-  c2.setOption({
-    backgroundColor:'transparent', title:{text:'演化分型分布（K-means k=3）', left:8, textStyle:{fontSize:13}},
-    tooltip:{trigger:'item'}, legend:{bottom:0, textStyle:{fontSize:11}},
-    series:[{type:'pie', radius:['40%','68%'], center:['50%','52%'],
-      label:{color:'#d7dce4', fontSize:11},
-      data: ov.evo_types.map((t,i)=>({name:t.cluster_type, value:Number(t.n), itemStyle:{color:COLORS[i]}}))}]
-  });
-
-  // 批次选择 + 榜单
-  const sel = $('batchSel');
-  batches.slice().reverse().forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; sel.appendChild(o); });
-  async function loadHot(b){
-    const rows = await api('/api/hotlist?batch_date='+b);
-    const cad = rows[0] ? rows[0].cadence : '';
-    $('cadenceWarn').textContent = cad === 'weekly_legacy'
-      ? '⚠️ weekly_legacy 批次：仅显示排名事实，跨批增速按冻结决策不计算（delta 列 NULL）' : '';
-    $('hotTable').querySelector('tbody').innerHTML = rows.slice(0,150).map(r=>`<tr>
-      <td>${r.rank_proxy}</td><td>${r.bvid}</td>
-      <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis" title="${r.title||''}">${r.title||''}</td>
-      <td>${r.tname||''}</td><td>${r.up_name||''}</td><td>${fmt(r.play)}</td><td>${fmt(r.danmaku_reported)}</td>
-      <td>${r.cadence||''}</td></tr>`).join('');
+function spark(curve, w, h, color){
+  if (!curve || curve.length < 2) return '';
+  var mx = 0; for (var i=0;i<curve.length;i++) mx = Math.max(mx, curve[i]);
+  if (mx <= 0) mx = 1;
+  var pts = [];
+  for (var i=0;i<curve.length;i++) {
+    pts.push((i/(curve.length-1)*w).toFixed(1) + ',' + (h - curve[i]/mx*(h-2) - 1).toFixed(1));
   }
-  sel.onchange = () => loadHot(sel.value);
-  await loadHot(sel.value);
-})().catch(e => { document.body.insertAdjacentHTML('beforeend', `<div class="warn">加载失败：${e.message}</div>`); });
+  return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" style="vertical-align:middle">' +
+         '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.4"/></svg>';
+}
+
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(THEME_KEY, t); } catch(e) {}
+}
+(function(){
+  var saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch(e) {}
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+$('#themeBtn').onclick = function(){
+  var cur = document.documentElement.getAttribute('data-theme');
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+};
+
+api('/api/v3/overview').then(render).catch(function(e){
+  $('#content').innerHTML = '<div class="err">加载失败：' + esc(e.message) + '</div>';
+});
+
+function render(d){
+  var html = '';
+  html += '<div class="verdict">' +
+    '<span class="tone ok">● 全市场</span>' +
+    '<div class="vmain">' +
+      '<div class="vproblem">' + esc(d.stats[0].value) + ' 支视频，' + esc(d.stats[1].value) + ' 个可比分区</div>' +
+      '<div class="vhead">' + esc(d.headline) + '</div>' +
+      '<div class="vdetail">' + esc(d.sub) + '</div>' +
+    '</div></div>';
+  html += '<div class="sec"><div class="sechead"><span class="secno">①</span><span class="sectitle">池子规模</span></div>' +
+    '<div class="statrow">' + d.stats.map(function(s){
+      return '<div class="stat"><div class="k">' + esc(s.label) + '</div><div class="v">' + esc(s.value) +
+             '</div><div class="n">' + esc(s.note) + '</div></div>';
+    }).join('') + '</div></div>';
+
+  var mx = 0;
+  d.partitions.forEach(function(p){ mx = Math.max(mx, p.n_videos); });
+  html += '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+    '<span class="sectitle">各分区的观众习惯</span>' +
+    '<span class="secnote">点任意一行看这个分区的画像</span></div>' +
+    '<div class="plist">' +
+    '<div class="prow head"><div>分区</div><div>样本</div><div class="hideSm">节奏缩略</div>' +
+    '<div class="hideSm">互动热度</div><div>这个分区的观众习惯</div><div></div></div>' +
+    d.partitions.map(function(p){
+      return '<div class="prow" data-t="' + esc(p.tname) + '">' +
+        '<div class="pname">' + esc(p.tname) + (p.low_support ? '<span class="low">样本少</span>' : '') + '</div>' +
+        '<div class="psmall">' + p.n_videos + ' 支</div>' +
+        '<div class="hideSm">' + spark(p.curve, 64, 20, 'var(--acc)') + '</div>' +
+        '<div class="hideSm"><div class="psmall">' + esc(p.hot_med_text) + '</div>' +
+          '<div class="bar"><i style="width:' + (100*p.n_videos/mx).toFixed(0) + '%"></i></div></div>' +
+        '<div class="ptrait">' + esc(p.trait) + '</div>' +
+        '<div><button class="btn" data-go="' + esc(p.tname) + '">看分区画像 →</button></div>' +
+      '</div>';
+    }).join('') + '</div></div>';
+
+  html += '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
+    '<span class="sectitle">全市场最不典型的视频</span>' +
+    '<span class="secnote">按"跟自己分区比"的偏离幅度排序 ｜ 点卡片进诊断卡</span></div>' +
+    '<div class="ogrid">' + d.outliers.map(function(x){
+      return '<div class="ocard" data-b="' + esc(x.bvid) + '">' +
+        '<div class="otitle">' + esc(x.title) + '</div>' +
+        '<div class="ometa">' + esc(x.tname || '') + ' ｜ ' + esc(x.level) + '</div>' +
+        '<div class="otag">' + esc(x.label) + esc(x.pole) + '</div>' +
+        '<div class="ofoot">看它的诊断卡 →</div>' +
+      '</div>';
+    }).join('') + '</div></div>';
+
+  $('#content').innerHTML = html;
+  document.querySelectorAll('.prow[data-t]').forEach(function(el){
+    el.onclick = function(){ location.href = 'partition.html?t=' + encodeURIComponent(el.dataset.t); };
+  });
+  document.querySelectorAll('.ocard[data-b]').forEach(function(el){
+    el.onclick = function(){ location.href = 'diagnosis.html?bvid=' + el.dataset.b; };
+  });
+  document.querySelectorAll('button[data-go]').forEach(function(el){
+    el.onclick = function(ev){ ev.stopPropagation(); location.href = 'partition.html?t=' + encodeURIComponent(el.dataset.go); };
+  });
+  $('#techbody').innerHTML =
+    '<h4>口径</h4><div>· 每个视频只跟<b>自己分区</b>内的其它视频比（分区内稳健 z / 分区内百分位），不与全站混合。<br>' +
+    '· "观众习惯"= 该分区各维中位相对全市场中位的偏离，取最狠的 2 维转成人话；偏离不足 0.35 倍稳健尺度就不写。<br>' +
+    '· "最不典型"= 分区内最大 |z|，用于挑样本，不代表好坏。<br>' +
+    '· 样本 <20 支的分区标"样本少"，其基准仅作参考（本次共 ' + d.partitions.length + ' 个可比分区）。</div>' +
+    '<h4>数据源</h4><div>serve/v3data 只读快照（dws_video_rhythm_features / dws_density_1pct / dim_video / dws_lifecycle / dws_rhythm_events）</div>';
+}
 </script>
 </body>
 </html>
+
