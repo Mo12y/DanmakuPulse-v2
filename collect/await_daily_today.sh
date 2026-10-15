@@ -10,7 +10,7 @@ LOG="logs/daily_run_$(date +%Y%m%d_%H%M).log"
 log() { echo "[$(date +'%F %T')] $1" | tee -a "$LOG"; }
 
 log "守望启动：等待采集/灌入链退出（batch=$BD）..."
-while pgrep -f "bili.py hotlist|daily_cron" >/dev/null 2>&1; do sleep 120; done
+while pgrep -f "bili.py hotlist" >/dev/null 2>&1 || pgrep -f "collect/daily_cron.sh" >/dev/null 2>&1; do sleep 120; done
 log "现场已静默；校验 /raw/batch_date=$BD 完整性..."
 if ! docker exec namenode hdfs dfs -test -e "/raw/batch_date=$BD/danmaku.csv" 2>/dev/null; then
   log "❌ /raw/batch_date=$BD/danmaku.csv 缺失——中止（查 logs/collect_*.log）"
