@@ -32,6 +32,7 @@ setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	curl -fL -o lib/postgresql-42.7.4.jar https://maven.aliyun.com/repository/public/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
 	curl -fL -o lib/disruptor-3.3.6.jar https://maven.aliyun.com/repository/public/com/lmax/disruptor/3.3.6/disruptor-3.3.6.jar
 	curl -fL -o serve/static/vendor/echarts.min.js https://registry.npmmirror.com/echarts/5.5.1/files/dist/echarts.min.js
+	curl -fL -o serve/static/vendor/html2canvas.min.js https://registry.npmmirror.com/html2canvas/1.4.1/files/dist/html2canvas.min.js
 
 seed-data: ## 一次性：历史 4 批三件套从旧仓库复制（旧仓库只读；meta 文件名无 .csv 段）
 	mkdir -p data/cli_collected
