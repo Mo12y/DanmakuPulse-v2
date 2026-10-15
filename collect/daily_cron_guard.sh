@@ -20,7 +20,9 @@ if { [ -f "$LOG" ] && grep -q "✅ 完成" "$LOG"; } \
   echo "[$(date +'%F %T')] guard: 今天批次已完成，跳过"
   exit 0
 fi
-if pgrep -f "bili.py hotlist" >/dev/null 2>&1 || pgrep -f "daily_cron" >/dev/null 2>&1; then
+# 2026-10-15 修：原第二段模式 "daily_cron" 会匹配守卫自身（cron 的 sh -c 命令行含 daily_cron_guard.sh）
+# ⇒ 每次运行都在此分支自我跳过，补跑永不触发。改为精确匹配 collect/daily_cron.sh。
+if pgrep -f "bili.py hotlist" >/dev/null 2>&1 || pgrep -f "collect/daily_cron.sh" >/dev/null 2>&1; then
   echo "[$(date +'%F %T')] guard: 已有采集/日链进程在跑，跳过（编排链会串行接上今天批次）"
   exit 0
 fi
