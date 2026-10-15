@@ -51,7 +51,12 @@ def load_truth_csv(p):
             t[(r['bvid'], r['batch_date'])].append((float(r['start_sec']), float(r['end_sec'])))
     return t
 
-def prf(cand, truth, thr):
+def prf(cand, truth, thr, match='iou'):
+    """match='iou'    : IoU(cand, peak) >= thr
+       match='center' : 候选中心点落在真值区间内（对区间宽度不可比时更稳健）
+    中心点匹配的理由：真值常给出「峰大致位置」（区间较宽），候选是窄区间；
+    此时即使候选完全落在真值内，IoU 也只有 窄/宽 < 0.3，会产生系统性 FN。
+    """
     TP = FP = FN = 0
     for k, peaks in truth.items():
         cs = sorted(cand.get(k, []), key=lambda x: -x[2])
@@ -60,7 +65,10 @@ def prf(cand, truth, thr):
             best, bi = 0.0, -1
             for i, pk in enumerate(peaks):
                 if used[i]: continue
-                v = iou((s, e), pk)
+                if match == 'center':
+                    v = 1.0 if (pk[0] <= (s + e) / 2.0 <= pk[1]) else 0.0
+                else:
+                    v = iou((s, e), pk)
                 if v > best: best, bi = v, i
             if best >= thr and bi >= 0: used[bi] = True; TP += 1
             else: FP += 1
@@ -84,6 +92,7 @@ def main():
     ap_.add_argument('--truth', required=True)
     ap_.add_argument('--out', default='data-out/l2_eval_report.json')
     ap_.add_argument('--sweep', action='store_true', help='扫描 theta 找 F1 最优点（21 号 3）')
+    ap_.add_argument('--match', default='iou', choices=['iou','center'], help='匹配规则：iou（默认）或 center 中心点')
     a = ap_.parse_args()
     cand = load_cand(a.cand)
     truth = load_truth_sheet(a.truth) if a.truth.endswith('mark_sheet.csv') else load_truth_csv(a.truth)
@@ -95,9 +104,9 @@ def main():
     for src in ['D1', 'D2', 'D3', 'D4', 'fused']:
         c = cand.get(src, {})
         if not c: continue
-        P, R, F, TP, FP, FN = prf(c, truth, 0.3)
+        P, R, F, TP, FP, FN = prf(c, truth, 0.3, a.match)
         A = ap(c, truth, THRS)
-        p5 = prf(c, truth, 0.5)[0]
+        p5 = prf(c, truth, 0.5, a.match)[0]
         res[src] = {'P@0.3': P, 'R@0.3': R, 'F1@0.3': F, 'AP': A, 'P@0.5': p5, 'TP': TP, 'FP': FP, 'FN': FN, 'n_cand': sum(len(v) for v in c.values())}
         print('%-8s %6.3f %6.3f %6.3f %6.3f | %6.3f %6.3f  (cand=%d TP=%d FP=%d FN=%d)' % (src, P, R, F, A, P, p5, res[src]['n_cand'], TP, FP, FN), flush=True)
     if 'fused' in res:
@@ -113,7 +122,7 @@ def main():
         best = None
         for t in [round(x, 2) for x in np.arange(0.0, 1.001, 0.05)]:
             sub = {k: [c for c in v if c[2] >= t] for k, v in cand['fused'].items()}
-            P, R, F, TP, FP, FN = prf(sub, truth, 0.3)
+            P, R, F, TP, FP, FN = prf(sub, truth, 0.3, a.match)
             n = sum(len(v) for v in sub.values())
             print('%6.2f %8d %8.3f %8.3f %8.3f' % (t, n, P, R, F))
             if best is None or F > best[1]:
