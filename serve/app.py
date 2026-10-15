@@ -8,6 +8,8 @@ import os
 import psycopg
 from fastapi import FastAPI, HTTPException, Query, Response
 
+import diagnosis
+
 app = FastAPI(title='danmaku-b2', version='b2-v1')
 DSN = os.environ['ADS_PG_DSN']
 
@@ -228,6 +230,32 @@ def dualaxis(bvid: str, resp: Response):
     if not rows:
         raise HTTPException(404, f'{bvid} 无双时间轴数据')
     return ok(resp, rows)
+
+
+# ─────────────── v3 对标诊断（33 号四视图；数据源 = serve/v3data 只读快照） ───────────────
+
+@app.get('/api/diagnosis/meta')
+def diagnosis_meta(resp: Response):
+    '''快照元信息 + 词典版本（前端页脚展示口径）'''
+    return ok(resp, diagnosis.snapshot_meta())
+
+
+@app.get('/api/diagnosis/index')
+def diagnosis_index(resp: Response):
+    '''选片索引（803 支，按分区 + 互动热度排序）'''
+    rows = diagnosis.index()
+    return ok(resp, rows, meta={'n': len(rows)})
+
+
+@app.get('/api/video/{bvid}/diagnosis')
+def video_diagnosis(bvid: str, resp: Response,
+                    batch_date: str = Query(None, min_length=8, max_length=8)):
+    '''一张诊断卡：定位 / 偏离 / 相似对标 / 一句话结论 + 行动（33 号 §3）'''
+    d = diagnosis.diagnose(bvid, str(batch_date) if batch_date else None)
+    if not d:
+        raise HTTPException(404, f'{bvid} 不在节奏诊断快照里（快照覆盖 803 支视频）')
+    return ok(resp, d, meta={'n': 1, 'engine_version': 'b2-v1', 'quality_flag': 'ok',
+                             'dict_version': d['tech']['dict_version']})
 
 
 @app.get('/api/lifecycle/{bvid}')
