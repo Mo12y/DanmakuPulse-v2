@@ -4,15 +4,18 @@ import csv, collections
 A = collections.defaultdict(list)
 for r in csv.DictReader(open('data-out/annotator_A_poisson.csv', encoding='utf-8-sig')):
     A[(r['bvid'], r['batch_date'])].append(float(r['peak_sec']))
-# B：本次看图的视觉判断（秒）；No.15/No.20 只看了第 1 屏，故限定在该范围内比较
-B = {
-  'BV1RNYr6dEEw': ([13, 45, 63], None),
-  'BV1q5uG69ER5': ([8, 50, 75, 112], None),
-  'BV12hYi6YEJa': ([2, 160, 240, 310, 490], None),
-  'BV1fYes6xEmq': ([2, 88, 245, 355, 565, 675, 755], None),
-  'BV1XMYE6xEkM': ([0, 50, 195, 355, 465, 735, 920], 1200),
-  'BV1Cgpd6pEBR': ([0, 195, 620, 735, 930, 1140, 1240], 1300),
-}
+# B：看图视觉判断（秒）——数据文件 tools/annotator_B_visual.csv（2026-10-15 去硬编码，复核 F5）
+# No.15/No.20 只看了第 1 屏，故限定在该范围内比较（viewed_upto_sec 列）
+B = {}
+for r in csv.DictReader(open('data-out/annotator_B_visual.csv', encoding='utf-8-sig')):
+    bv = r['bvid']
+    if bv not in B:
+        B[bv] = [[], None]
+    B[bv][0].append(int(float(r['peak_sec'])))
+    vu = (r['viewed_upto_sec'] or '').strip()
+    if vu:
+        B[bv][1] = float(vu)
+B = {k: (v[0], v[1]) for k, v in B.items()}
 batch = {}
 for k in A:
     if k[0] in B: batch[k[0]] = k
