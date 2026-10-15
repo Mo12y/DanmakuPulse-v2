@@ -44,17 +44,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar">
-    <div class="brand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
-    <div class="nav">
-      <a href="diagnosis.html">视频诊断卡</a>
-      <a href="overview.html">市场总览</a>
-      <a class="on" href="partition.html">分区画像</a>
-      <a href="rhythm.html">原始细节</a>
-      <a href="index.html">验收页</a>
-    </div>
-    <button class="btn" id="themeBtn" title="切换深浅色">◐</button>
-  </div>
+  <div class="topbar" id="v3top"></div>
   <div class="topbar">
     <select id="picker" style="flex:1 1 260px"></select>
     <span class="secnote" id="picknote"></span>
@@ -65,20 +55,14 @@
     <div class="techbody" id="techbody"></div>
   </details>
 </div>
+<script src="v3nav.js"></script>
 <script>
 var $ = function(s){ return document.querySelector(s); };
 var api = function(p){ return fetch(p).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(j){ return j.data; }); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
 var mmss = function(s){ if(s==null) return ''; s=Math.round(s); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
-var THEME_KEY = 'v3-theme', CHART = null, CUR = null, DUR = null;
-(function(){ var t=null; try{t=localStorage.getItem(THEME_KEY);}catch(e){} if(t) document.documentElement.setAttribute('data-theme',t); })();
-$('#themeBtn').onclick = function(){
-  var cur = document.documentElement.getAttribute('data-theme');
-  var nx = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', nx);
-  try { localStorage.setItem(THEME_KEY, nx); } catch(e) {}
-  drawChart();
-};
+var CHART = null, CUR = null;
+V3.onTheme = function(){ drawChart(); };   // 主题由统一顶栏管，切完重画
 
 var LIST = [];
 api('/api/v3/partitions').then(function(rows){

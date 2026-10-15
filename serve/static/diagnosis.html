@@ -7,6 +7,7 @@
 <link rel="icon" href="data:,">
 <script src="vendor/echarts.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
+<script src="v3nav.js"></script>
 <link rel="stylesheet" href="v3.css">
 <style>
 /* 本页专有（共用外壳见 v3.css） */
@@ -85,23 +86,14 @@
 <body>
 <div class="wrap">
 
-  <div class="topbar">
-    <div class="brand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
-    <div class="nav">
-      <a href="index.html">验收页</a>
-      <a href="overview.html">运营总览</a>
-      <a class="on" href="diagnosis.html">视频诊断卡</a>
-      <a href="rhythm.html">原始细节</a>
-      <a href="partition.html">分区画像</a>
-    </div>
-    <button class="btn" id="themeBtn" title="切换深浅色">◐</button>
-    <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
-  </div>
+  <div class="topbar" id="v3top"></div>
 
   <div class="topbar">
-    <input id="search" placeholder="搜标题 / 分区 / BV号" style="flex:1 1 240px;min-width:180px">
-    <select id="picker" style="flex:1 1 300px;min-width:200px"></select>
+    <input id="search" placeholder="搜标题 / 分区 / BV号" style="flex:1 1 220px;min-width:170px">
+    <select id="picker" style="flex:1 1 280px;min-width:190px"></select>
     <button class="btn" id="randBtn" title="随机换一支同类视频">随机一支</button>
+    <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
+    <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
   </div>
 
   <div class="card" id="shot">
@@ -162,10 +154,25 @@ $('#randBtn').onclick = () => {
   const x = IDX[Math.floor(Math.random() * IDX.length)];
   $('#picker').value = x.bvid; load(x.bvid);
 };
-$('#themeBtn').onclick = () => {
-  const cur = document.documentElement.getAttribute('data-theme');
-  document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
-  if (CHART) CHART.dispose(), CHART = null, drawChart();
+// 主题由统一顶栏（v3nav.js）管；切完通知本页重画图表
+V3.onTheme = () => { if (CHART) { CHART.dispose(); CHART = null; drawChart(); } };
+
+// 收藏（登录后才有意义；接口 401 时按钮自己隐藏）
+function refreshFav(){
+  const b = $('#favBtn'); if (!b || !CUR) return;
+  fetch('/api/favorites/status?bvid=' + encodeURIComponent(CUR.video.bvid), {credentials:'same-origin'})
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(j => { b.textContent = j.data.favorited ? '★ 已收藏' : '☆ 收藏这支'; })
+    .catch(() => { b.style.display = 'none'; });
+}
+$('#favBtn').onclick = () => {
+  if (!CUR) return;
+  fetch('/api/favorites', {method:'POST', credentials:'same-origin',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({bvid: CUR.video.bvid})})
+    .then(r => r.json()).then(j => {
+      if (j.data) { $('#favBtn').textContent = j.data.favorited ? '★ 已收藏' : '☆ 收藏这支'; }
+      if (window.V3 && V3.toast) V3.toast(j.data && j.data.favorited ? '已加入我的收藏' : '已取消收藏');
+    }).catch(() => {});
 };
 $('#shotBtn').onclick = async () => {
   const btn = $('#shotBtn'); btn.textContent = '生成中…'; btn.disabled = true;
@@ -196,6 +203,7 @@ function render(){
   bind();
   drawChart();
   drawTech(d);
+  refreshFav();
   // 军规 7：永远"你 vs 同类 vs 对标对象"三线对照 —— 默认叠上最像的那支
   if ((d.benchmarks || []).length) selectBench(0);
 }

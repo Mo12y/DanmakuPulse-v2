@@ -138,6 +138,8 @@ services:
     ports: ["${FASTAPI_PORT}:8000"]
     environment:
       ADS_PG_DSN: "host=postgres port=5432 dbname=ads user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}"
+      # 会话签名密钥：必须显式给定，否则容器重启后随机生成 -> 所有人被登出
+      ADS_SESSION_SECRET: "${ADS_SESSION_SECRET}"
     depends_on: [postgres]
     networks: [net]
 

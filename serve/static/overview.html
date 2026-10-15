@@ -43,29 +43,18 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar">
-    <div class="brand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
-    <div class="nav">
-      <a href="diagnosis.html">视频诊断卡</a>
-      <a class="on" href="overview.html">市场总览</a>
-      <a href="partition.html">分区画像</a>
-      <a href="rhythm.html">原始细节</a>
-      <a href="index.html">验收页</a>
-    </div>
-    <button class="btn" id="themeBtn" title="切换深浅色">◐</button>
-  </div>
+  <div class="topbar" id="v3top"></div>
   <div class="card" id="content"><div class="loading">正在加载市场总览…</div></div>
   <details class="tech">
     <summary>技术详情（口径 / 数据源 / 参数 —— 主视图不显示这些术语）</summary>
     <div class="techbody" id="techbody"></div>
   </details>
 </div>
+<script src="v3nav.js"></script>
 <script>
 var $ = function(s){ return document.querySelector(s); };
 var api = function(p){ return fetch(p).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(j){ return j.data; }); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
-var THEME_KEY = 'v3-theme';
-
 function spark(curve, w, h, color){
   if (!curve || curve.length < 2) return '';
   var mx = 0; for (var i=0;i<curve.length;i++) mx = Math.max(mx, curve[i]);
@@ -78,19 +67,6 @@ function spark(curve, w, h, color){
          '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.4"/></svg>';
 }
 
-function applyTheme(t){
-  document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem(THEME_KEY, t); } catch(e) {}
-}
-(function(){
-  var saved = null;
-  try { saved = localStorage.getItem(THEME_KEY); } catch(e) {}
-  if (saved) document.documentElement.setAttribute('data-theme', saved);
-})();
-$('#themeBtn').onclick = function(){
-  var cur = document.documentElement.getAttribute('data-theme');
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
-};
 
 api('/api/v3/overview').then(render).catch(function(e){
   $('#content').innerHTML = '<div class="err">加载失败：' + esc(e.message) + '</div>';
