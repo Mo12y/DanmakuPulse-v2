@@ -1,0 +1,84 @@
+/* v3 前端外壳（诊断卡 / 市场总览 / 分区画像 共用）
+   口径：33 号 §6 统一色系 + §5 零术语（这里只放视觉，不放任何技术名词） */
+:root{
+  --bg:#eef0f4; --card:#fff; --line:#e3e6ec; --fg:#161a22; --dim:#6b7480; --faint:#98a1ae;
+  --acc:#2b6cff; --acc-soft:#eaf0ff; --good:#0e9f6e; --good-soft:#e6f6f0;
+  --warn:#e02f36; --warn-soft:#fdeced; --neutral:#7b8494; --neutral-soft:#f1f3f6;
+  --envelope:rgba(43,108,255,.10); --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px -12px rgba(16,24,40,.12);
+  --radius:16px;
+}
+html[data-theme="dark"]{
+  --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#e6e9ef; --dim:#98a1ae; --faint:#6b7480;
+  --acc:#5b8dff; --acc-soft:#1b2436; --good:#35c08a; --good-soft:#14251f;
+  --warn:#f2606a; --warn-soft:#2a1a1d; --neutral:#8b93a3; --neutral-soft:#1d2129;
+  --envelope:rgba(91,141,255,.14); --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);padding:22px 16px 60px;
+  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto}
+.topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.brand{font-weight:700;font-size:15px;letter-spacing:.2px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc)}
+.nav a{color:var(--dim);text-decoration:none;font-size:13px;margin-left:12px}
+.nav a.on{color:var(--fg);font-weight:600}
+.nav a:hover{color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.sec{padding:22px 26px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:0}
+.sechead{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.secno{font-size:12px;font-weight:700;color:var(--acc);background:var(--acc-soft);border-radius:6px;padding:2px 7px}
+.sectitle{font-size:15px;font-weight:700}
+.secnote{font-size:12.5px;color:var(--faint);margin-left:auto}
+.btn{background:var(--card);border:1px solid var(--line);color:var(--fg);border-radius:9px;
+  padding:7px 13px;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.primary:hover{opacity:.9;color:#fff}
+select,input{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:9px;
+  padding:7px 11px;font-size:13px;font-family:inherit;max-width:100%}
+a{color:var(--acc)}
+.hidden{display:none!important}
+.morebtn{background:none;border:0;color:var(--acc);font-size:13px;cursor:pointer;padding:8px 0;font-family:inherit}
+.loading{padding:60px;text-align:center;color:var(--dim)}
+.err{padding:24px;color:var(--warn)}
+.pill{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.bad{background:var(--warn-soft);color:var(--warn)}
+.pill.gray{background:var(--neutral-soft);color:var(--neutral)}
+.pill.lv{background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:600}
+.linkish{color:var(--acc);cursor:pointer;font-weight:600}
+
+/* 页面级"结论条"（三个页面统一：一句话人话在最上面） */
+.verdict{display:flex;gap:18px;align-items:flex-start;padding:24px 26px;border-bottom:1px solid var(--line)}
+.tone{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border-radius:999px;
+  padding:5px 13px;font-size:13px;font-weight:700;white-space:nowrap}
+.tone.warn{background:var(--warn-soft);color:var(--warn)}
+.tone.ok{background:var(--good-soft);color:var(--good)}
+.vmain{flex:1;min-width:0}
+.vproblem{font-size:31px;font-weight:800;letter-spacing:-.4px;line-height:1.25;margin-bottom:8px}
+.vhead{font-size:15.5px;line-height:1.7;color:var(--fg)}
+.vdetail{font-size:13.5px;color:var(--dim);margin-top:8px}
+.video{font-size:12.5px;color:var(--faint);margin-top:10px;display:flex;gap:12px;flex-wrap:wrap}
+
+/* 技术详情折叠层（主视图零术语，技术名只允许出现在这里面） */
+details.tech{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
+  box-shadow:var(--shadow)}
+details.tech>summary{cursor:pointer;padding:14px 22px;font-size:13.5px;font-weight:600;color:var(--dim);list-style:none}
+details.tech>summary::-webkit-details-marker{display:none}
+details.tech>summary:before{content:"▸ ";color:var(--acc)}
+details.tech[open]>summary:before{content:"▾ "}
+.techbody{padding:4px 22px 20px;font-size:12.5px;color:var(--dim);overflow-x:auto}
+.techbody h4{font-size:13px;color:var(--fg);margin:14px 0 7px}
+.techbody table{border-collapse:collapse;font-size:12px;width:100%}
+.techbody th,.techbody td{border-bottom:1px solid var(--line);padding:5px 9px;text-align:right;white-space:nowrap}
+.techbody th:first-child,.techbody td:first-child{text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace}
+.techbody code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--neutral-soft);
+  padding:1px 5px;border-radius:4px}
+@media (max-width:720px){
+  .vproblem{font-size:24px}
+  .verdict{flex-direction:column;gap:11px}
+  .sec{padding:18px 16px}
+}
+

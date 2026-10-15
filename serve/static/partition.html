@@ -1,109 +1,233 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh" data-theme="light">
 <head>
 <meta charset="utf-8">
-<title>分区画像 · 弹幕互动节奏分析</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>分区画像 · 弹幕互动节奏分析系统</title>
 <link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
 <script src="vendor/echarts.min.js"></script>
 <style>
-  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#d7dce4; --dim:#8b93a3; --acc:#4f8cff; }
-  * { box-sizing:border-box; margin:0; }
-  body { background:var(--bg); color:var(--fg); font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; padding:20px; }
-  h1 { font-size:18px; margin-bottom:4px; } .sub { color:var(--dim); font-size:12px; margin-bottom:14px; }
-  .nav { margin-bottom:14px; } .nav a { color:var(--acc); margin-right:14px; text-decoration:none; font-size:13px; }
-  .nav a.on { color:var(--fg); font-weight:600; }
-  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
-  .chart { background:var(--card); border:1px solid var(--line); border-radius:10px; height:320px; padding:8px; margin-bottom:14px; }
-  select { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  th { color:var(--dim); font-weight:500; } tr:hover td { background:#1d212b; }
-  .warn { color:#e5c07b; font-size:12px; }
-  .flexwrap { display:flex; gap:12px; flex-wrap:wrap; } .flexwrap > div { flex:1 1 380px; }
-  .low { color:#e5c07b; }
+#chart{height:330px;width:100%}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin-bottom:8px}
+.legend i{display:inline-block;width:22px;height:0;border-top-width:3px;border-top-style:solid;
+  vertical-align:middle;margin-right:6px}
+.legend .sw{display:inline-block;width:16px;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}
+.chartcap{font-size:13.5px;background:var(--acc-soft);border-radius:10px;padding:10px 14px;margin-top:6px}
+.dimrow{display:grid;grid-template-columns:104px 1fr 190px;gap:12px;align-items:center;
+  padding:8px 0;font-size:13px;border-top:1px dashed var(--line)}
+.dimrow:first-child{border-top:0}
+.dimrow .lab{font-weight:600}
+.track{position:relative;height:8px;background:var(--neutral-soft);border-radius:5px}
+.track b{position:absolute;left:50%;top:-3px;width:1px;height:14px;background:var(--faint)}
+.track i{position:absolute;top:-3px;height:14px;border-radius:3px}
+.track i.hi{background:var(--acc)}
+.track i.lo{background:var(--warn)}
+.vs{color:var(--dim);font-size:12.5px;text-align:right}
+.vs b{color:var(--fg)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.col{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--card)}
+.col h4{font-size:13px;margin-bottom:9px}
+.col h4 span{font-weight:400;color:var(--faint);font-size:12px;margin-left:6px}
+.vcard{padding:9px 0;border-top:1px dashed var(--line);cursor:pointer}
+.vcard:first-of-type{border-top:0}
+.vcard:hover .vt{color:var(--acc)}
+.vt{font-size:13px;font-weight:600;line-height:1.45;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vm{font-size:12px;color:var(--dim);margin-top:3px}
+@media (max-width:720px){
+  .dimrow{grid-template-columns:78px 1fr;}
+  .vs{display:none}
+  #chart{height:260px}
+}
 </style>
 </head>
 <body>
-<h1>分区画像</h1>
-<div class="sub">基准库曲线 + 包络 · 指纹特征中位数 · 节奏类型分布（分区内）</div>
-<div class="nav"><a href="overview.html">运营总览</a><a href="diagnosis.html" style="color:#2b6cff;font-weight:700">★ 视频诊断卡</a><a href="rhythm.html">视频节奏详情</a><a class="on" href="partition.html">分区画像</a><a href="index.html">B0 验收页</a></div>
-
-<div class="row">
-  <select id="partSel" style="min-width:260px"></select>
-  <span id="meta" class="sub" style="margin:0"></span>
-</div>
-<div class="chart" id="baseCurve"></div>
-<div class="flexwrap" style="margin-bottom:14px">
-  <div class="chart" id="typePie" style="margin-bottom:0"></div>
-  <div class="card" style="flex:1 1 380px; overflow:auto; max-height:320px">
-    <table id="featTable"><thead><tr><th>特征</th><th>中位数</th><th>MAD（×1.4826）</th></tr></thead><tbody></tbody></table>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
+    <div class="nav">
+      <a href="diagnosis.html">视频诊断卡</a>
+      <a href="overview.html">市场总览</a>
+      <a class="on" href="partition.html">分区画像</a>
+      <a href="rhythm.html">原始细节</a>
+      <a href="index.html">验收页</a>
+    </div>
+    <button class="btn" id="themeBtn" title="切换深浅色">◐</button>
   </div>
+  <div class="topbar">
+    <select id="picker" style="flex:1 1 260px"></select>
+    <span class="secnote" id="picknote"></span>
+  </div>
+  <div class="card" id="content"><div class="loading">正在加载分区画像…</div></div>
+  <details class="tech">
+    <summary>技术详情（口径 / 数据源 —— 主视图不显示这些术语）</summary>
+    <div class="techbody" id="techbody"></div>
+  </details>
 </div>
-<div class="card" style="padding:0; overflow:auto; max-height:430px">
-  <table id="vidTable"><thead><tr>
-    <th>bvid</th><th>标题</th><th>UP主</th><th>播放</th><th>弹幕数</th><th>节奏熵</th><th>聚类簇</th><th>演化型</th>
-  </tr></thead><tbody></tbody></table>
-</div>
-
 <script>
-const $ = id => document.getElementById(id);
-const fmt = n => n == null ? '-' : (n >= 1e4 ? (n/1e4).toFixed(1)+'万' : n);
-const COLORS = ['#4f8cff','#4caf7d','#e5c07b','#e5534b','#9b7fff'];
-const FEAT_ZH = {dm_per_min:'弹幕/分',wdm_per_min:'加权/分',rhythm_entropy:'节奏熵',burst_cv:'突发CV',w_burst_cv:'加权CV',
-  early_lag_ratio:'早期占比',color_ratio:'彩色率',top_mode_ratio:'顶部模式',pos_ratio:'正向比',neg_ratio:'负向比',
-  neu_ratio:'中性比',no_hit_ratio:'未命中比',avg_text_len:'平均长度',opening_5pct:'开场5%',ending_5pct:'结尾5%',mid_ratio:'中段比'};
-async function api(url){ const r = await fetch(url); if(!r.ok) throw new Error(url+' → '+r.status); return (await r.json()).data; }
+var $ = function(s){ return document.querySelector(s); };
+var api = function(p){ return fetch(p).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(j){ return j.data; }); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+var mmss = function(s){ if(s==null) return ''; s=Math.round(s); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+var THEME_KEY = 'v3-theme', CHART = null, CUR = null, DUR = null;
+(function(){ var t=null; try{t=localStorage.getItem(THEME_KEY);}catch(e){} if(t) document.documentElement.setAttribute('data-theme',t); })();
+$('#themeBtn').onclick = function(){
+  var cur = document.documentElement.getAttribute('data-theme');
+  var nx = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', nx);
+  try { localStorage.setItem(THEME_KEY, nx); } catch(e) {}
+  drawChart();
+};
 
-(async function main(){
-  const parts = await api('/api/partitions');
-  const sel = $('partSel');
-  parts.forEach(p=>{ const o=document.createElement('option'); o.value=p.tname;
-    o.textContent=`${p.tname}（${p.n_videos} 视频${p.low_support?' · 低支撑':''}）`; sel.appendChild(o); });
-  sel.onchange = () => load(sel.value);
-  await load(sel.value);
+var LIST = [];
+api('/api/v3/partitions').then(function(rows){
+  LIST = rows;
+  $('#picker').innerHTML = rows.map(function(r){
+    return '<option value="' + esc(r.tname) + '">' + esc(r.tname) + '（' + r.n_videos + ' 支' +
+           (r.low_support ? '，样本少' : '') + '）</option>';
+  }).join('');
+  var usp = new URLSearchParams(location.search);
+  var t = usp.get('t');
+  if (!t || !rows.some(function(r){ return r.tname === t; })) t = rows[0].tname;
+  $('#picker').value = t;
+  return load(t);
+}).catch(function(e){
+  $('#content').innerHTML = '<div class="err">加载失败：' + esc(e.message) + '</div>';
+});
+$('#picker').onchange = function(){ load($('#picker').value); };
 
-  async function load(tname){
-    const [p, vids] = await Promise.all([
-      api('/api/partition/'+encodeURIComponent(tname)),
-      api('/api/partition/'+encodeURIComponent(tname)+'/videos'),
-    ]);
-    $('meta').innerHTML = `n=${p.n_videos} ${p.low_support?'<span class="low">（低支撑：n&lt;20，z 值不输出）</span>':''}`;
-    const c = echarts.init($('baseCurve'), 'dark');
-    const xs = [...Array(p.curve_med.length).keys()];
-    c.setOption({backgroundColor:'transparent',
-      title:{text:`基准库曲线 · ${tname}（跨视频每桶分位）`, left:8, textStyle:{fontSize:13}},
-      tooltip:{trigger:'axis'}, legend:{top:0, right:8, textStyle:{fontSize:11}},
-      grid:{left:44,right:16,top:36,bottom:28},
-      xAxis:{type:'category', data:xs, name:'位置（1%桶）'}, yAxis:{type:'value', name:'弹幕数/桶'},
-      series:[
-        {name:'p25', type:'line', showSymbol:false, lineStyle:{opacity:0}, stack:'env', data:p.curve_p25},
-        {name:'p25–p75 包络', type:'line', showSymbol:false, lineStyle:{opacity:0}, stack:'env',
-         data:p.curve_p75.map((hi,i)=>hi-(p.curve_p25[i]||0)), areaStyle:{color:'rgba(79,140,255,0.15)'}},
-        {name:'中位', type:'line', showSymbol:false, lineStyle:{width:2, color:'#4f8cff'}, data:p.curve_med},
-      ]});
-    // 类型分布
-    const dist = vids.meta ? vids.meta.type_dist : {};
-    const pc = echarts.init($('typePie'), 'dark');
-    pc.setOption({backgroundColor:'transparent',
-      title:{text:'节奏类型分布（分区内）', left:8, textStyle:{fontSize:13}},
-      tooltip:{trigger:'item'}, legend:{bottom:0, textStyle:{fontSize:11}},
-      series:[{type:'pie', radius:['38%','66%'], center:['50%','52%'], label:{fontSize:11, color:'#d7dce4'},
-        data:Object.entries(dist).map(([k,v],i)=>({name:k, value:v, itemStyle:{color:COLORS[i%5]}}))}]});
-    // 特征表
-    $('featTable').querySelector('tbody').innerHTML = Object.keys(FEAT_ZH).map(f=>{
-      const m=p.feat_med[f], mad=p.feat_mad[f];
-      return `<tr><td>${FEAT_ZH[f]}</td><td>${m==null?'-':(+m).toFixed(4)}</td><td>${mad==null?'-':(+mad).toFixed(4)}</td></tr>`;
-    }).join('');
-    // 视频表
-    $('vidTable').querySelector('tbody').innerHTML = vids.map(r=>`<tr>
-      <td><a style="color:var(--acc)" href="rhythm.html?bvid=${r.bvid}&batch_date=${r.batch_date}">${r.bvid}</a></td>
-      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(r.title||'').replace(/"/g,'')}">${r.title||'-'}</td>
-      <td>${r.up_name||'-'}</td><td>${fmt(r.play)}</td><td>${r.n_danmaku}</td>
-      <td>${r.rhythm_entropy==null?'-':(+r.rhythm_entropy).toFixed(3)}</td>
-      <td>${r.cluster_id==null?'-':r.cluster_id}</td><td>${r.evo_type||'-'}</td></tr>`).join('');
-  }
-})().catch(e=>{ document.body.insertAdjacentHTML('beforeend', `<div class="warn">加载失败：${e.message}</div>`); });
+function load(t){
+  history.replaceState(null, '', '?t=' + encodeURIComponent(t));
+  return api('/api/v3/partition/' + encodeURIComponent(t)).then(function(d){ CUR = d; render(d); });
+}
+
+function render(d){
+  $('#picknote').textContent = '共 ' + LIST.length + ' 个可比分区';
+  var html = '';
+  html += '<div class="verdict">' +
+    '<span class="tone ' + (d.low_support ? 'warn' : 'ok') + '">' + (d.low_support ? '▲ 样本少' : '● 基线可用') + '</span>' +
+    '<div class="vmain">' +
+      '<div class="vproblem">' + esc(d.tname) + '：' + esc(d.headline.replace('【' + d.tname + '】区 ' + d.n_videos + ' 支视频的观众习惯：', '')) + '</div>' +
+      '<div class="vhead">' + esc(d.headline) + '</div>' +
+      '<div class="vdetail">' + esc(d.sub) + '</div>' +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
+    '<span class="sectitle">这个分区的节奏长什么样</span>' +
+    '<span class="secnote">x 轴 = 播放进度 ｜ y 轴 = 该位置上的弹幕多少</span></div>' +
+    '<div class="legend">' +
+      '<span><i style="border-color:var(--acc)"></i>' + esc(d.tname) + ' 中位</span>' +
+      '<span><span class="sw" style="background:var(--envelope);border:1px solid var(--line)"></span>这个分区中间一半视频的范围</span>' +
+      '<span><i style="border-color:var(--faint);border-top-style:dashed"></i>全市场中位（对照）</span>' +
+    '</div><div id="chart"></div>' +
+    '<div class="chartcap" id="cap"></div></div>';
+
+  var mxr = 0;
+  d.dims.forEach(function(x){ mxr = Math.max(mxr, Math.abs(x.rel_pct)); });
+  if (mxr < 10) mxr = 10;
+  html += '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+    '<span class="sectitle">这个分区跟全市场比，特别在哪</span>' +
+    '<span class="secnote">' + esc(d.dims_note) + '</span></div>' +
+    d.dims.map(function(x){
+      var w = Math.min(50, Math.sqrt(Math.abs(x.rel_pct) / mxr) * 50);
+      var left = x.rel_pct >= 0 ? 50 : 50 - w;
+      return '<div class="dimrow">' +
+        '<div class="lab">' + esc(x.label) + '</div>' +
+        '<div class="track"><b></b><i class="' + (x.rel_pct >= 0 ? 'hi' : 'lo') + '" style="left:' + left.toFixed(1) + '%;width:' + w.toFixed(1) + '%"></i></div>' +
+        '<div class="vs"><b>' + esc(x.vs_text) + '</b>' + (Math.abs(x.rel_pct) >= 5 ? '　' + esc(x.trait) : '') + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+  html += '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
+    '<span class="sectitle">这个分区里的人</span>' +
+    '<span class="secnote">点任意一支进它的诊断卡</span></div><div class="cols">' +
+    col('最热闹的', '这个分区里弹幕最密的', d.hottest) +
+    col('最典型的', '最接近分区中位水平的', d.typical) +
+    col('最特别的', '跟这个分区差别最大的', d.special) +
+    '</div></div>';
+
+  $('#content').innerHTML = html;
+  document.querySelectorAll('.vcard[data-b]').forEach(function(el){
+    el.onclick = function(){ location.href = 'diagnosis.html?bvid=' + el.dataset.b; };
+  });
+  drawChart();
+  $('#techbody').innerHTML =
+    '<h4>口径</h4><div>· 中位曲线 = 该分区所有视频"每 1% 进度的弹幕占比"的逐桶中位数；包络 = 逐桶 25%/75% 分位。<br>' +
+    '· 与全市场对比用的是各维<b>中位</b>之比；"最典型"按分区内 dm_per_min 稳健 z 最接近 0 取。<br>' +
+    '· 样本 ' + d.n_videos + ' 支' + (d.low_support ? '（<20，基准仅供参考）' : '') + '，曲线参与 ' + (d.n_curve || '—') + ' 支。</div>' +
+    '<h4>数据源</h4><div>dws_partition_rhythm（分区基准）+ serve/v3data 只读快照</div>';
+}
+
+function col(title, note, items){
+  return '<div class="col"><h4>' + esc(title) + '<span>' + esc(note) + '</span></h4>' +
+    items.map(function(v){
+      return '<div class="vcard" data-b="' + esc(v.bvid) + '">' +
+        '<div class="vt">' + esc(v.title) + '</div>' +
+        '<div class="vm">' + esc(v.dm_per_min_text) + ' ｜ 弹幕 ' + (v.n_danmaku || 0) +
+        (v.note ? ' ｜ ' + esc(v.note) : '') + '</div></div>';
+    }).join('') + '</div>';
+}
+
+function drawChart(){
+  if (!CUR) return;
+  var c = CUR.curve, el = $('#chart');
+  if (!el) return;
+  if (CHART) { CHART.dispose(); CHART = null; }
+  CHART = echarts.init(el, null, {renderer:'canvas'});
+  var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var axis = dark ? '#98a1ae' : '#6b7480', spl = dark ? '#262b36' : '#eef0f4';
+  var envColor = dark ? 'rgba(91,141,255,.16)' : 'rgba(43,108,255,.12)';
+  var xs = c.median.map(function(_, i){ return i; });
+  var band = c.p75.map(function(v, i){ return Math.max(0, v - c.p25[i]); });
+  CHART.setOption({
+    backgroundColor:'transparent',
+    grid:{left:52,right:18,top:16,bottom:46},
+    tooltip:{trigger:'axis', backgroundColor: dark?'#171a21':'#fff',
+      borderColor: dark?'#262b36':'#e3e6ec', textStyle:{color: dark?'#e6e9ef':'#161a22', fontSize:12},
+      formatter:function(ps){
+        var i = ps[0].dataIndex;
+        return '<b>播放进度 ' + i + '%</b><br>' +
+          esc(CUR.tname) + ' 中位：' + (c.median[i]*100).toFixed(2) + '%<br>' +
+          '中间一半：' + (c.p25[i]*100).toFixed(2) + '% ~ ' + (c.p75[i]*100).toFixed(2) + '%<br>' +
+          '全市场中位：' + (c.global_median[i]*100).toFixed(2) + '%';
+      }},
+    xAxis:{type:'category', data:xs, boundaryGap:false, name:'播放进度', nameLocation:'middle', nameGap:30,
+      nameTextStyle:{color:axis,fontSize:12}, axisLine:{lineStyle:{color:spl}}, axisTick:{show:false},
+      axisLabel:{color:axis,fontSize:11,interval:9,formatter:function(v){ return v + '%'; }}},
+    yAxis:{type:'value', name:'弹幕多少', nameTextStyle:{color:axis,fontSize:12}, axisLine:{show:false},
+      axisTick:{show:false}, axisLabel:{color:axis,fontSize:11,formatter:function(v){ return (v*100).toFixed(1)+'%'; }},
+      splitLine:{lineStyle:{color:spl}}},
+    series:[
+      {name:'_p25', type:'line', stack:'env', data:c.p25, showSymbol:false, silent:true,
+       lineStyle:{opacity:0}, areaStyle:{opacity:0}},
+      {name:'中间一半', type:'line', stack:'env', data:band, showSymbol:false, silent:true,
+       lineStyle:{opacity:0}, areaStyle:{color:envColor}},
+      {name:'全市场中位', type:'line', data:c.global_median, showSymbol:false,
+       lineStyle:{width:2,type:'dashed',color:axis}},
+      {name:esc(CUR.tname) + ' 中位', type:'line', data:c.median, showSymbol:false,
+       lineStyle:{width:3,color:'#2b6cff'}, itemStyle:{color:'#2b6cff'},
+       areaStyle:{color:'rgba(43,108,255,.06)'}}
+    ]
+  });
+  function segMean(arr, a, b){ var s=0; for (var i=a;i<b;i++) s += arr[i]; return s/(b-a); }
+  function segSum(arr, a, b){ var s=0; for (var i=a;i<b;i++) s += arr[i]; return s; }
+  var openP = segSum(c.median, 0, 5)*100, openG = segSum(c.global_median, 0, 5)*100;
+  var midP = segMean(c.median, 20, 90)*100, midG = segMean(c.global_median, 20, 90)*100;
+  var endP = segSum(c.median, 95, 100)*100, endG = segSum(c.global_median, 95, 100)*100;
+  function cmpPct(a, b){ var r = b ? (a/b*100) : 0; return Math.round(r) + '%'; }
+  // 口径说明：这是"逐桶中位数"曲线，各桶相加不等于 100%，所以一律用"相对均匀铺开的倍数"表达
+  function x100(v){ return v.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''); }
+  var kOpen = openP / 5, kMid = midP / 1, kEnd = endP / 5;
+  $('#cap').innerHTML = '<b>这个分区的节奏形状</b>：最开头（前 5%）的弹幕密度是"均匀铺开"水平的 <b>' +
+    kOpen.toFixed(1) + ' 倍</b>——' + (kOpen >= 1.3 ? '属于<b>开头集中型</b>' : (kOpen <= 0.8 ? '开头偏冷' : '开头不算特别集中')) +
+    '。中段每 1% 只有均匀水平的 <b>' + x100(kMid) + ' 倍</b>（越低说明中段越淡），收尾 5% 是 ' +
+    x100(kEnd) + ' 倍。' +
+    ' 跟全市场比：开头 ' + cmpPct(openP, openG) + '、中段 ' + cmpPct(midP, midG) +
+    '、收尾 ' + cmpPct(endP, endG) + '。';
+  window.addEventListener('resize', function(){ if (CHART) CHART.resize(); });
+}
 </script>
 </body>
 </html>
+

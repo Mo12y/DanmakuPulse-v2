@@ -20,7 +20,7 @@ import math
 import os
 
 from dict_zh import (ACTION_CAVEAT, CONCERN, CURVE_CAVEAT, DICT, DIR, DICT_VERSION,
-                     human_pos, label_of, level_of, pole_word, pos_of, sim_label)
+                     human_pos, label_of, level_of, pole_word, pos_of, sim_label, trait_of)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'v3data')
 SMOOTH_WIN = 5
@@ -88,8 +88,28 @@ def _load():
     d['global_shape'] = glob
     d['global_base'] = _global_baseline(d)
     d['outcome_medians'] = _outcome_medians(d)
+    d['outlier_rank'] = _outlier_rank(d)
     _SNAP = d
     return d
+
+
+def _outlier_rank(d):
+    '''全市场"最不典型"排序：每支视频在自身分区内的最大 |z|（一次算好，别每次请求重算）'''
+    rows = []
+    for i, v in enumerate(d['videos']):
+        base = d['baselines'].get(v.get('tname')) or d['global_base']
+        best = 0.0
+        for dim in DICT:
+            if not DICT[dim].get('display'):
+                continue
+            b = (base.get('feats') or {}).get(dim)
+            val = (v.get('f') or {}).get(dim)
+            if not b or val is None or not b.get('mad'):
+                continue
+            best = max(best, abs((val - b['med']) / b['mad']))
+        rows.append((best, i))
+    rows.sort(reverse=True)
+    return rows
 
 
 def _outcome_medians(d):
@@ -715,3 +735,192 @@ def latest_batch(bvid):
     i = snap['by_bvid'].get(bvid)
     return snap['videos'][i]['batch_date'] if i is not None else None
 
+
+# ── v3 其余视图：市场总览 / 分区画像（同一套快照与词典，不新造口径） ──
+
+def _partition_trait(snap, tname):
+    """这个分区的观众习惯（人话）：取分区中位偏离全市场中位最狠的 2 维"""
+    b = snap['baselines'].get(tname)
+    g = snap['global_base']
+    if not b:
+        return None, []
+    scored = []
+    for dim in DICT:
+        if not DICT[dim].get('display') or dim == 'main_peak_pct':
+            continue
+        bm = (b['feats'].get(dim) or {}).get('med')
+        gm = (g['feats'].get(dim) or {}).get('med')
+        gmad = (g['feats'].get(dim) or {}).get('mad')
+        if bm is None or gm is None or not gmad:
+            continue
+        scored.append(((bm - gm) / gmad, dim))
+    scored.sort(key=lambda x: -abs(x[0]))
+    top = [s for s in scored[:2] if abs(s[0]) >= 0.35]
+    return '、'.join(trait_of(dim, z) for z, dim in top), top
+
+
+def _part_rank(snap):
+    rows = []
+    for t, b in snap['baselines'].items():
+        if b.get('n_videos', 0) < 8:
+            continue
+        hm = (b['feats'].get('dm_per_min') or {}).get('med')
+        if hm is not None:
+            rows.append((hm, t))
+    rows.sort(reverse=True)
+    return {t: i + 1 for i, (_, t) in enumerate(rows)}
+
+
+def _max_dim(rec, base):
+    best = None
+    for dim in DICT:
+        if not DICT[dim].get('display'):
+            continue
+        z = _z(rec, base, dim)
+        if z is not None and (best is None or abs(z) > abs(best[1])):
+            best = (dim, z)
+    return best[0] if best else None
+
+
+def _pv(v, extra=None):
+    return {'bvid': v['bvid'], 'title': v.get('title') or v['bvid'], 'tname': v.get('tname'),
+            'dm_per_min_text': ('%.0f 条/分' % v['f']['dm_per_min'])
+                               if (v.get('f') or {}).get('dm_per_min') else '—',
+            'n_danmaku': v.get('n_danmaku'), 'note': extra}
+
+
+def overview(snap):
+    """市场总览：池子规模 + 各分区性格（人话）+ 全市场最不典型的视频"""
+    rank = _part_rank(snap)
+    parts = []
+    for t, b in snap['baselines'].items():
+        if b.get('n_videos', 0) < 8:
+            continue
+        trait, top = _partition_trait(snap, t)
+        hm = (b['feats'].get('dm_per_min') or {}).get('med')
+        parts.append({
+            'tname': t, 'n_videos': b['n_videos'], 'low_support': bool(b.get('low_support')),
+            'hot_med_text': ('%.0f 条/分' % hm) if hm else '—',
+            'hot_rank': rank.get(t),
+            'trait': trait or '节奏和全市场差不多',
+            'trait_dims': [d for _, d in top],
+            'n_curve': b.get('n_curve'),
+            'curve': [round(x, 6) for x in _smooth(b['curve_med'])],
+        })
+    parts.sort(key=lambda p: (-p['n_videos'], p['tname']))
+    outl, used = [], {}
+    for _, i in snap['outlier_rank']:
+        if len(outl) >= 12:
+            break
+        v = snap['videos'][i]
+        base = snap['baselines'].get(v.get('tname')) or snap['global_base']
+        dim = _max_dim(v, base)
+        if not dim or used.get(dim, 0) >= 3:
+            continue          # 同一维最多 3 支，否则整张榜被一个重尾维度刷屏
+        used[dim] = used.get(dim, 0) + 1
+        zz = _z(v, base, dim) or 0.0
+        cur = snap['curves'].get('%s|%s' % (v['bvid'], v['batch_date']))
+        outl.append({'bvid': v['bvid'], 'title': v.get('title') or v['bvid'], 'tname': v.get('tname'),
+                     'label': DICT[dim]['label'], 'pole': pole_word(dim, zz),
+                     'level': level_of(abs(zz)), 'pct': (v.get('pct') or {}).get(dim),
+                     'curve': [round(x, 6) for x in _smooth(cur)] if cur else None})
+    n_out = sum(1 for v in snap['videos'] if _outcome_rank(v.get('outcome') or {}) is not None)
+    n_bv = len(snap['by_bvid'])
+    n_batch = len({v['batch_date'] for v in snap['videos']})
+    big = [p for p in parts if not p['low_support']]
+    return {
+        'headline': ('本系统收录 %d 支视频、%d 个批次、%d 个分区；样本最足的是【%s】（%d 支）'
+                     % (n_bv, n_batch, len(parts), parts[0]['tname'] if parts else '—',
+                        parts[0]['n_videos'] if parts else 0)),
+        'sub': ('每个视频都只跟"自己分区里的其它视频"比，不跟全站比——'
+                '因为不同分区的观众习惯本来就不一样。所以同一个数字，在不同分区含义不同。'),
+        'stats': [
+            {'label': '收录视频', 'value': n_bv, 'note': '%d 个批次' % n_batch},
+            {'label': '可比分区', 'value': len(parts), 'note': '其中 %d 个样本 ≥20 支' % len(big)},
+            {'label': '检出高能点', 'value': snap['meta']['n_events'], 'note': '点爆点能看当时弹幕'},
+            {'label': '有后续追踪', 'value': n_out,
+             'note': '能讲"后来怎样"的占 %.0f%%' % (100.0 * n_out / max(1, n_bv))},
+        ],
+        'partitions': parts,
+        'outliers': outl,
+        'notes': ['分区榜按样本量排序；样本 <20 支的分区标为"样本少"，基准仅供参考。',
+                  '"最不典型的视频"按分区内偏离幅度排序，点任意一支可进它的诊断卡。'],
+    }
+
+
+def partition_profile(snap, tname):
+    """分区画像：这个分区的观众习惯是什么、谁是标杆、谁最特别"""
+    b = snap['baselines'].get(tname)
+    if not b:
+        return None
+    g = snap['global_base']
+    trait, _ = _partition_trait(snap, tname)
+    dims = []
+    for dim, d in DICT.items():
+        if not d.get('display'):
+            continue
+        bm = (b['feats'].get(dim) or {}).get('med')
+        gm = (g['feats'].get(dim) or {}).get('med')
+        if bm is None or gm is None:
+            continue
+        rel = (bm / gm - 1.0) if gm else 0.0
+        # 中位为 0 时"低 100%"是退化读数（分区里多数视频该维就是 0）→ 改用"多数视频…"说
+        if bm == 0 and gm:
+            vs, rel = '多数视频' + trait_of(dim, -1), -1.0
+        elif rel > 0.05:
+            vs = '比全市场高 %d%%' % round(rel * 100)
+        elif rel < -0.05:
+            vs = '比全市场低 %d%%' % round(-rel * 100)
+        else:
+            vs = '和全市场差不多'
+        dims.append({'label': d['label'], '_dim': dim, 'part_med': bm, 'global_med': gm,
+                     'rel_pct': round(rel * 100), 'vs_text': vs,
+                     'trait': trait_of(dim, 1 if rel >= 0 else -1)})
+    dims.sort(key=lambda x: -abs(x['rel_pct']))
+    idx = [i for i, v in enumerate(snap['videos']) if v.get('tname') == tname]
+    hot = sorted(((_z(snap['videos'][i], b, 'dm_per_min') or 0.0), i) for i in idx)
+    mid = len(idx) // 2
+    dev = sorted((abs(_z(snap['videos'][i], b, _max_dim(snap['videos'][i], b)) or 0.0), i)
+                 for i in idx if _max_dim(snap['videos'][i], b))
+    special = []
+    for _, i in dev[::-1][:3]:
+        v = snap['videos'][i]
+        dim = _max_dim(v, b)
+        special.append(_pv(v, extra='%s%s' % (DICT[dim]['label'], pole_word(dim, _z(v, b, dim) or 0))))
+    return {
+        'tname': tname, 'n_videos': b['n_videos'], 'low_support': bool(b.get('low_support')),
+        'n_curve': b.get('n_curve'),
+        'headline': '【%s】区 %d 支视频的观众习惯：%s' % (tname, b['n_videos'], trait or '节奏和全市场差不多'),
+        'sub': ('这个分区的中位曲线就是"同类标准"，该分区任何一支视频都能跟它比。样本 %d 支%s。'
+                % (b['n_videos'], '（偏少，基准仅供参考）' if b.get('low_support') else '')),
+        'curve': {'median': [round(x, 6) for x in _smooth(b['curve_med'])],
+                  'p25': [round(x, 6) for x in _smooth(b['curve_p25'])],
+                  'p75': [round(x, 6) for x in _smooth(b['curve_p75'])],
+                  'global_median': [round(x, 6) for x in _smooth(g['curve_med'])],
+                  'n_peers': b.get('n_curve')},
+        'dims': dims,
+        'hottest': [_pv(snap['videos'][i]) for _, i in hot[::-1][:3]],
+        'typical': [_pv(snap['videos'][i]) for _, i in hot[mid:mid + 3]],
+        'special': special,
+        'dims_note': '分区中位 vs 全市场中位：差得越多，说明这个分区的观众习惯越有特色。',
+    }
+
+
+
+def overview_view():
+    return overview(_load())
+
+
+def partition_view(tname):
+    return partition_profile(_load(), tname)
+
+
+def partition_list():
+    snap = _load()
+    rows = []
+    for t, b in snap['baselines'].items():
+        if b.get('n_videos', 0) < 8:
+            continue
+        rows.append({'tname': t, 'n_videos': b['n_videos'], 'low_support': bool(b.get('low_support'))})
+    rows.sort(key=lambda r: (-r['n_videos'], r['tname']))
+    return rows

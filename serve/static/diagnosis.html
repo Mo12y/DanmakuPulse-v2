@@ -7,61 +7,10 @@
 <link rel="icon" href="data:,">
 <script src="vendor/echarts.min.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
+<link rel="stylesheet" href="v3.css">
 <style>
-:root{
-  --bg:#eef0f4; --card:#fff; --line:#e3e6ec; --fg:#161a22; --dim:#6b7480; --faint:#98a1ae;
-  --acc:#2b6cff; --acc-soft:#eaf0ff; --good:#0e9f6e; --good-soft:#e6f6f0;
-  --warn:#e02f36; --warn-soft:#fdeced; --neutral:#7b8494; --neutral-soft:#f1f3f6;
-  --envelope:rgba(43,108,255,.10); --shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px -12px rgba(16,24,40,.12);
-  --radius:16px;
-}
-html[data-theme="dark"]{
-  --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#e6e9ef; --dim:#98a1ae; --faint:#6b7480;
-  --acc:#5b8dff; --acc-soft:#1b2436; --good:#35c08a; --good-soft:#14251f;
-  --warn:#f2606a; --warn-soft:#2a1a1d; --neutral:#8b93a3; --neutral-soft:#1d2129;
-  --envelope:rgba(91,141,255,.14); --shadow:0 1px 2px rgba(0,0,0,.4);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--fg);padding:22px 16px 60px;
-  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
-  -webkit-font-smoothing:antialiased}
-.wrap{max-width:1000px;margin:0 auto}
-.topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.brand{font-weight:700;font-size:15px;letter-spacing:.2px;margin-right:auto;display:flex;align-items:center;gap:8px}
-.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc)}
-.nav a{color:var(--dim);text-decoration:none;font-size:13px;margin-left:12px}
-.nav a.on{color:var(--fg);font-weight:600}
-.nav a:hover{color:var(--acc)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+/* 本页专有（共用外壳见 v3.css） */
 #shot{padding:0}
-.sec{padding:22px 26px;border-bottom:1px solid var(--line)}
-.sec:last-child{border-bottom:0}
-.sechead{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
-.secno{font-size:12px;font-weight:700;color:var(--acc);background:var(--acc-soft);border-radius:6px;padding:2px 7px}
-.sectitle{font-size:15px;font-weight:700}
-.secnote{font-size:12.5px;color:var(--faint);margin-left:auto}
-
-/* ── 结论区 ── */
-.btn{background:var(--card);border:1px solid var(--line);color:var(--fg);border-radius:9px;
-  padding:7px 13px;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s}
-.btn:hover{border-color:var(--acc);color:var(--acc)}
-.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
-.btn.primary:hover{opacity:.9;color:#fff}
-select,input{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:9px;
-  padding:7px 11px;font-size:13px;font-family:inherit;max-width:100%}
-.verdict{display:flex;gap:18px;align-items:flex-start;padding:24px 26px;border-bottom:1px solid var(--line)}
-.tone{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border-radius:999px;
-  padding:5px 13px;font-size:13px;font-weight:700;white-space:nowrap}
-.tone.warn{background:var(--warn-soft);color:var(--warn)}
-.tone.ok{background:var(--good-soft);color:var(--good)}
-.vmain{flex:1;min-width:0}
-.vproblem{font-size:31px;font-weight:800;letter-spacing:-.4px;line-height:1.25;margin-bottom:8px}
-.vhead{font-size:15.5px;line-height:1.7;color:var(--fg)}
-.vdetail{font-size:13.5px;color:var(--dim);margin-top:8px}
-.video{font-size:12.5px;color:var(--faint);margin-top:10px;display:flex;gap:12px;flex-wrap:wrap}
-.video a{color:var(--acc);text-decoration:none}
-
-/* ── 定位条 ── */
 .poshero{font-size:17px;font-weight:700;margin-bottom:4px}
 .possub{font-size:13px;color:var(--dim);margin-bottom:16px}
 .posrow{display:grid;grid-template-columns:96px 1fr 96px 150px;gap:12px;align-items:center;
@@ -73,10 +22,6 @@ select,input{background:var(--card);color:var(--fg);border:1px solid var(--line)
 .postrack b{position:absolute;left:50%;top:-2px;width:1px;height:11px;background:var(--faint)}
 .posval{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .poshuman{color:var(--dim);font-size:12.5px}
-.hidden{display:none!important}
-.morebtn{background:none;border:0;color:var(--acc);font-size:13px;cursor:pointer;padding:8px 0;font-family:inherit}
-
-/* ── 图 ── */
 #chart{height:400px;width:100%}
 .chartcap{font-size:13.5px;color:var(--fg);background:var(--acc-soft);border-radius:10px;
   padding:10px 14px;margin-top:6px}
@@ -92,19 +37,12 @@ select,input{background:var(--card);color:var(--fg);border:1px solid var(--line)
 .dmpanel h4{font-size:13px;margin-bottom:8px;font-weight:700}
 .dmpanel ul{margin-left:18px;font-size:13px;color:var(--fg)}
 .dmpanel li{margin:2px 0}
-
-/* ── 偏离卡 ── */
 .dev{border:1px solid var(--line);border-radius:13px;padding:15px 17px;margin-bottom:11px;background:var(--card);
   cursor:pointer;transition:.15s}
 .dev:hover{border-color:var(--acc);box-shadow:var(--shadow)}
 .dev.dim{border-color:var(--acc);background:var(--acc-soft)}
 .devtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
 .devname{font-size:15px;font-weight:700}
-.pill{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px}
-.pill.good{background:var(--good-soft);color:var(--good)}
-.pill.bad{background:var(--warn-soft);color:var(--warn)}
-.pill.gray{background:var(--neutral-soft);color:var(--neutral)}
-.pill.lv{background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:600}
 .cmp{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center;margin:7px 0;font-size:12.5px}
 .cmp>span:last-child{display:block;background:var(--neutral-soft);border-radius:5px;height:16px;overflow:hidden}
 .cmp .b{display:block;height:16px;border-radius:5px;min-width:3px}
@@ -116,9 +54,6 @@ select,input{background:var(--card);color:var(--fg);border:1px solid var(--line)
   border-radius:0 9px 9px 0;padding:9px 13px;margin-top:8px}
 .devadv b{color:var(--acc)}
 .devfoot{font-size:12px;color:var(--faint);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
-.linkish{color:var(--acc);cursor:pointer;font-weight:600}
-
-/* ── 对标卡 ── */
 .bench{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .bcard{border:1px solid var(--line);border-radius:13px;padding:15px 16px;background:var(--card);
   display:flex;flex-direction:column;cursor:pointer;transition:.15s}
@@ -132,8 +67,6 @@ select,input{background:var(--card);color:var(--fg);border:1px solid var(--line)
 .bout.none{color:var(--faint);font-weight:500;font-size:12.5px}
 .blearn{font-size:12.5px;color:var(--dim);border-top:1px dashed var(--line);padding-top:9px;margin-top:9px}
 .bgo{font-size:12.5px;color:var(--acc);font-weight:700;margin-top:9px}
-
-/* ── 行动 ── */
 .act{display:flex;gap:13px;padding:12px 0}
 .act+.act{border-top:1px dashed var(--line)}
 .actn{flex:0 0 26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;font-size:13px;
@@ -142,30 +75,9 @@ select,input{background:var(--card);color:var(--fg);border:1px solid var(--line)
 .actb{font-size:12.5px;color:var(--faint);margin-top:4px}
 .caveat{font-size:12.5px;color:var(--dim);background:var(--neutral-soft);border-radius:10px;
   padding:11px 14px;margin-top:14px}
-
-/* ── 技术详情 ── */
-details.tech{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);
-  box-shadow:var(--shadow)}
-details.tech>summary{cursor:pointer;padding:14px 22px;font-size:13.5px;font-weight:600;color:var(--dim);
-  list-style:none}
-details.tech>summary::-webkit-details-marker{display:none}
-details.tech>summary:before{content:"▸ ";color:var(--acc)}
-details.tech[open]>summary:before{content:"▾ "}
-.techbody{padding:4px 22px 20px;font-size:12.5px;color:var(--dim);overflow-x:auto}
-.techbody h4{font-size:13px;color:var(--fg);margin:14px 0 7px}
-.techbody table{border-collapse:collapse;font-size:12px;width:100%}
-.techbody th,.techbody td{border-bottom:1px solid var(--line);padding:5px 9px;text-align:right;white-space:nowrap}
-.techbody th:first-child,.techbody td:first-child{text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace}
-.techbody code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--neutral-soft);
-  padding:1px 5px;border-radius:4px}
-.loading{padding:60px;text-align:center;color:var(--dim)}
-.err{padding:24px;color:var(--warn)}
 @media (max-width:720px){
   .posrow{grid-template-columns:74px 1fr 84px;gap:9px}
   .poshuman{display:none}
-  .vproblem{font-size:24px}
-  .verdict{flex-direction:column;gap:11px}
-  .sec{padding:18px 16px}
   #chart{height:300px}
 }
 </style>
@@ -379,6 +291,8 @@ function drawChart(){
   CHART = echarts.init(el, null, {renderer: 'canvas'});
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';
   const axis = dark ? '#98a1ae' : '#6b7480', spl = dark ? '#262b36' : '#eef0f4';
+  // canvas 不认 CSS 变量：同类区间包络色必须给字面 rgba
+  const envColor = dark ? 'rgba(91,141,255,.16)' : 'rgba(43,108,255,.12)';
   const xs = c.you.map((_, i) => i);
   const dur = c.duration || 0;
   const bandArea = (c.bands || []).map(b => ([
@@ -391,7 +305,7 @@ function drawChart(){
     {name: '_p25', type: 'line', stack: 'env', data: c.p25, showSymbol: false, silent: true,
      lineStyle: {opacity: 0}, areaStyle: {opacity: 0}, tooltip: {show: false}},
     {name: '同类常见区间', type: 'line', stack: 'env', data: c.p75.map((v, i) => Math.max(0, v - c.p25[i])),
-     showSymbol: false, silent: true, lineStyle: {opacity: 0}, areaStyle: {color: 'var(--envelope)'}},
+     showSymbol: false, silent: true, lineStyle: {opacity: 0}, areaStyle: {color: envColor}},
     {name: '同类中位', type: 'line', data: c.median, showSymbol: false, z: 3,
      lineStyle: {width: 2, type: 'dashed', color: axis}},
     {name: '你', type: 'line', data: c.you, showSymbol: false, z: 5, smooth: 0,

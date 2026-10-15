@@ -228,3 +228,25 @@ def sim_label(p):
     if p >= 50:
         return '节奏有点像'
     return '节奏略有相似'
+
+
+# 分区"性格"短词（用于"这个分区的观众习惯"一句话；主视图用）
+TRAIT = {
+    'opening_5pct':    ('开场就炸', '开场慢热'),
+    'mid_ratio':       ('中段稳', '中段掉'),
+    'ending_5pct':     ('收尾有人接', '收尾掉得快'),
+    'rhythm_entropy':  ('弹幕铺得平', '高潮很集中'),
+    'burst_cv':        ('大起大落', '四平八稳'),
+    'peak_cnt':        ('多点开花', '爆点少'),
+    'early_lag_ratio': ('观众来得快', '观众来得慢'),
+    'dm_per_min':      ('热闹', '冷清'),
+    'avg_text_len':    ('观众爱打字', '只刷短弹幕'),
+    'main_peak_pct':   ('爆点靠后', '爆点靠前'),
+}
+
+
+def trait_of(dim, z):
+    # TRAIT 的顺序是 (高, 低)——别解包反了（曾因此把"热闹"的分区判成"冷清"）
+    hi, lo = TRAIT.get(dim, (dim, dim))
+    return hi if z > 0 else lo
+
