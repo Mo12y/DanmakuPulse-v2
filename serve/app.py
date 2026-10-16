@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, quote
 import psycopg
 import auth
 import diagnosis
+import live_diag
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
@@ -593,6 +594,20 @@ def v3_partitions(resp: Response):
     rows = diagnosis.partition_list()
     return ok(resp, rows, meta={'n': len(rows)}, cache=False)
 
+
+@app.get('/api/live_diagnose')
+def api_live_diagnose(resp: Response, bvid: str = Query(..., min_length=6, max_length=16)):
+    '''库外 bvid 的在线诊断：实时采集 → 本地算指纹 → 与库内基线比对。
+
+    已经是库里那 803 支的直接返回库内结果（库内那份含刷量排除，更准）。
+    采集不到 / 池子过期 / 被限流，一律抛明确错误，**绝不静默回退到别的视频**。
+    '''
+    bvid = bvid.strip()
+    try:
+        card, meta = live_diag.diagnose_live(bvid)
+    except live_diag.LiveError as e:
+        raise HTTPException(422, e.msg)
+    return ok(resp, card, meta=dict(meta, n=1), cache=False)
 
 @app.get('/api/v3/deviation')
 def api_v3_deviation(resp: Response):

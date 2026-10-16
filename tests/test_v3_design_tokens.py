@@ -208,3 +208,24 @@ def test_no_stale_color_words_in_copy():
             if w in txt:
                 bad.append('%s: %s' % (n, w))
     assert not bad, '图注/文案里出现旧配色词（现行配色无橙色系）：%s' % bad
+
+
+def test_dockerfile_copies_every_serve_module():
+    """Dockerfile 必须把所有 serve/*.py 拷进镜像。
+
+    2026-10-16 实测踩过：新增 live_diag.py 但 Dockerfile 用显式文件清单、漏登记 ->
+    容器起来就 ModuleNotFoundError 反复重启。这类漏项不会自己暴露（本地 import 一切正常），
+    所以钉一条守卫：serve/ 下每个 .py 都要么被通配符覆盖，要么出现在 COPY 行里。
+    """
+    import glob
+    import re
+    df = io.open(os.path.join(ROOT, 'serve', 'Dockerfile'), encoding='utf-8').read()
+    copy_lines = [l for l in df.split(chr(10)) if l.strip().upper().startswith('COPY')]
+    wildcard = any(re.search(r'COPY\s+\*\.py', l) for l in copy_lines)
+    mods = [os.path.basename(p) for p in glob.glob(os.path.join(ROOT, 'serve', '*.py'))]
+    if wildcard:
+        return
+    joined = ' '.join(copy_lines)
+    missing = [m for m in mods if m not in joined]
+    assert not missing, ('serve/Dockerfile 没把这些模块拷进镜像：%s —— 容器会 ModuleNotFoundError。'
+                         '要么加进 COPY 行，要么改用 COPY *.py ./' % missing)

@@ -83,6 +83,20 @@
 .jump:hover{background:var(--accent-soft);border-radius:4px}
 .vproblem .jump{border-bottom-width:2px}
 .jumphint{font-size:12.5px;color:var(--text-tertiary);margin-top:6px}
+/* 在线诊断徽章（库外视频）：把"这是现采的、与库内差在哪"摆在最上面 */
+.livebar{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:8px;
+  padding:10px 14px;font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7}
+.ltag{display:inline-block;background:var(--accent);color:var(--on-accent);font-size:11px;
+  font-weight:700;border-radius:999px;padding:2px 8px;margin-right:8px;vertical-align:1px}
+.livenotes{margin:0 0 12px;padding:0 0 0 18px;font-size:12px;color:var(--text-secondary);line-height:1.85}
+.livenotes li{margin-bottom:2px}
+/* 点击互动：滚过去的区块闪一下，让"跳到哪了"看得见（§1.2.3 C4：只动 opacity/背景，不动布局） */
+.flash{border-radius:8px;animation:v3flash 1.4s ease-out}
+@keyframes v3flash{
+  0%,26%{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-line)}
+  100%{background:transparent;box-shadow:0 0 0 0 transparent}
+}
+
 /* ML 可信度三签名（精确 / 出处 / 诚实）——都在主视图，不藏技术层 */
 .devnum{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin:8px 0 4px;
   font-size:13px;color:var(--text-secondary)}
@@ -163,28 +177,107 @@
     <div class="wrap">
 
   <div class="toolbar">
-    <input id="search" placeholder="搜标题 / 分区 / BV号" style="flex:1 1 220px;min-width:170px">
-    <select id="picker" style="flex:1 1 280px;min-width:190px"></select>
+    <input id="search" placeholder="输入 BV 号诊断任意视频（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
+    <button class="btn" id="showList" title="展开库内视频下拉列表">从列表里挑</button>
+    <select id="picker" style="flex:1 1 280px;min-width:190px" hidden></select>
     <button class="btn" id="randBtn" title="随机换一支同类视频">随机一支</button>
     <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
     <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
     <button class="btn" id="printBtn" title="按 A4 打印或导出 PDF（工具栏与技术层不印）">打印 / 导出 PDF</button>
   </div>
 
+  <div id="livebadge" hidden></div>
+
   <nav class="rail" id="rail" aria-label="诊断卡段落导航" hidden></nav>
 
   <div class="card" id="shot">
     <div id="content"><div class="loading">正在加载诊断快照…</div></div>
   </div>
-
-  <details class="tech" id="techbox">
-    <summary>技术详情（口径 / 原始特征 / 算法参数 —— 主视图不显示这些术语）</summary>
-    <div class="techbody" id="techbody"></div>
-  </details>
 </div>
 
 <script>
 const $ = s => document.querySelector(s);
+
+/* ══════════════════════════════════════════════════════════════
+   在线诊断（库外 bvid）：真的去采集这支视频，而不是加载别的视频
+   ══════════════════════════════════════════════════════════════ */
+var LIVE = null;          // 在线元信息（采集条数/时间/诚实说明）；库内视频为 null
+var liveTimer = null;
+
+function isBv(s){ return /^BV[0-9A-Za-z]{10}$/.test(s); }
+
+function setLiveBadge(meta){
+  LIVE = meta;
+  var el = document.getElementById('livebadge');
+  if (!el) return;
+  if (!meta || !meta.live) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = '<div class="livebar"><span class="ltag">在线采集</span>' +
+    '这不是库内视频：本次实时采到 <b>' + meta.n_collected + '</b> 条弹幕（' + meta.segments + ' 段）' +
+    '，采集于 ' + esc(meta.collected_at) + '。</div>' +
+    '<ul class="livenotes">' + (meta.notes || []).map(function(n){
+      return '<li>' + n.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</li>'; }).join('') + '</ul>';
+}
+
+function loadLive(bvid){
+  $('#content').innerHTML = '<div class="loading">正在采集这支视频的弹幕并算节奏…' +
+    '<br><span style="font-size:12px">库外视频走在线采集（几秒到十几秒），采完再与库内基线比对</span></div>';
+  document.getElementById('rail') && (document.getElementById('rail').hidden = true);
+  fetch('/api/live_diagnose?bvid=' + encodeURIComponent(bvid), { cache: 'no-store' })
+    .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
+    .then(function(o){
+      if (o.s !== 200 || o.j.code !== 0) {
+        liveFail(bvid, (o.j && (o.j.detail || o.j.error)) || ('HTTP ' + o.s));
+        return;
+      }
+      CUR = o.j.data;
+      setName(true);
+      var u = new URLSearchParams(location.search);
+      u.set('bvid', bvid); u.delete('drill'); u.delete('bench'); u.delete('act');
+      history.replaceState(null, '', '?' + u.toString());
+      LIVE = o.j.meta;
+      DIGEST = null;
+      api('/api/danmaku_digest?bvid=' + encodeURIComponent(bvid)).then(function(x){ DIGEST = x; }).catch(function(){});
+      render();
+      setLiveBadge(o.j.meta);
+    })
+    .catch(function(e){ liveFail(bvid, e.message); });
+}
+
+function liveFail(bvid, msg){
+  LIVE = null;
+  $('#content').innerHTML =
+    '<div class="empty">' +
+      '<h2>这支视频诊断不了</h2>' +
+      '<p><b>' + esc(bvid) + '</b><br>' + esc(msg) + '</p>' +
+      '<p style="font-size:13px;color:var(--text-secondary)">在线诊断需要现场采集弹幕；' +
+      '采不到就没有节奏可算。<b>本系统不会拿别的视频冒充它。</b></p>' +
+      '<div class="row">' +
+        '<button class="btn primary" id="lfRetry">重试一次</button>' +
+        '<button class="btn" id="lfPick">从库内列表挑一支</button>' +
+      '</div></div>';
+  document.getElementById('lfRetry').onclick = function(){ loadLive(bvid); };
+  document.getElementById('lfPick').onclick = function(){ revealPicker(); };
+}
+
+function revealPicker(){
+  var p = document.getElementById('picker');
+  if (!p) return;
+  p.hidden = false;
+  p.focus();
+}
+
+/* 点击互动：平滑滚动 + 闪一下（视觉强引导）。点了不动是 bug，不是"设计克制"。 */
+function focusSection(id){
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.classList.remove('flash');
+  void el.offsetWidth;                    // 强制回流，保证连续点击也能重放动画
+  el.classList.add('flash');
+  setTimeout(function(){ el.classList.remove('flash'); }, 1400);
+}
+
 const api = async p => { const r = await fetch(p);
   if (!r.ok) { const j = await r.json().catch(() => ({}));
     const e = new Error(j.detail || ("HTTP " + r.status)); e.status = r.status; throw e; }
@@ -210,7 +303,10 @@ const EXAMPLE = {bvid: 'BV1PJpE6QEx6', why: '电子竞技区，开场吸引力�
       setName(true);
       await load(want);
     } else if (want) {
-      setName(true); notFound(want);   // 给了 BV 号但快照里没有 -> 明确说没找到
+      // 库外 BV 号：走**在线采集**真的诊断它（P0 核心修复）。
+      // 旧行为是回一句「没找到」或（更早）默默加载一支无关的库内视频。
+      setName(true);
+      await loadLive(want);
     } else {
       emptyState();
     }
@@ -221,6 +317,7 @@ const EXAMPLE = {bvid: 'BV1PJpE6QEx6', why: '电子竞技区，开场吸引力�
 
 /* 工具条上的按钮只在真的有卡片时才出现 */
 function setName(has){
+  var lb = document.getElementById('livebadge'); if (lb && !has) { lb.hidden = true; lb.innerHTML = ''; }
   ['#favBtn', '#shotBtn', '#randBtn'].forEach(function(k){
     const el = $(k); if (el) el.classList.toggle('hideWhenEmpty', !has);
   });
@@ -289,12 +386,26 @@ function fillPicker(){
   $('#picker').innerHTML = h;
 }
 $('#picker').onchange = e => load(e.target.value);
+/* 输入处理（2026-10-16 重写）
+   ⚠️ 旧实现的 bug：拿输入当**子串**去模糊匹配库内 bvid ——
+      输一个库外 BV 号，find 返回空、什么都不发生；输 'BV1' 这种前缀，
+      会默默加载库里第一支含 'BV1' 的视频。看起来像"诊断了"，其实诊断的不是它。
+   现在：完整 BV 号 → 库内直读 / 库外**在线采集**；非 BV 号 → 按标题/分区模糊匹配。 */
 $('#search').oninput = e => {
-  const q = e.target.value.trim().toLowerCase();
-  const hit = !q ? IDX[0] : IDX.find(x => x.bvid.toLowerCase().includes(q) ||
-      (x.title || '').toLowerCase().includes(q) || (x.tname || '').toLowerCase().includes(q));
-  if (hit) { $('#picker').value = hit.bvid; load(hit.bvid); }
+  const raw = e.target.value.trim();
+  const q = raw.toLowerCase();
+  if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
+  if (!q) return;
+  if (isBv(raw)) {
+    if (IDX.some(x => x.bvid === raw)) { $('#picker').value = raw; setName(true); load(raw); }
+    else { liveTimer = setTimeout(() => loadLive(raw), 500); }   // 打字中途别每键都发采集请求
+    return;
+  }
+  const hit = IDX.find(x => (x.title || '').toLowerCase().includes(q) ||
+                            (x.tname || '').toLowerCase().includes(q));
+  if (hit) { $('#picker').value = hit.bvid; setName(true); load(hit.bvid); }
 };
+$('#showList').onclick = () => revealPicker();
 $('#randBtn').onclick = () => {
   const x = IDX[Math.floor(Math.random() * IDX.length)];
   $('#picker').value = x.bvid; load(x.bvid);
@@ -361,14 +472,9 @@ function render(){
   $('#content').innerHTML = verdictHTML(d) + positionHTML(d) + chartHTML(d) + devHTML(d) + benchHTML(d) + actionHTML(d);
   bind();
   drawChart();
-  if (d.tech) drawTech(d); else { const tb = document.getElementById('techbox'); if (tb) tb.remove(); }
+
   refreshFav();
   initNarrative();   // 必须在深链接分支之前 —— 否则 ?drill=/?bench= 进来时导轨不出现
-  // 深链接：?tech=1 展开技术层（**仅管理员**；普通用户后端根本不下发 tech，这里自然拿不到）
-  if (new URLSearchParams(location.search).get('tech') === '1') {
-    const tb = document.getElementById('techbox');
-    if (tb) { tb.open = true; if (window.V3 && V3.markUrl) V3.markUrl(); }
-  }
   // 深链接：?drill=N / ?bench=N / ?act=N 直接落到某个交互状态
   // （用户能把"看这条证据"的链接发给别人；也让自动化截图能核验）
   const usp = new URLSearchParams(location.search);
@@ -708,6 +814,11 @@ function bind(){
   });
   document.querySelectorAll('.act[data-act]').forEach(el => el.onclick = () => runAction(+el.dataset.act));
   document.querySelectorAll('.bcard').forEach(el => el.onclick = () => selectBench(+el.dataset.bench, true));
+  // 结论里的关键词（带下划线）：之前**根本没绑事件**，点了不动 —— 这是 bug 不是克制
+  document.querySelectorAll('.jump[data-jump]').forEach(el => {
+    el.onclick = () => drillDeviation(+el.dataset.jump, true);
+    el.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); drillDeviation(+el.dataset.jump, true); } };
+  });
   document.querySelectorAll('.chip[data-peak]').forEach(el => el.onclick = () => {
     const pct = +el.dataset.peak;
     const i = (CUR.curve.peaks || []).findIndex(p => p.pct === pct);
@@ -732,8 +843,8 @@ function drillDeviation(i, scroll){
   const seg = FOCUS || [0, 100];
   $('#cap').innerHTML = '<b>' + esc(x.label) + '</b>：' + esc(x.compare_text) +
     '　<span style="color:var(--text-secondary)">高亮段 = 上图的粉色区域（' + esc(x.drill_seg_name || '') + '）</span>';
-  const anchor = scroll ? $('#sec-verdict') : $('#sec-curve');
-  if (anchor) anchor.scrollIntoView({behavior: 'smooth', block: 'start'});
+  // 滚动到**看图看证据的地方**（曲线段），并在弹幕面板出来后把面板也带进视野
+  if (scroll) setTimeout(() => { focusSection('sec-curve'); setTimeout(() => focusSection('dmbox'), 520); }, 60);
   setTimeout(() => loadDanmaku(x, seg), scroll ? 420 : 0);
 }
 
@@ -836,138 +947,8 @@ function initNarrative(){
 }
 
 /* 技术层的敏感性滑块：拖一下看结论稳不稳（只在这里，主卡没有） */
-function wireSensitivity(d){
-  const sv = (d.tech || {}).sensitivity; if (!sv) return;
-  const th = $('#thRange'), zr = $('#zRange'), kr = $('#kRange');
-  // URL 可预置滑块（?tech=1&theta=3&z=20&k=8）—— 答辩时能直接给出某个参数下的样子，也便于自动核验
-  const usp = new URLSearchParams(location.search);
-  if (th && usp.get('theta') != null) th.value = usp.get('theta');
-  if (zr && usp.get('z') != null) zr.value = usp.get('z');
-  if (kr && usp.get('k') != null) kr.value = usp.get('k');
-  if (th) {
-    const paint = () => {
-      const row = sv.theta.rows[+th.value]; if (!row) return;
-      $('#thOut').textContent = row.theta.toFixed(2);
-      const zero = sv.theta.total_vb - row.vb;
-      const cur = Math.abs(row.theta - sv.theta.current) < 1e-9;
-      $('#thBody').innerHTML = '检出 <b>' + row.events.toLocaleString() + '</b> 个爆点 ｜ 覆盖 <b>' +
-        row.vb + '</b> 个视频-批次（' + row.cover + '%）｜ 零事件的 <b>' + zero + '</b> 个' +
-        (cur ? ' <span class="cur">← 现行值</span>' : '');
-    };
-    th.oninput = paint; paint();
-  }
-  if (zr) {
-    const paint = () => {
-      const z = (+zr.value) / 10;
-      $('#zOut').textContent = z.toFixed(1);
-      let row = sv.z.rows[0];
-      sv.z.rows.forEach(r => { if (Math.abs(r.z - z) < Math.abs(row.z - z)) row = r; });
-      $('#zBody').innerHTML = '全市场 <b>' + row.n + '</b> 支（' + row.pct + '%）会被判"有偏离" —— ' +
-        '阈值越低，偏离卡越多、也越不稀奇';
-    };
-    zr.oninput = paint; paint();
-  }
-  if (kr) {
-    const paint = () => {
-      const k = +kr.value;
-      $('#kOut').textContent = k;
-      let row = null;
-      sv.knn.rows.forEach(r => { if (r.k <= k && (!row || r.k > row.k)) row = r; });
-      if (!row) { $('#kBody').textContent = '这个分区里没有那么多相似候选'; return; }
-      $('#kBody').innerHTML = '第 <b>' + row.k + '</b> 近的相似度 <b>' + row.sim_pct + '%</b>' +
-        (row.sim_pct < 50 ? ' —— 再往外就不像了，所以只展示 3 支' : ' —— 还有余量');
-    };
-    kr.oninput = paint; paint();
-  }
-}
 
 /* 折叠技术层 */
-function drawTech(d){
-  const t = d.tech, m = t.snapshot_meta || {};
-  const f = t.raw_features || {}, p = t.percentiles || {}, o = t.outcome_raw || {};
-  const rows = Object.keys(f).map(k =>
-    '<tr><td>' + esc(k) + '</td><td>' + (f[k] == null ? '—' : (+f[k]).toFixed(4)) + '</td>' +
-    '<td>' + (p[k] == null ? '—' : p[k] + '%') + '</td>' +
-    '<td>' + (t.raw_shape && t.raw_shape[k] != null
-      ? (+t.raw_shape[k]).toFixed(4) + ' <span style="color: var(--accent-ink)">← 进相似检索</span>' : '—') + '</td></tr>').join('');
-  $('#techbody').innerHTML =
-    '<h4>口径</h4><table>' +
-    '<tr><th>项</th><th>值</th></tr>' +
-    '<tr><td>业务语言词典版本</td><td>' + esc(t.dict_version) + '</td></tr>' +
-    '<tr><td>引擎版本</td><td>' + esc(t.engine_version) + '</td></tr>' +
-    '<tr><td>偏离判定</td><td>' + esc(t.z_formula) + '</td></tr>' +
-    '<tr><td>曲线归一</td><td>' + esc(t.curve_norm) + '</td></tr>' +
-    '<tr><td>相似度度量</td><td>' + esc(t.similarity_metric) + '</td></tr>' +
-    '<tr><td>分区 / 样本量</td><td>' + esc(t.partition || '—') + ' / ' + (t.partition_n || '—') +
-      (t.partition_used_full_sample ? '（样本不足，回退全样本）' : '') + '</td></tr>' +
-    '<tr><td>形状签名维度</td><td>' + (t.shape_dims || []).join(', ') + '</td></tr>' +
-    '<tr><td>快照生成时间</td><td>' + esc(m.generated_at || '') + '</td></tr>' +
-    '<tr><td>快照行数</td><td>' + (m.n_videos || '') + ' 视频-批次 / ' + (m.n_events || '') + ' 事件</td></tr>' +
-    '<tr><td>来源表</td><td>' + (m.source_tables || []).join(' → ') + '</td></tr>' +
-    '</table>' +
-    '<h4>本视频原始特征 / 分区内百分位 / 是否进入相似检索</h4>' +
-    '<table><tr><th>特征</th><th>原始值</th><th>分区内百分位</th><th>节奏签名</th></tr>' + rows + '</table>' +
-    '<h4>结果变量（后续表现）</h4><table><tr><th>变量</th><th>值</th></tr>' +
-    Object.keys(o).map(k => '<tr><td>' + esc(k) + '</td><td>' + (o[k] == null ? '—' : o[k]) + '</td></tr>').join('') +
-    '</table>' +
-    '<h4>业务语言词典对照（主视图只会出现右列）</h4>' +
-    '<table><tr><th>技术指标</th><th>人话说法</th><th>主视图用法</th></tr>' +
-    (t.dict_map || []).map(x => '<tr><td>' + esc(x.tech) + '</td><td>' + esc(x.label) + '</td><td>' +
-      (x.display ? '主视图显示人话' : '只在技术层') + ' ｜ ' +
-      (x.direction === 'evidence' ? '有方向（控龄关联）' : '中性差异（无好坏证据）') + '</td></tr>').join('') +
-    '</table>' +
-    '<h4>参数敏感性（拖一下看结论稳不稳 · 主卡不出现）</h4>' +
-    (function(){
-      const sv = t.sensitivity; if (!sv) return '<div>无敏感性数据。</div>';
-      return '<div class="sensrow"><span class="sl">融合阈值 θ = <b id="thOut">' + sv.theta.current.toFixed(2) + '</b></span>' +
-        '<input type="range" id="thRange" min="0" max="10" step="1" value="5">' +
-        '<span class="sensout" id="thBody"></span></div>' +
-      '<div class="sensrow"><span class="sl">偏离阈值 z = <b id="zOut">3.5</b></span>' +
-        '<input type="range" id="zRange" min="10" max="40" step="5" value="35">' +
-        '<span class="sensout" id="zBody"></span></div>' +
-      '<div class="sensrow"><span class="sl">相似对标取 K = <b id="kOut">3</b></span>' +
-        '<input type="range" id="kRange" min="1" max="20" step="1" value="3">' +
-        '<span class="sensout" id="kBody"></span></div>' +
-      '<div style="margin-top:6px;color:var(--text-secondary)">上面三个滑块改的都是<b>本页真正用到的参数</b>：' +
-        'θ 只影响"有没有检出爆点"（结论区/定位/偏离/对标都不依赖它）；' +
-        'z 是偏离卡的入选闸门；K 只影响相似对标取几支。</div>' +
-      '<h4>批次敏感性</h4>' +
-      (function(){
-        const b = sv.batch;
-        if (!b) return '<div>这支视频只出现在 <b>1 个批次</b>，做不了跨批对照。' +
-          '全库 803 支里有 ' + sv.batch_stability.n_multi + ' 支出现在 ≥2 个批次。' +
-          '跨批稳定性实测：形状签名 <b>within 中位 ' + sv.batch_stability.within_median +
-          '</b> vs between 中位 ' + sv.batch_stability.between_median +
-          '（between P90 ' + sv.batch_stability.between_p90 + '）⇒ 结论不会被批次换掉。</div>';
-        return '<div style="margin-bottom:6px">批次敏感性：同一支视频换批次后诊断结论的变化' +
-          '（本支出现在 <b>' + b.n_batches + '</b> 个批次：' +
-          (b.stable ? '<b style="color:var(--success)">结论一致</b>' : '<b style="color:var(--danger-ink)">结论有变化</b>') +
-          '）</div><table><tr><th>批次</th><th>5 秒结论</th><th>最显著偏离维</th><th>同类百分位</th><th>弹幕数</th></tr>' +
-          b.rows.map(r => '<tr><td>' + esc(r.batch_date) + '</td><td>' + esc(r.problem) + '</td><td>' +
-            esc(r.top_label) + esc(r.top_pole) + '</td><td>' + (r.pct == null ? '—' : r.pct + '%') +
-            '</td><td>' + (r.n_danmaku || '—') + '</td></tr>').join('') + '</table>';
-      })();
-    })() +
-    '<h4>结果对参数的敏感性（给答辩看，不进主卡）</h4><table>' +
-    '<tr><th>参数 / 尺度</th><th>实测</th><th>对本页的影响</th></tr>' +
-    '<tr><td>分桶尺度 5s→15/30/60s</td><td>551 个事件仍是局部极大的比例：99.6% / 92.1% / 87.5% / <b>80.0%</b></td>' +
-      '<td>约 <b>1/5 的事件属"细粒度现象"</b>（5 秒尺度是峰、1 分钟尺度只是波动的一部分）。本页"爆点"标记与"点爆点看弹幕"受此限制</td></tr>' +
-    '<tr><td>融合阈值 fusion_theta=0.5</td><td>只保留全部候选的 <b>3.95%</b>；<b>43.4%（363 个）视频-批次零事件</b>；θ=0.3 时零事件降到 6.2%</td>' +
-      '<td>只影响"有没有检出爆点"。<b>结论区、定位、偏离、相似对标都不依赖 θ</b>（用的是指纹表与分区基准）</td></tr>' +
-    '<tr><td>"峰"的定义常数</td><td>d3_gap_min=10（50 秒最小峰距）、flux_win=3（15 秒窗）、fusion_theta=0.5 —— <b>三个都未标定</b></td>' +
-      '<td>论文必须声明尺度：本系统的"节奏事件"= 5 秒桶尺度上超出局部基线 2√λ 的显著峰</td></tr>' +
-    '<tr><td>低弹幕量噪声</td><td>41.5% 的视频-批次桶内均值 λ&lt;10，相对噪声 1/√λ ≥ 38%</td>' +
-      '<td>这些视频的小峰需按"峰高−局部基线 &gt; 2√λ"过滤后再看</td></tr>' +
-    '</table>' +
-    '<div style="margin-top:8px">出处：docs/05-新系统重构/22_theta敏感性扫描.md §1·§2、24_分桶合理性与多尺度稳定性.md §2·§3·§4。' +
-    '这两项（θ 扫描、多尺度稳定性）是<b>严谨性展示</b>，所以只放在这里，不放主卡。</div>' +
-    '<h4>已知边界</h4><div>· 形状维（开场/中段/收尾/起伏/高潮）与后续热度没有稳定关联（32 号 P6：量&gt;形状），' +
-    '所以主视图把它们标成"中性差异"，只讲事实不讲对错。<br>' +
-    '· 结果变量（上榜跨度 / 热度半衰期）覆盖不全，只有部分视频有；没有时如实写"暂无后续追踪数据"。<br>' +
-    '· 被连续追踪天数（n_days_obs）是采集属性，30 号 N2 已证其标签污染，<b>不作为"后来怎样"</b>。<br>' +
-    '· 方向只来自 32 号 P3 控龄偏相关（BH-FDR 0.05），不做因果承诺。</div>';
-  wireSensitivity(d);   // 技术层的滑块在这里接上（主卡没有这些控件）
-}
 </script>
     </div>
   </div>
