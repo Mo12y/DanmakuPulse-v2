@@ -202,8 +202,8 @@ def _mmss(sec):
     return '%02d:%02d' % (s // 60, s % 60)
 
 
-def _curve_block(rec, base, key):
-    snap = _load()
+def _curve_block(rec, base, key, snap=None):
+    snap = snap if snap is not None else _load()
     raw = snap['curves'].get(key)
     if not raw or not base:
         return None
@@ -321,7 +321,8 @@ def _pick_deviations(rec, base, pct_map):
     return pool[:4]
 
 
-def _deviations(rec, base, pct_map, benchmarks):
+def _deviations(rec, base, pct_map, benchmarks, snap=None):
+    snap = snap if snap is not None else _load()
     n_peers = int((base or {}).get('n') or 0) or 25
     out = []
     for a, z, dim in _pick_deviations(rec, base, pct_map):
@@ -330,7 +331,7 @@ def _deviations(rec, base, pct_map, benchmarks):
         med = base['feats'][dim]['med']
         pct = pct_map.get(dim)
         direction, human = _direction(dim, z)
-        drill = _drill_seg(_load(), rec, base, dim, z)
+        drill = _drill_seg(snap, rec, base, dim, z)
         bench = None
         for b in benchmarks:
             if dim in (b.get('_learn_dim'), b.get('_diff_dim')):
@@ -350,7 +351,7 @@ def _deviations(rec, base, pct_map, benchmarks):
             'drill_seg': drill[0],
             'drill_seg_name': ('第 %d–%d%%' % (drill[0][0], drill[0][1])),
             'drill_why': drill[1] or ('词典给这一维定的观察窗口是「%s」' % d['seg_name']),
-            'peer_count': (round(segment_peer_count(_load(), rec.get('tname'),
+            'peer_count': (round(segment_peer_count(snap, rec.get('tname'),
                                                     drill[0][0], drill[0][1],
                                                     exclude=rec['bvid']) or 0) or None),
             'value': round(v, 6) if v is not None else None,
@@ -478,8 +479,8 @@ def _gap_text(dim, v, med):
     return '比同类中位%s约 %d%%' % ('高' if r > 1 else '低', round(abs(r - 1) * 100))
 
 
-def _benchmarks(rec, base, pool_idx):
-    snap = _load()
+def _benchmarks(rec, base, pool_idx, snap=None):
+    snap = snap if snap is not None else _load()
     sd = snap['meta']['shape_dims']
     you = _shape_z(rec, base, snap['global_shape'])
     my_rank = _outcome_rank(rec.get('outcome'))
@@ -639,8 +640,8 @@ def _wan(v):
     return ('%.1f 万' % (v / 10000.0)) if v >= 10000 else ('%d' % round(v))
 
 
-def _position(rec, base, pct_map, pool_idx, partition_ok):
-    snap = _load()
+def _position(rec, base, pct_map, pool_idx, partition_ok, snap=None):
+    snap = snap if snap is not None else _load()
     main = 'dm_per_min'
     vals = sorted((snap['videos'][i]['f'].get(main) for i in pool_idx
                    if snap['videos'][i]['f'].get(main) is not None), reverse=True)
@@ -782,8 +783,10 @@ def _verdict(rec, position, deviations, benchmarks, partition_ok):
     }
 
 
-def diagnose(bvid, batch_date=None):
-    snap = _load()
+def diagnose(bvid, batch_date=None, snap=None):
+    # snap 可选：在线诊断（serve/live_diag.py）把算好的库外视频注入一份影子快照后复用本函数，
+    # 这样参照系 / 稳健 z / 百分位 / kNN / 结论 / 行动全部走库内同一套口径，不另写一份。
+    snap = snap if snap is not None else _load()
     key = '%s|%s' % (bvid, batch_date) if batch_date else None
     if key and key in snap['by_key']:
         idx = snap['by_key'][key]
@@ -800,11 +803,11 @@ def diagnose(bvid, batch_date=None):
     same_t = [i for i, v in enumerate(snap['videos']) if v.get('tname') == tname] if tname else []
     pool_idx = same_t if len(same_t) >= 8 else list(range(len(snap['videos'])))
     pct_map = {k: v for k, v in (rec.get('pct') or {}).items() if v is not None}
-    benchmarks = _benchmarks(rec, base if partition_ok else None, pool_idx)
+    benchmarks = _benchmarks(rec, base if partition_ok else None, pool_idx, snap=snap)
     knn_scope = (tname if len(same_t) >= 8 else '全体样本')
-    deviations = _deviations(rec, base, pct_map, benchmarks)
-    curve = _curve_block(rec, base, '%s|%s' % (bvid, rec['batch_date']))
-    position = _position(rec, base, pct_map, pool_idx, partition_ok)
+    deviations = _deviations(rec, base, pct_map, benchmarks, snap=snap)
+    curve = _curve_block(rec, base, '%s|%s' % (bvid, rec['batch_date']), snap=snap)
+    position = _position(rec, base, pct_map, pool_idx, partition_ok, snap=snap)
     verdict = _verdict(rec, position, deviations, benchmarks, partition_ok)
     return {
         'video': {

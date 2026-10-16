@@ -129,7 +129,7 @@ body {
 }
 
 /* 数字一律等宽对齐（§3） */
-.num, .posval, .dmline .dt, .sensrow .sl b, .stat .v { font-variant-numeric: tabular-nums; }
+.num, .posval, .dmline .dt, .stat .v { font-variant-numeric: tabular-nums; }
 
 .wrap { max-width: 1000px; margin: 0 auto; }
 
@@ -207,35 +207,6 @@ a:hover { text-decoration: underline; }
 .vdetail { font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
 .video { font-size: 12px; color: var(--text-tertiary); margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
 
-/* ── 技术层折叠（主视图零术语；技术名只允许出现在这里）────── */
-details.tech { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--card); box-shadow: var(--shadow); }
-details.tech > summary { cursor: pointer; padding: 16px 24px; font-size: 13px; font-weight: 600;
-  color: var(--text-secondary); list-style: none; }
-details.tech > summary::-webkit-details-marker { display: none; }
-details.tech > summary::before { content: "▸ "; color: var(--accent-ink); }
-details.tech[open] > summary::before { content: "▾ "; }
-.techbody { padding: 4px 24px 24px; font-size: 12px; color: var(--text-secondary); overflow-x: auto; }
-.techbody h4 { font-size: 13px; color: var(--text); margin: 16px 0 8px; font-weight: 600; }
-.techbody table { border-collapse: collapse; font-size: 12px; width: 100%; }
-.techbody th, .techbody td { border-bottom: 1px solid var(--border-subtle); padding: 6px 8px;
-  text-align: right; white-space: nowrap; }
-.techbody th:first-child, .techbody td:first-child { text-align: left;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.techbody code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  background: var(--surface-soft); padding: 2px 4px; border-radius: 4px; }
-
-/* ── 参数敏感性控件（只在技术层；§1.2.3 C4：不动画布局属性）── */
-.sensrow { display: grid; grid-template-columns: 160px 160px 1fr; gap: 12px; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13px; }
-.sensrow:last-child { border-bottom: 0; }
-.sensrow input[type=range] { width: 144px; accent-color: var(--accent); }
-.sensrow .sl { color: var(--text); font-weight: 600; }
-.sensrow .sl b { color: var(--accent-ink); }
-.sensout { color: var(--text-secondary); }
-.sensout b { color: var(--text); }
-.sensout .cur { color: var(--accent-ink); font-weight: 600; }
-
 /* ── 空状态（§7 三态之「空」）───────────────────────────── */
 .empty { padding: 56px 24px; text-align: center; }
 .empty h2 { font-size: 22px; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.01em; }
@@ -255,7 +226,6 @@ details.tech[open] > summary::before { content: "▾ "; }
   .vproblem { font-size: 22px; }
   .verdict { flex-direction: column; gap: 12px; }
   .sec { padding: 16px; }
-  .sensrow { grid-template-columns: 1fr; gap: 8px; }
 }
 
 /* §1.2.3 C5：每个 transform / animation 配降级 */
@@ -363,7 +333,6 @@ details.tech[open] > summary::before { content: "▾ "; }
   .main { padding: 0; }
   .wrap { max-width: none; }
   .card { border: 0; box-shadow: none; }
-  details.tech { display: none !important; }   /* 技术层不进纸 */
   a[href]::after { content: ""; }              /* 不把 URL 印出来 */
   .reveal { opacity: 1 !important; transform: none !important; }
 }
