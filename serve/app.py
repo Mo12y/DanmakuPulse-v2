@@ -62,20 +62,47 @@ async def _gate(request: Request, call_next):
     return await call_next(request)
 
 
-def _login_html(next_val, error=None):
+@app.middleware('http')
+async def _api_no_store(request: Request, call_next):
+    # 【类修复】本 API 全部按会话/按用户返回，一律不进缓存。
+    # 起因（2026-10-16 实测）：ok() 默认发 public, max-age=300，
+    # 于是 /api/me 被浏览器缓存 5 分钟 —— admin 退出、新用户登录后，
+    # v3nav.js 再取 /api/me 拿到的是**缓存的 admin**，看起来就是"新用户登录后还是 admin"。
+    # /api/favorites、/api/users 同样带这个头（per-user 数据且 public，更糟）。
+    # 放在中间件而不是逐个端点改：新加端点默认就是对的，不靠人记得。
+    resp = await call_next(request)
+    if request.url.path.startswith('/api/'):
+        resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
+def _login_html(next_val, error=None, current=None):
     html = open(LOGIN_HTML, encoding='utf-8').read()
     esc = (next_val or '/').replace('&', '&amp;').replace('"', '&quot;').replace('<', '&lt;')
     html = html.replace('<!--NEXT-->', esc)
     html = html.replace('<!--ERR-->', ('<div class="lerr">%s</div>' % error) if error else '')
+    html = html.replace('<!--CURRENT-->', current or '')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/login')
 def login_page(request: Request, next: str = Query('/')):
+    '''已登录时**仍然给表单**，只在顶部说明"当前已登录为 X"。
+
+    为什么不再 302 弹回（2026-10-16 修）：用户想"换个账号登录"时，
+    带着 admin cookie 访问 /login 会被静默弹回主站，**根本到不了表单** ——
+    表现和"登录了却没换过来"一模一样。宁可多给一个入口，也不要静默改行为。
+    '''
     nxt = _safe_next(next)
-    if auth.read_session(request.cookies.get(auth.COOKIE_NAME)):
-        return RedirectResponse(nxt, status_code=302)
-    return _login_html(nxt)
+    u = auth.read_session(request.cookies.get(auth.COOKIE_NAME))
+    if not u:
+        return _login_html(nxt)
+    role = '管理员' if u.get('role') == 'admin' else '普通用户'
+    cur = ('<div class="lcur">当前已登录为 <b>%s</b>（%s）。'
+           '继续浏览请 <a href="%s">回到系统</a>；要换账号，请在下面直接登录。'
+           '（<a href="/logout">先退出</a>）</div>'
+           % (u['username'].replace('<', '&lt;'), role, nxt))
+    return _login_html(nxt, current=cur)
 
 
 @app.post('/login')
@@ -233,9 +260,14 @@ def q1(sql, params=()):
     return rows[0] if rows else None
 
 
-def ok(resp: Response, data, meta=None, cache=True):
-    """cache=False 用于诊断类端点：数据虽是静态快照，但后端一改、用户却看 5 分钟旧结果，
-    排查时会被当成"改了没生效"（本轮截图就踩过一次）。"""
+def ok(resp: Response, data, meta=None, cache=False):
+    """默认 no-store。
+
+    这个默认值是被一次真事故改过来的：原本默认 public, max-age=300，
+    于是 /api/me 被浏览器缓存 5 分钟 —— admin 退出、新用户登录后拿到的是缓存的 admin，
+    看起来就是"新用户登录后还是 admin"；/api/favorites、/api/users 同样带这个头。
+    本 API 没有需要缓存的端点，所以默认不缓存；另有中间件对 /api/* 整体兜底。
+    """
     resp.headers['Cache-Control'] = 'public, max-age=300' if cache else 'no-store'
     return {'code': 0, 'data': data, 'meta': meta or {'n': len(data) if isinstance(data, list) else 1}}
 
@@ -449,14 +481,25 @@ def diagnosis_index(resp: Response):
 
 
 @app.get('/api/video/{bvid}/diagnosis')
-def video_diagnosis(bvid: str, resp: Response,
+def video_diagnosis(request: Request, bvid: str, resp: Response,
                     batch_date: str = Query(None, min_length=8, max_length=8)):
-    '''一张诊断卡：定位 / 偏离 / 相似对标 / 一句话结论 + 行动（33 号 §3）'''
+    '''一张诊断卡：定位 / 偏离 / 相似对标 / 一句话结论 + 行动（33 号 §3）
+
+    tech（口径 / 原始特征 / 参数敏感性滑块）= 「系统属性」，**仅管理员**。
+    普通用户拿不到这段：不只是前端不画，后端直接不发 —— 否则 curl 一下就绕过去了。
+    诚实边界（估计值 / 不做因果承诺）已提到主视图常驻，普通用户照样看得到。
+    '''
     d = diagnosis.diagnose(bvid, str(batch_date) if batch_date else None)
     if not d:
         raise HTTPException(404, f'{bvid} 不在节奏诊断快照里（快照覆盖 803 支视频）')
+    u = getattr(request.state, 'user', None) or {}
+    is_admin = u.get('role') == 'admin'
+    dict_v = (d.get('tech') or {}).get('dict_version')
+    if not is_admin:
+        d = {k: v for k, v in d.items() if k != 'tech'}
     return ok(resp, d, meta={'n': 1, 'engine_version': 'b2-v1', 'quality_flag': 'ok',
-                             'dict_version': d['tech']['dict_version']}, cache=False)
+                             'tech_included': is_admin,
+                             'dict_version': dict_v if is_admin else None}, cache=False)
 
 
 @app.get('/api/danmaku_at')
