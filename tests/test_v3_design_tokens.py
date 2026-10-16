@@ -171,3 +171,21 @@ def test_no_pure_black_canvas():
             raise AssertionError('§1#2：token %s 是纯黑' % name)
         if v.upper() in ('#FFFFFF', '#FFF') and name != '--on-accent':
             raise AssertionError('§1#2：token %s 是纯白（只允许 --on-accent）' % name)
+
+
+# ── 5. 图注不得描述已经不存在的颜色 ─────────────────────────
+
+_STALE_COLOR_WORDS = ('橙色', '橘色', '橙黄')
+
+
+def test_no_stale_color_words_in_copy():
+    """配色改过之后，图注里"上图橙色虚线"这类描述会**骗人** —— 比没有图注更糟。
+    现行数据色只有：--primary 蓝 / --accent 粉（该看的地方）/ --chart-axis 灰（参照系）。
+    所以用户可见文案里不该再出现橙色系词。"""
+    bad = []
+    for n in _static_files({'.html'}):
+        txt = _strip_comments(_read(os.path.join(STATIC, n)), '.html')
+        for w in _STALE_COLOR_WORDS:
+            if w in txt:
+                bad.append('%s: %s' % (n, w))
+    assert not bad, '图注/文案里出现旧配色词（现行配色无橙色系）：%s' % bad

@@ -99,7 +99,7 @@ function render(d){
     '</div></div>';
 
   html += '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
-    '<span class="sectitle">这个分区的节奏长什么样</span>' +
+    '<span class="sectitle">分区节奏特征</span>' +
     '<span class="secnote">x 轴 = 播放进度 ｜ y 轴 = 该位置上的弹幕多少</span></div>' +
     '<div class="legend">' +
       '<span><i style="border-color: var(--accent-ink)"></i>' + esc(d.tname) + ' 中位</span>' +
@@ -112,7 +112,7 @@ function render(d){
   d.dims.forEach(function(x){ mxr = Math.max(mxr, Math.abs(x.rel_pct)); });
   if (mxr < 10) mxr = 10;
   html += '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
-    '<span class="sectitle">这个分区跟全市场比，特别在哪</span>' +
+    '<span class="sectitle">与全市场对照</span>' +
     '<span class="secnote">' + esc(d.dims_note) + '</span></div>' +
     d.dims.map(function(x){
       var w = Math.min(50, Math.sqrt(Math.abs(x.rel_pct) / mxr) * 50);
@@ -125,7 +125,7 @@ function render(d){
     }).join('') + '</div>';
 
   html += '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
-    '<span class="sectitle">这个分区里的人</span>' +
+    '<span class="sectitle">分区观众</span>' +
     '<span class="secnote">点任意一支进它的诊断卡</span></div><div class="cols">' +
     col('最热闹的', '这个分区里弹幕最密的', d.hottest) +
     col('最典型的', '最接近分区中位水平的', d.typical) +
