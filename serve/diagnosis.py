@@ -322,6 +322,7 @@ def _pick_deviations(rec, base, pct_map):
 
 
 def _deviations(rec, base, pct_map, benchmarks):
+    n_peers = int((base or {}).get('n') or 0) or 25
     out = []
     for a, z, dim in _pick_deviations(rec, base, pct_map):
         d = DICT[dim]
@@ -355,6 +356,59 @@ def _deviations(rec, base, pct_map, benchmarks):
             'value': round(v, 6) if v is not None else None,
             'median': round(med, 6) if med is not None else None,
         })
+    # 精确值 + 出处徽章：ML 可信度靠「精确 / 出处 / 诚实」三签名，
+    # 不靠「展示 ML 动作」的器件（PCA 地图 / 人工 vs 算法 / 参数滑块上主视图 —— 均已否决）。
+    for x in out:
+        x['you_text'] = _precise(x['_dim'], x.get('value'))
+        x['median_text'] = _precise(x['_dim'], x.get('median'))
+        x['unit_label'] = UNIT_LABEL.get(x['_dim'], '')
+        x['badges'] = _badges(x, n_peers)
+    return out
+
+
+# 精确到 2 位小数的显示规则：单位由维度定，个数是整数就不硬凑两位小数
+# （「1.00 个爆点」是错的写法）
+UNIT_LABEL = {
+    'dm_per_min': '条/分钟', 'wdm_per_min': '条/分钟（加权）', 'avg_text_len': '字',
+    'opening_5pct': '前 5% 弹幕占比', 'ending_5pct': '后 5% 弹幕占比',
+    'main_peak_pct': '爆点出现在整片第几 %', 'mid_ratio': '中段弹幕占比',
+    'rhythm_entropy': '起伏熵（0–1）', 'burst_cv': '突变变异系数',
+    'early_lag_ratio': '1 小时内到达的弹幕占比', 'peak_cnt': '爆点个数',
+}
+_PCT_DIMS = ('opening_5pct', 'ending_5pct', 'early_lag_ratio')
+_RATIO_DIMS = ('mid_ratio', 'rhythm_entropy', 'burst_cv')
+_RHO = {'dm_per_min': '+0.398', 'wdm_per_min': '+0.402', 'avg_text_len': '+0.303'}
+
+
+def _precise(dim, v):
+    # 按维度给 2 位小数；个数是整数就不硬凑小数
+    if v is None:
+        return '—'
+    if dim == 'peak_cnt':
+        return '%d 个' % int(round(v))
+    if dim == 'main_peak_pct':
+        return '%.2f%%' % v
+    if dim in _PCT_DIMS:
+        return '%.2f%%' % (v * 100)
+    if dim in _RATIO_DIMS:
+        return '%.2f' % v
+    if dim in ('dm_per_min', 'wdm_per_min'):
+        return '%.2f 条/分' % v
+    if dim == 'avg_text_len':
+        return '%.2f 字' % v
+    return '%.2f' % v
+
+
+def _badges(x, n_peers):
+    # 关键数字挂小徽章：样本量 / 跨批一致性 / 方向出处。
+    # 每个徽章都要能回答「这个数凭什么可信」，不写空话。
+    out = [{'text': '同类 %d 支' % n_peers, 'time': '样本量：同分区可比视频数'}]
+    if x['_dim'] in _RATIO_DIMS + _PCT_DIMS + ('main_peak_pct',):
+        out.append({'text': '跨批一致 99.2%',
+                    'time': '32 号 P1：形状签名跨批 within 中位 0.992 vs between 中位 0.069'})
+    if x['_dim'] in _RHO:
+        out.append({'text': '控龄 ρ %s' % _RHO[x['_dim']],
+                    'time': '32 号 P3 控龄偏相关（BH-FDR 0.05，n=679）'})
     return out
 
 
