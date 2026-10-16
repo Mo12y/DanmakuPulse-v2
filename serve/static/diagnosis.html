@@ -105,6 +105,17 @@
 .empty .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .empty .eg{margin-top:22px;font-size:12.5px;color:var(--faint)}
 .hideWhenEmpty{display:none!important}
+/* 技术层里的参数敏感性控件（主卡绝不出现） */
+.sensrow{display:grid;grid-template-columns:150px 150px 1fr;gap:12px;align-items:center;
+  padding:9px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.sensrow:last-child{border-bottom:0}
+.sensrow input[type=range]{width:140px;accent-color:var(--acc)}
+.sensrow .sl{color:var(--fg);font-weight:600}
+.sensrow .sl b{color:var(--acc);font-variant-numeric:tabular-nums}
+.sensout{color:var(--dim)}
+.sensout b{color:var(--fg)}
+.sensout .cur{color:var(--acc);font-weight:700}
+@media (max-width:720px){ .sensrow{grid-template-columns:1fr;gap:6px} }
 @media (max-width:720px){
   .posrow{grid-template-columns:74px 1fr 84px;gap:9px}
   .poshuman{display:none}
@@ -269,6 +280,11 @@ function render(){
   drawChart();
   drawTech(d);
   refreshFav();
+  // 深链接：?tech=1 直接展开技术层（答辩时要给人看参数敏感性）
+  if (new URLSearchParams(location.search).get('tech') === '1') {
+    const tb = document.getElementById('techbox');
+    if (tb) { tb.open = true; if (window.V3 && V3.markUrl) V3.markUrl(); }
+  }
   // 深链接：?drill=N / ?bench=N / ?act=N 直接落到某个交互状态
   // （用户能把"看这条证据"的链接发给别人；也让自动化截图能核验）
   const usp = new URLSearchParams(location.search);
@@ -380,6 +396,7 @@ function chartHTML(d){
       '<span><i style="border-color:var(--neutral);border-top-style:dashed"></i>同类中位（' + c.n_peers + ' 支）</span>' +
       '<span><span class="sw" style="background:var(--envelope);border:1px solid var(--line)"></span>同类常见区间（中间一半）</span>' +
       '<span><i style="border-color:#f59e0b;border-top-style:dotted"></i>对标对象</span>' +
+      '<button class="btn" id="lgBtn" style="margin-left:auto;padding:3px 10px;font-size:12px">隐藏图例</button>' +
     '</div>' +
     '<div id="chart"></div>' +
     '<div class="chartcap" id="cap">' + esc(c.summary) + '</div>' +
@@ -534,6 +551,16 @@ function actionHTML(d){
 
 /* 交互绑定 */
 function bind(){
+  const lg = $('#lgBtn');
+  if (lg) lg.onclick = () => {
+    const box = document.querySelector('.legend');
+    const hidden = box.classList.toggle('lg-off');
+    // 只藏图例项，保留按钮本身，否则没法再打开
+    Array.prototype.forEach.call(box.children, el => {
+      if (el.id !== 'lgBtn') el.style.display = hidden ? 'none' : '';
+    });
+    lg.textContent = hidden ? '显示图例' : '隐藏图例';
+  };
   const mp = $('#morePos');
   if (mp) mp.onclick = () => {
     document.querySelectorAll('.posrow.more').forEach(x => x.classList.toggle('hidden'));
@@ -647,6 +674,52 @@ function showPeak(i){
       ' 个反应最集中的时间段；这里是其中最集中的一个。</div></div>';
 }
 
+/* 技术层的敏感性滑块：拖一下看结论稳不稳（只在这里，主卡没有） */
+function wireSensitivity(d){
+  const sv = (d.tech || {}).sensitivity; if (!sv) return;
+  const th = $('#thRange'), zr = $('#zRange'), kr = $('#kRange');
+  // URL 可预置滑块（?tech=1&theta=3&z=20&k=8）—— 答辩时能直接给出某个参数下的样子，也便于自动核验
+  const usp = new URLSearchParams(location.search);
+  if (th && usp.get('theta') != null) th.value = usp.get('theta');
+  if (zr && usp.get('z') != null) zr.value = usp.get('z');
+  if (kr && usp.get('k') != null) kr.value = usp.get('k');
+  if (th) {
+    const paint = () => {
+      const row = sv.theta.rows[+th.value]; if (!row) return;
+      $('#thOut').textContent = row.theta.toFixed(2);
+      const zero = sv.theta.total_vb - row.vb;
+      const cur = Math.abs(row.theta - sv.theta.current) < 1e-9;
+      $('#thBody').innerHTML = '检出 <b>' + row.events.toLocaleString() + '</b> 个爆点 ｜ 覆盖 <b>' +
+        row.vb + '</b> 个视频-批次（' + row.cover + '%）｜ 零事件的 <b>' + zero + '</b> 个' +
+        (cur ? ' <span class="cur">← 现行值</span>' : '');
+    };
+    th.oninput = paint; paint();
+  }
+  if (zr) {
+    const paint = () => {
+      const z = (+zr.value) / 10;
+      $('#zOut').textContent = z.toFixed(1);
+      let row = sv.z.rows[0];
+      sv.z.rows.forEach(r => { if (Math.abs(r.z - z) < Math.abs(row.z - z)) row = r; });
+      $('#zBody').innerHTML = '全市场 <b>' + row.n + '</b> 支（' + row.pct + '%）会被判"有偏离" —— ' +
+        '阈值越低，偏离卡越多、也越不稀奇';
+    };
+    zr.oninput = paint; paint();
+  }
+  if (kr) {
+    const paint = () => {
+      const k = +kr.value;
+      $('#kOut').textContent = k;
+      let row = null;
+      sv.knn.rows.forEach(r => { if (r.k <= k && (!row || r.k > row.k)) row = r; });
+      if (!row) { $('#kBody').textContent = '这个分区里没有那么多相似候选'; return; }
+      $('#kBody').innerHTML = '第 <b>' + row.k + '</b> 近的相似度 <b>' + row.sim_pct + '%</b>' +
+        (row.sim_pct < 50 ? ' —— 再往外就不像了，所以只展示 3 支' : ' —— 还有余量');
+    };
+    kr.oninput = paint; paint();
+  }
+}
+
 /* 折叠技术层 */
 function drawTech(d){
   const t = d.tech, m = t.snapshot_meta || {};
@@ -682,6 +755,38 @@ function drawTech(d){
       (x.display ? '主视图显示人话' : '只在技术层') + ' ｜ ' +
       (x.direction === 'evidence' ? '有方向（控龄关联）' : '中性差异（无好坏证据）') + '</td></tr>').join('') +
     '</table>' +
+    '<h4>参数敏感性（拖一下看结论稳不稳 · 主卡不出现）</h4>' +
+    (function(){
+      const sv = t.sensitivity; if (!sv) return '<div>无敏感性数据。</div>';
+      return '<div class="sensrow"><span class="sl">融合阈值 θ = <b id="thOut">' + sv.theta.current.toFixed(2) + '</b></span>' +
+        '<input type="range" id="thRange" min="0" max="10" step="1" value="5">' +
+        '<span class="sensout" id="thBody"></span></div>' +
+      '<div class="sensrow"><span class="sl">偏离阈值 z = <b id="zOut">3.5</b></span>' +
+        '<input type="range" id="zRange" min="10" max="40" step="5" value="35">' +
+        '<span class="sensout" id="zBody"></span></div>' +
+      '<div class="sensrow"><span class="sl">相似对标取 K = <b id="kOut">3</b></span>' +
+        '<input type="range" id="kRange" min="1" max="20" step="1" value="3">' +
+        '<span class="sensout" id="kBody"></span></div>' +
+      '<div style="margin-top:6px;color:var(--dim)">上面三个滑块改的都是<b>本页真正用到的参数</b>：' +
+        'θ 只影响"有没有检出爆点"（结论区/定位/偏离/对标都不依赖它）；' +
+        'z 是偏离卡的入选闸门；K 只影响相似对标取几支。</div>' +
+      '<h4>批次敏感性</h4>' +
+      (function(){
+        const b = sv.batch;
+        if (!b) return '<div>这支视频只出现在 <b>1 个批次</b>，做不了跨批对照。' +
+          '全库 803 支里有 ' + sv.batch_stability.n_multi + ' 支出现在 ≥2 个批次。' +
+          '跨批稳定性实测：形状签名 <b>within 中位 ' + sv.batch_stability.within_median +
+          '</b> vs between 中位 ' + sv.batch_stability.between_median +
+          '（between P90 ' + sv.batch_stability.between_p90 + '）⇒ 结论不会被批次换掉。</div>';
+        return '<div style="margin-bottom:6px">同一支视频换批次，诊断结论会不会变？' +
+          '（本支出现在 <b>' + b.n_batches + '</b> 个批次：' +
+          (b.stable ? '<b style="color:var(--good)">结论一致</b>' : '<b style="color:var(--warn)">结论有变化</b>') +
+          '）</div><table><tr><th>批次</th><th>5 秒结论</th><th>最显著偏离维</th><th>同类百分位</th><th>弹幕数</th></tr>' +
+          b.rows.map(r => '<tr><td>' + esc(r.batch_date) + '</td><td>' + esc(r.problem) + '</td><td>' +
+            esc(r.top_label) + esc(r.top_pole) + '</td><td>' + (r.pct == null ? '—' : r.pct + '%') +
+            '</td><td>' + (r.n_danmaku || '—') + '</td></tr>').join('') + '</table>';
+      })();
+    })() +
     '<h4>结果对参数的敏感性（给答辩看，不进主卡）</h4><table>' +
     '<tr><th>参数 / 尺度</th><th>实测</th><th>对本页的影响</th></tr>' +
     '<tr><td>分桶尺度 5s→15/30/60s</td><td>551 个事件仍是局部极大的比例：99.6% / 92.1% / 87.5% / <b>80.0%</b></td>' +
@@ -700,6 +805,7 @@ function drawTech(d){
     '· 结果变量（上榜跨度 / 热度半衰期）覆盖不全，只有部分视频有；没有时如实写"暂无后续追踪数据"。<br>' +
     '· 被连续追踪天数（n_days_obs）是采集属性，30 号 N2 已证其标签污染，<b>不作为"后来怎样"</b>。<br>' +
     '· 方向只来自 32 号 P3 控龄偏相关（BH-FDR 0.05），不做因果承诺。</div>';
+  wireSensitivity(d);   // 技术层的滑块在这里接上（主卡没有这些控件）
 }
 </script>
 </body>
