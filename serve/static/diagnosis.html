@@ -316,10 +316,10 @@ function render(){
   $('#content').innerHTML = verdictHTML(d) + positionHTML(d) + chartHTML(d) + devHTML(d) + benchHTML(d) + actionHTML(d);
   bind();
   drawChart();
-  drawTech(d);
+  if (d.tech) drawTech(d); else { const tb = document.getElementById('techbox'); if (tb) tb.remove(); }
   refreshFav();
   initNarrative();   // 必须在深链接分支之前 —— 否则 ?drill=/?bench= 进来时导轨不出现
-  // 深链接：?tech=1 直接展开技术层（答辩时要给人看参数敏感性）
+  // 深链接：?tech=1 展开技术层（**仅管理员**；普通用户后端根本不下发 tech，这里自然拿不到）
   if (new URLSearchParams(location.search).get('tech') === '1') {
     const tb = document.getElementById('techbox');
     if (tb) { tb.open = true; if (window.V3 && V3.markUrl) V3.markUrl(); }

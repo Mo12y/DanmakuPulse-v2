@@ -15,6 +15,7 @@
 # 用法：bash tests/accept_auth.sh [host]     默认 http://127.0.0.1:8088
 set -u
 H="${1:-http://127.0.0.1:8088}"
+EG_BVID="${EG_BVID:-BV1PJpE6QEx6}"   # 快照里真实存在的示例视频
 ADMIN_USER="${ADMIN_USER:-admin}"
 ADMIN_PASS="${ADMIN_PASS:-danmaku@2026}"
 USER_NAME="${USER_NAME:-tester}"
@@ -124,6 +125,41 @@ chk "TLS 下能登录" 302 "$(curl -sk -c $JT -o /dev/null -w '%{http_code}' -X 
 chk "TLS 下带会话能取诊断卡" 200 "$(curl -sk -b $JT -o /dev/null -w '%{http_code}' $HTTPS_H/diagnosis.html)"
 chk "TLS 下带会话能取 API" 200 "$(curl -sk -b $JT -o /dev/null -w '%{http_code}' $HTTPS_H/api/v3/overview)"
 rm -f $JT
+
+echo
+echo "=== 会话隔离与「系统属性」门禁（2026-10-16 新增）==="
+# 起因：/api/me 默认发 public, max-age=300，被浏览器缓存 5 分钟 ——
+# admin 退出、新用户登录后顶栏还是 admin，看起来就是「新用户登录后还是 admin」。
+has "/api/me 必须 no-store（否则换号会串）" "cache-control: no-store" \
+  "$(curl -s -b $J1 -o /dev/null -D - $H/api/me | tr 'A-Z' 'a-z' | tr -d '\r')"
+has "/api/favorites 必须 no-store（per-user 数据）" "cache-control: no-store" \
+  "$(curl -s -b $J1 -o /dev/null -D - $H/api/favorites | tr 'A-Z' 'a-z' | tr -d '\r')"
+has "/api/users 必须 no-store" "cache-control: no-store" \
+  "$(curl -s -b $J1 -o /dev/null -D - $H/api/users | tr 'A-Z' 'a-z' | tr -d '\r')"
+
+# 已登录访问 /login 必须给表单（曾经静默 302 弹回，导致"想换账号根本到不了表单"）
+chk "已登录 GET /login 仍给表单（不再静默弹回）" 200 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' $H/login)"
+has "已登录的 /login 页说明当前身份" "当前已登录为" "$(curl -s -b $J1 $H/login)"
+
+# 完整换号：admin 建临时用户 → 退出 → 新用户登录 → /api/me 是新用户
+TMPU="acc$(date +%s)"
+TMPP="pw$(date +%s)"
+chk "admin 建临时用户" 200 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$TMPU\",\"password\":\"$TMPP\",\"role\":\"user\"}" $H/api/users)"
+JS=$(mktemp)
+curl -s -c $JS -o /dev/null -X POST -d "username=$TMPU&password=$TMPP" $H/login
+has "换号后 /api/me 是新用户（不是 admin）" "\"username\":\"$TMPU\"" "$(curl -s -b $JS $H/api/me)"
+has "换号后角色是 user（不是 admin）" "\"role\":\"user\"" "$(curl -s -b $JS $H/api/me)"
+
+# 「系统属性」= 技术参数层：普通用户后端就不下发 tech，curl 也拿不到
+# 只打印这一个字段：把整个响应体倒进断言输出既吵又容易看错
+has "普通用户 meta.tech_included = False" "False" \
+  "$(curl -s -b $JS "$H/api/video/$EG_BVID/diagnosis" | python3 -c 'import json,sys; print(json.load(sys.stdin)["meta"]["tech_included"])')"
+has "管理员 meta.tech_included = True" "True" \
+  "$(curl -s -b $J1 "$H/api/video/$EG_BVID/diagnosis" | python3 -c 'import json,sys; print(json.load(sys.stdin)["meta"]["tech_included"])')"
+has "普通用户 diagnosis 的 data 里确实没有 tech 字段" "no-tech" \
+  "$(curl -s -b $JS "$H/api/video/$EG_BVID/diagnosis" | python3 -c 'import json,sys; print("has-tech" if "tech" in json.load(sys.stdin)["data"] else "no-tech")')"
+rm -f $JS
 
 rm -f $J1 $J2 $J3
 echo

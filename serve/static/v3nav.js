@@ -80,7 +80,9 @@
   V3.markUrl = function () {};
 
   render(null);
-  fetch('/api/me', { credentials: 'same-origin' })
+  // cache:'no-store' 与服务端 Cache-Control: no-store 双保险 ——
+  // 曾经因为 /api/me 被缓存 5 分钟，换账号后顶栏还是旧用户
+  fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (j) { V3.me = j && j.data ? j.data : null; })
     .catch(function () { V3.me = null; })

@@ -6,6 +6,7 @@
 <title>登录 · 弹幕互动节奏分析系统</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="v3.css">
+<script src="v3chart.js"></script>
 <style>
 body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
 .lbox{width:100%;max-width:392px}
@@ -23,15 +24,26 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
 .lcard button:hover{opacity:.92}
 .lerr{margin-top:14px;background:var(--danger-soft);color:var(--danger-ink);border-radius:9px;
   padding:9px 12px;font-size:13px;font-weight:600}
+.lcur{margin-bottom:14px;background:var(--surface-soft);border:1px solid var(--border-subtle);
+  border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.7;color:var(--text-secondary)}
+.lcur b{color:var(--text)}
 .lfoot{margin-top:16px;font-size:12px;color:var(--text-tertiary);line-height:1.7}
+/* 粒子网络背景（从旧系统 login.html 找回，2026-10-16）
+   为什么留：它是登录页唯一"活的"东西，服务 brand mark 的"Pulse"意象。
+   颜色**从 token 读**（dpVar），深浅色自动跟；不用 CSS 变量是因为 canvas 不认。
+   §1.2.3 C5：prefers-reduced-motion 时只静态画一帧，不跑动画。*/
+#particles{position:fixed;inset:0;z-index:0;pointer-events:none}
+.lbox{position:relative;z-index:1}
 @media (max-width:480px){ .lcard{padding:20px 16px} }
 </style>
 </head>
 <body>
+<canvas id="particles" aria-hidden="true"></canvas>
 <div class="lbox">
   <div class="lbrand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>
   <div class="lsub">基于 Spark 的 B站热榜视频弹幕互动节奏分析系统</div>
   <form class="lcard" method="post" action="/login">
+    <!--CURRENT-->
     <h1>进入系统</h1>
     <div class="hint">请用管理员分配的账号登录</div>
     <input type="hidden" name="next" value="<!--NEXT-->">
@@ -47,6 +59,112 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
     诊断卡、市场总览、分区画像对所有账号开放；用户管理与原始技术页仅管理员可见。
   </div>
 </div>
+<script>
+/* ── 粒子网络背景（鼠标互动：粒子连线 + 光标排斥 + 粒子与光标连线）
+   来源：旧系统 web/templates/login.html 的 #particles，机制与参数照搬，
+   两处适配 v3：① 颜色改读 token（dpVar）而非写死 hex；② 主题切换事件改听 v3 的。
+   参数刻意克制：60 个粒子、线透明度 .15 —— 背景不抢表单。 */
+(function () {
+  var canvas = document.getElementById('particles');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  var w, h, mouseX = -1000, mouseY = -1000, pressed = false, raf = null;
+  var COUNT = 60, CONNECT = 132, REPEL = 112, SPEED = 0.32, LINE_ALPHA = 0.15;
+
+  // token -> "r,g,b"：canvas 不认 CSS 变量，所以取计算值再拆成 rgb 分量
+  function rgbOf(v) {
+    v = (v || '').trim();
+    var m = v.match(/^rgba?\(([^)]+)\)/);
+    if (m) { var p = m[1].split(','); return p[0].trim() + ',' + p[1].trim() + ',' + p[2].trim(); }
+    var t = v.replace('#', '');
+    if (t.length === 3) t = t[0] + t[0] + t[1] + t[1] + t[2] + t[2];
+    return parseInt(t.slice(0, 2), 16) + ',' + parseInt(t.slice(2, 4), 16) + ',' + parseInt(t.slice(4, 6), 16);
+  }
+  function colors() {
+    return { dot: rgbOf(dpVar('--accent', '#C93D68')), line: rgbOf(dpVar('--primary', '#4A7DDF')) };
+  }
+
+  var parts = [];
+  function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+  function build() {
+    parts = [];
+    for (var i = 0; i < COUNT; i++) {
+      parts.push({ x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * SPEED, vy: (Math.random() - 0.5) * SPEED,
+        r: Math.random() * 1.4 + 0.7 });
+    }
+  }
+
+  document.addEventListener('mousemove', function (e) { mouseX = e.clientX; mouseY = e.clientY; });
+  document.addEventListener('mousedown', function () { pressed = true; });
+  document.addEventListener('mouseup', function () { pressed = false; });
+  document.addEventListener('mouseleave', function () { mouseX = mouseY = -1000; });
+  document.addEventListener('touchmove', function (e) {
+    if (e.touches[0]) { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }
+  }, { passive: true });
+  document.addEventListener('touchend', function () { mouseX = mouseY = -1000; });
+
+  function frame() {
+    var c = colors();
+    ctx.clearRect(0, 0, w, h);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -20) p.x = w + 20; else if (p.x > w + 20) p.x = -20;
+      if (p.y < -20) p.y = h + 20; else if (p.y > h + 20) p.y = -20;
+
+      var dxm = p.x - mouseX, dym = p.y - mouseY;
+      var dm = Math.sqrt(dxm * dxm + dym * dym);
+      if (dm < REPEL) {
+        var f = (REPEL - dm) / REPEL, ang = Math.atan2(dym, dxm);
+        var power = (pressed ? f * 3 : f * 1.2) * 0.15;
+        p.vx += Math.cos(ang) * power; p.vy += Math.sin(ang) * power;
+      }
+      p.vx *= 0.999; p.vy *= 0.999;
+      var sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      if (sp > 2.2) { p.vx = p.vx / sp * 2.2; p.vy = p.vy / sp * 2.2; }
+
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+      ctx.fillStyle = 'rgba(' + c.dot + ',0.42)'; ctx.fill();
+
+      for (var j = i + 1; j < parts.length; j++) {
+        var q = parts[j], dx = p.x - q.x, dy = p.y - q.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < CONNECT) {
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = 'rgba(' + c.line + ',' + ((1 - d / CONNECT) * LINE_ALPHA).toFixed(3) + ')';
+          ctx.lineWidth = 0.6; ctx.stroke();
+        }
+      }
+      if (dm < CONNECT * 1.15) {
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(mouseX, mouseY);
+        ctx.strokeStyle = 'rgba(' + c.dot + ',' + ((1 - dm / (CONNECT * 1.15)) * 0.22).toFixed(3) + ')';
+        ctx.lineWidth = 0.4; ctx.stroke();
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function start() {
+    resize(); build();
+    if (raf) cancelAnimationFrame(raf);
+    if (reduced) {   // 减少动效：只静态画一帧点，连线与光标交互一并省掉
+      var c = colors();
+      for (var i = 0; i < parts.length; i++) {
+        ctx.beginPath(); ctx.arc(parts[i].x, parts[i].y, parts[i].r, 0, 6.2832);
+        ctx.fillStyle = 'rgba(' + c.dot + ',0.42)'; ctx.fill();
+      }
+      return;
+    }
+    frame();
+  }
+  window.addEventListener('resize', start);
+  start();
+})();
+</script>
 </body>
 </html>
 
