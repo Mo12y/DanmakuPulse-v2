@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>采集控制台 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+.blog{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.brow{display:grid;grid-template-columns:104px 66px 84px 1fr 158px;gap:10px;align-items:center;
+  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border-subtle)}
+.brow:last-child{border-bottom:0}
+.brow.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.bnum{font-variant-numeric:tabular-nums;text-align:right}
+.bdate{font-weight:600;font-variant-numeric:tabular-nums}
+.iss{font-size:12px;color:var(--text-tertiary);line-height:1.6}
+.cmd{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);
+  padding:10px 14px;margin-bottom:8px}
+.cmd .cl{font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+.cmd code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border-subtle);
+  border-radius:6px;padding:7px 10px;overflow-x:auto;white-space:pre}
+.cmd .cn{font-size:12px;color:var(--text-tertiary);margin-top:4px}
+.warnbox{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);
+  padding:12px 14px;font-size:13px;color:var(--text-secondary);line-height:1.8}
+.warnbox b{color:var(--text)}
+@media (max-width:900px){ .brow{grid-template-columns:1fr 1fr} .brow.head{display:none} .bhide{display:none} }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+      <div class="card" id="content"><div class="loading">正在加载采集状态…</div></div>
+    </div>
+  </div>
+</div>
+<script src="v3chart.js"></script>
+<script src="v3nav.js"></script>
+<script>
+var $ = function(s){ return document.querySelector(s); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+
+function batches(d){
+  return '<div class="blog"><div class="brow head">' +
+    '<span>批次</span><span class="bnum">视频</span><span class="bnum">弹幕</span>' +
+    '<span class="bhide">已知问题 / 覆盖率</span><span class="bhide">采集时间</span></div>' +
+    d.batches.map(function(b){
+      return '<div class="brow">' +
+        '<span class="bdate">' + esc(b.batch_date) + '</span>' +
+        '<span class="bnum">' + b.n_videos + ' 支</span>' +
+        '<span class="bnum">' + b.n_danmaku.toLocaleString() + '</span>' +
+        '<span class="iss bhide">' + esc(b.known_issues || ('覆盖率 ' + b.coverage)) + '</span>' +
+        '<span class="iss bhide">' + esc((b.list_fetched_at || '—').slice(0, 19).replace('T', ' ')) + '</span>' +
+      '</div>';
+    }).join('') + '</div>';
+}
+
+function draw(d){
+  $('#content').innerHTML =
+    '<div class="verdict"><span class="tone ok">⚙ 后台</span>' +
+      '<div class="vmain"><div class="vproblem">' + esc(d.headline) + '</div>' +
+      '<div class="vdetail">快照生成于 ' + esc((d.snapshot.generated_at || '').replace('T', ' ')) +
+        '　（采集完要重导快照，前端才看得到新数据）</div></div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">①</span><span class="sectitle">总量</span></div>' +
+      '<div class="kpis">' + d.stats.map(function(s, i){
+        return '<div class="kpi' + (i === 2 ? ' accent' : '') + '"><div class="kl">' + esc(s.label) + '</div>' +
+          '<div class="kv">' + esc(s.value) + '<span class="ku">' + esc(s.unit) + '</span></div>' +
+          '<div class="kn">' + esc(s.note) + '</div></div>';
+      }).join('') + '</div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span><span class="sectitle">批次明细</span>' +
+      '<span class="secnote">按榜单快照日期分批</span></div>' + batches(d) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">③</span><span class="sectitle">怎么接着采</span>' +
+      '<span class="secnote">在宿主机项目根目录执行</span></div>' +
+      d.commands.map(function(c){
+        return '<div class="cmd"><div class="cl">' + esc(c.label) + '</div><code>' + esc(c.cmd) + '</code>' +
+          '<div class="cn">' + esc(c.note) + '</div></div>';
+      }).join('') + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">④</span><span class="sectitle">为什么这里没有启停按钮</span></div>' +
+      '<div class="warnbox">采集脚本跑在<b>宿主机</b>（要写 <code>data/cli_collected</code>、要跑 Spark），' +
+      '而本服务在容器里（256MB，没有采集代码、没有 HDFS 挂载）。' +
+      '在容器里放一个按下去没反应的启停按钮，<b>比不做更糟</b> —— 所以这页给真实状态 + 可直接复制的命令。</div></div>';
+}
+function fail(m){
+  $('#content').innerHTML = '<div class="empty"><h2>采集状态没取到</h2><p>' + esc(m) + '</p>' +
+    '<div class="row"><button class="btn primary" id="rt">重试</button></div></div>';
+  $('#rt').onclick = load;
+}
+function load(){
+  $('#content').innerHTML = '<div class="loading">正在加载采集状态…</div>';
+  fetch('/api/v3/collect').then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){ draw(j.data); }).catch(function(e){ fail(e.message); });
+}
+load();
+</script>
+</body>
+</html>

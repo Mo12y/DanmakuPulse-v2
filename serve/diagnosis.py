@@ -1202,6 +1202,23 @@ def deviation_view(snap=None):
                      'pct': (v.get('pct') or {}).get(dim),
                      'curve': [round(x, 6) for x in _smooth(cur)] if cur else None})
 
+    # 偏离维度的分布：全库被判偏离的视频里，各维度各占多少（哪个维度最常偏离）。
+    # 这回答的是「这个市场里，大家最常在**哪一维**上不像同类」，跟 ③ 的分区视角互补。
+    dimc = {}
+    for z, i in rank:
+        if z < THR:
+            continue
+        v = snap['videos'][i]
+        b = snap['baselines'].get(v.get('tname')) or snap['global_base']
+        dim = _max_dim(v, b)
+        if dim:
+            lab = DICT[dim]['label']
+            dimc[lab] = dimc.get(lab, 0) + 1
+    dim_dist = [{'label': k, 'n': v2} for k, v2 in dimc.items()]
+    dim_dist.sort(key=lambda r: -r['n'])
+    for r in dim_dist:
+        r['rate'] = round(100.0 * r['n'] / max(1, n_out), 1)
+
     bins = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 999)]
     dist = [{'lo': lo, 'hi': (hi if hi < 999 else None),
              'n': sum(1 for z, _ in rank if lo <= z < hi)} for lo, hi in bins]
@@ -1233,6 +1250,7 @@ def deviation_view(snap=None):
         ],
         'parts': parts,
         'dist': dist,
+        'dim_dist': dim_dist,
         'rows': rows[:40],
         'n_rows': len(rows),
         'n_unique_bvid': n_bv,
@@ -1243,8 +1261,50 @@ def overview_view():
     return overview(_load())
 
 
+def partition_compare(snap=None, top=6):
+    """分区间节奏对比：取样本最足的 N 个分区，给它们的中位曲线 + 关键指标 + 偏离率。
+
+    为什么要这一页：分区画像原来只有「本分区 vs 全市场」一条线，
+    看不出**分区之间**彼此差在哪。这里把几个大区的中位曲线叠在一张图上，
+    形状差在哪一眼能看出来。
+    """
+    snap = snap or _load()
+    dev = deviation_view(snap)
+    rate = {p['tname']: p['rate'] for p in dev['parts']}
+    parts = sorted([(t, b) for t, b in snap['baselines'].items()
+                    if (b.get('n_videos') or 0) >= MIN_PARTITION and not b.get('low_support')],
+                   key=lambda kv: -kv[1]['n_videos'])[:top]
+    out = []
+    for t, b in parts:
+        hm = (b['feats'].get('dm_per_min') or {}).get('med')
+        op = (b['feats'].get('opening_5pct') or {}).get('med')
+        mi = (b['feats'].get('mid_ratio') or {}).get('med')
+        en = (b['feats'].get('rhythm_entropy') or {}).get('med')
+        out.append({
+            'tname': t, 'n_videos': b['n_videos'],
+            'curve': [round(x, 6) for x in _smooth(b['curve_med'])],
+            'dm_per_min': round(hm, 1) if hm else None,
+            'opening_5pct': round(op * 100, 2) if op is not None else None,
+            'mid_ratio': round(mi, 3) if mi is not None else None,
+            'rhythm_entropy': round(en, 3) if en is not None else None,
+            'dev_rate': rate.get(t),
+        })
+    return {
+        'headline': '样本最足的 %d 个分区，中位曲线叠在一张图上看' % len(out),
+        'sub': ('每个分区都只跟自己区内的视频比 —— 所以同一个数字在不同分区含义不同。'
+                '下面这几条是各分区的中位节奏，形状差在哪就是观众习惯差在哪。'),
+        'parts': out,
+        'metric_note': '表里是中位数：条/分 = 互动热度；前 5% 占比 = 开场吸引力；'
+                       '中段占比 = 中段留存；起伏熵 = 有没有高潮。偏离率见「偏离检测」页。',
+    }
+
+
 def deviation_data():
     return deviation_view(_load())
+
+
+def partition_compare_data(top=6):
+    return partition_compare(_load(), top)
 
 
 def partition_view(tname):

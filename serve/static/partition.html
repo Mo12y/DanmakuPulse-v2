@@ -135,7 +135,16 @@ function render(d){
     col('最特别的', '跟这个分区差别最大的', d.special) +
     '</div></div>';
 
+
+  html += '<div class="sec" id="sec-compare"><div class="sechead"><span class="secno">④</span>' +
+    '<span class="sectitle">分区间对比</span>' +
+    '<span class="secnote">样本最足的几个分区，中位曲线叠在一张图上看</span></div>' +
+    '<div id="cmpchart"></div>' +
+    '<div class="chartcap" id="cmpcap"></div>' +
+    '<div id="cmptable"></div></div>';
+
   $('#content').innerHTML = html;
+  initCompare();
   document.querySelectorAll('.vcard[data-b]').forEach(function(el){
     el.onclick = function(){ location.href = 'diagnosis.html?bvid=' + el.dataset.b; };
   });
@@ -155,6 +164,71 @@ function col(title, note, items){
         '<div class="vm">' + esc(v.dm_per_min_text) + ' ｜ 弹幕 ' + (v.n_danmaku || 0) +
         (v.note ? ' ｜ ' + esc(v.note) : '') + '</div></div>';
     }).join('') + '</div>';
+}
+
+
+/* 分区间对比：把几个大区的中位曲线叠在一张图上。
+   为什么要它：原来只有「本分区 vs 全市场」一条对照，看不出分区之间彼此差在哪。 */
+var CMPCHART = null;
+function initCompare(){
+  fetch('/api/v3/partition_compare', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){ drawCompare(j.data); })
+    .catch(function(e){
+      var el = document.getElementById('cmpchart');
+      if (el) el.innerHTML = '<div class="secnote">分区间对比暂时取不到（' + esc(e.message) + '）。</div>';
+    });
+}
+function drawCompare(c){
+  var el = document.getElementById('cmpchart');
+  if (!el || !c.parts.length) return;
+  if (CMPCHART) { CMPCHART.dispose(); CMPCHART = null; }
+  CMPCHART = echarts.init(el, null, { renderer: 'canvas' });
+  var C = dmChart();
+  /* 只用 token 派生的几个色相，靠线型区分（§1#12：状态色不许编码数据） */
+  var pool = [C.primary, C.accent, C.axis, C.text, C.textTertiary, C.axis];
+  var dash = ['solid', 'dashed', 'dotted', 'solid', 'dashed', 'dotted'];
+  CMPCHART.setOption({
+    backgroundColor: 'transparent',
+    grid: { left: 52, right: 18, top: 30, bottom: 44 },
+    legend: { top: 0, textStyle: { color: C.textTertiary, fontSize: 12 } },
+    tooltip: { trigger: 'axis', backgroundColor: C.tipBg, borderColor: C.tipBorder,
+      textStyle: { color: C.text, fontSize: 12 },
+      formatter: function(ps){
+        return '<b>播放进度 ' + ps[0].dataIndex + '%</b><br>' + ps.map(function(p){
+          return p.marker + p.seriesName + '：' + (p.value * 100).toFixed(2) + '%';
+        }).join('<br>');
+      } },
+    xAxis: { type: 'category', data: c.parts[0].curve.map(function(_, i){ return i + '%'; }),
+      axisLine: { lineStyle: { color: C.split } }, axisLabel: { color: C.textTertiary, fontSize: 11, interval: 9 },
+      name: '播放进度', nameTextStyle: { color: C.textTertiary, fontSize: 11 } },
+    yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: C.split } },
+      axisLabel: { color: C.textTertiary, fontSize: 11, formatter: function(v){ return (v * 100).toFixed(1) + '%'; } },
+      name: '该位置弹幕占比', nameTextStyle: { color: C.textTertiary, fontSize: 11 } },
+    series: c.parts.map(function(p, i){
+      return { name: p.tname, type: 'line', data: p.curve, showSymbol: false, smooth: 0,
+        lineStyle: { width: 2, color: pool[i % pool.length], type: dash[i % dash.length] },
+        itemStyle: { color: pool[i % pool.length] } };
+    })
+  });
+  window.addEventListener('resize', function(){ if (CMPCHART) CMPCHART.resize(); });
+  document.getElementById('cmpcap').innerHTML = esc(c.sub);
+  document.getElementById('cmptable').innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px">' +
+    '<tr style="color:var(--text-secondary);font-size:12px;text-align:right">' +
+    '<th style="text-align:left;padding:8px 10px">分区</th><th>样本</th><th>互动热度</th>' +
+    '<th>开场吸引力</th><th>中段留存</th><th>起伏熵</th><th>偏离率</th></tr>' +
+    c.parts.map(function(p){
+      return '<tr style="text-align:right;border-top:1px solid var(--border-subtle)">' +
+        '<td style="text-align:left;padding:8px 10px;font-weight:600">' + esc(p.tname) + '</td>' +
+        '<td>' + p.n_videos + ' 支</td>' +
+        '<td>' + (p.dm_per_min == null ? '—' : p.dm_per_min + ' 条/分') + '</td>' +
+        '<td>' + (p.opening_5pct == null ? '—' : p.opening_5pct + '%') + '</td>' +
+        '<td>' + (p.mid_ratio == null ? '—' : p.mid_ratio) + '</td>' +
+        '<td>' + (p.rhythm_entropy == null ? '—' : p.rhythm_entropy) + '</td>' +
+        '<td>' + (p.dev_rate == null ? '—' : p.dev_rate + '%') + '</td></tr>';
+    }).join('') + '</table>' +
+    '<div class="secnote" style="margin-top:8px">' + esc(c.metric_note) + '</div>';
 }
 
 function drawChart(){
