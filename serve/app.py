@@ -502,6 +502,34 @@ def api_danmaku_at(resp: Response, bvid: str = Query(..., min_length=4),
     }, cache=False)
 
 
+@app.get('/api/danmaku_digest')
+def api_danmaku_digest(resp: Response, bvid: str = Query(..., min_length=4)):
+    """每 1% 进度桶的弹幕摘要——供曲线悬停即时显示"这一刻观众在刷什么"。
+
+    为什么不复用 /api/danmaku_at：悬停要即时，逐次请求会有明显延迟；
+    整片摘要只有 ≤101 行、约几 KB，一次取回后悬停零延迟。
+    rep 用该桶内**出现次数最多**的弹幕原文（众数），代表"大家当时在刷什么"。
+    """
+    d = diagnosis.diagnose(bvid)
+    if not d:
+        raise HTTPException(404, f'{bvid} 不在节奏诊断快照里')
+    dur = (d.get('video') or {}).get('duration')
+    if not dur:
+        raise HTTPException(404, f'{bvid} 没有时长数据，无法按进度分桶')
+    bd = d['video']['batch_date']
+    rows = q("""SELECT LEAST(FLOOR(t / %s * 100), 100)::int AS b,
+                       COUNT(*) AS n,
+                       MODE() WITHIN GROUP (ORDER BY txt) AS rep
+                FROM v3_video_danmaku
+                WHERE bvid = %s AND batch_date = %s
+                GROUP BY 1 ORDER BY 1""", (dur, bvid, bd))
+    for r in rows:
+        r['b'] = int(r['b'])
+        r['n'] = int(r['n'])
+    return ok(resp, {'bvid': bvid, 'batch_date': bd, 'duration': dur, 'buckets': rows},
+              meta={'n': len(rows)}, cache=False)
+
+
 @app.get('/api/v3/overview')
 def v3_overview(resp: Response):
     '''市场总览：池子规模 + 各分区性格 + 全市场最不典型的视频'''

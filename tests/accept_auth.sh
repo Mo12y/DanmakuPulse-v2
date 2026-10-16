@@ -67,7 +67,10 @@ chk "user GET /diagnosis.html" 200 "$(curl -s -b $J2 -o /dev/null -w '%{http_cod
 chk "user GET /api/users" 403 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' $H/api/users)"
 has "403 带 forbidden" "forbidden" "$(curl -s -b $J2 $H/api/users)"
 has "user 打开 /users 被送去 403 页（保留原端口）" "$H/403.html" "$(curl -s -b $J2 -o /dev/null -w '%{redirect_url}' $H/users)"
-chk "user GET /rhythm.html（技术页仅管理员）" 302 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' $H/rhythm.html)"
+# rhythm.html / index.html 于 2026-10-16 下线（导航只留用户真正会用的四页 + 用户管理）
+chk "已下线页 /rhythm.html 登录后仍是 404" 404 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' $H/rhythm.html)"
+chk "已下线页 /index.html 登录后仍是 404" 404 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' $H/index.html)"
+chk "user GET /users（仅管理员页）仍 302" 302 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' $H/users)"
 
 echo
 echo "=== ⑥ next 防开放重定向 ==="

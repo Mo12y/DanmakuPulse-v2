@@ -10,20 +10,20 @@
 body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
 .lbox{width:100%;max-width:392px}
 .lbrand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;margin-bottom:6px}
-.lbrand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc)}
-.lsub{color:var(--dim);font-size:13px;margin-bottom:18px}
-.lcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+.lbrand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.lsub{color:var(--text-secondary);font-size:13px;margin-bottom:18px}
+.lcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
   box-shadow:var(--shadow);padding:26px 24px}
 .lcard h1{font-size:19px;font-weight:800;margin-bottom:4px}
-.lcard .hint{font-size:12.5px;color:var(--faint);margin-bottom:18px}
-.lcard label{display:block;font-size:13px;color:var(--dim);margin:12px 0 5px}
+.lcard .hint{font-size:12.5px;color:var(--text-tertiary);margin-bottom:18px}
+.lcard label{display:block;font-size:13px;color:var(--text-secondary);margin:12px 0 5px}
 .lcard input{width:100%;padding:10px 12px;font-size:14px}
 .lcard button{width:100%;margin-top:20px;padding:11px;font-size:14.5px;font-weight:700;
-  background:var(--acc);border:1px solid var(--acc);color:#fff;border-radius:9px;cursor:pointer;font-family:inherit}
+  background:var(--accent);border:1px solid var(--accent);color:var(--on-accent);border-radius:8px;cursor:pointer;font-family:inherit}
 .lcard button:hover{opacity:.92}
-.lerr{margin-top:14px;background:var(--warn-soft);color:var(--warn);border-radius:9px;
+.lerr{margin-top:14px;background:var(--danger-soft);color:var(--danger-ink);border-radius:9px;
   padding:9px 12px;font-size:13px;font-weight:600}
-.lfoot{margin-top:16px;font-size:12px;color:var(--faint);line-height:1.7}
+.lfoot{margin-top:16px;font-size:12px;color:var(--text-tertiary);line-height:1.7}
 @media (max-width:480px){ .lcard{padding:20px 16px} }
 </style>
 </head>
