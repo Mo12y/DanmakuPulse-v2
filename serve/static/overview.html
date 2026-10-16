@@ -8,32 +8,32 @@
 <link rel="stylesheet" href="v3.css">
 <style>
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-.stat{border:1px solid var(--line);border-radius:13px;padding:14px 16px;background:var(--card)}
-.stat .k{font-size:12.5px;color:var(--dim)}
+.stat{border:1px solid var(--border);border-radius:13px;padding:14px 16px;background:var(--card)}
+.stat .k{font-size:12.5px;color:var(--text-secondary)}
 .stat .v{font-size:26px;font-weight:800;line-height:1.25;font-variant-numeric:tabular-nums}
-.stat .n{font-size:12px;color:var(--faint)}
-.plist{border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.stat .n{font-size:12px;color:var(--text-tertiary)}
+.plist{border:1px solid var(--border);border-radius:13px;overflow:hidden}
 .prow{display:grid;grid-template-columns:118px 54px 70px 92px 1fr 132px;gap:10px;align-items:center;
-  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);cursor:pointer;transition:.12s}
 .prow:last-child{border-bottom:0}
-.prow:hover{background:var(--acc-soft)}
-.prow.head{background:var(--neutral-soft);cursor:default;font-size:12px;color:var(--dim);font-weight:600}
-.prow.head:hover{background:var(--neutral-soft)}
+.prow:hover{background:var(--accent-soft)}
+.prow.head{background:var(--surface-soft);cursor:default;font-size:12px;color:var(--text-secondary);font-weight:600}
+.prow.head:hover{background:var(--surface-soft)}
 .pname{font-weight:700}
-.psmall{color:var(--dim);font-size:12.5px}
-.ptrait{color:var(--fg)}
-.low{color:var(--faint);font-size:11.5px;background:var(--neutral-soft);border-radius:6px;padding:1px 6px;margin-left:5px}
-.bar{height:7px;background:var(--neutral-soft);border-radius:4px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--acc);border-radius:4px}
+.psmall{color:var(--text-secondary);font-size:12.5px}
+.ptrait{color:var(--text)}
+.low{color:var(--text-tertiary);font-size:11.5px;background:var(--surface-soft);border-radius:6px;padding:1px 6px;margin-left:5px}
+.bar{height:7px;background:var(--surface-soft);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
 .ogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
-.ocard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--card);
+.ocard{border:1px solid var(--border);border-radius:13px;padding:13px 15px;background:var(--card);
   cursor:pointer;transition:.15s;display:flex;flex-direction:column}
-.ocard:hover{border-color:var(--acc);box-shadow:var(--shadow)}
+.ocard:hover{border-color: var(--accent-ink);box-shadow:var(--shadow)}
 .otitle{font-size:13.5px;font-weight:700;line-height:1.45;margin-bottom:6px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ometa{font-size:12px;color:var(--dim);margin-bottom:8px}
-.otag{font-size:12.5px;font-weight:700;color:var(--warn)}
-.ofoot{margin-top:auto;font-size:12px;color:var(--acc);font-weight:700}
+.ometa{font-size:12px;color:var(--text-secondary);margin-bottom:8px}
+.otag{font-size:12.5px;font-weight:700;color:var(--danger-ink)}
+.ofoot{margin-top:auto;font-size:12px;color: var(--accent-ink);font-weight:700}
 @media (max-width:860px){
   .prow{grid-template-columns:1fr 1fr;gap:6px}
   .prow.head{display:none}
@@ -99,7 +99,7 @@ function render(d){
       return '<div class="prow" data-t="' + esc(p.tname) + '">' +
         '<div class="pname">' + esc(p.tname) + (p.low_support ? '<span class="low">样本少</span>' : '') + '</div>' +
         '<div class="psmall">' + p.n_videos + ' 支</div>' +
-        '<div class="hideSm">' + spark(p.curve, 64, 20, 'var(--acc)') + '</div>' +
+        '<div class="hideSm">' + spark(p.curve, 64, 20, 'var(--accent)') + '</div>' +
         '<div class="hideSm"><div class="psmall">' + esc(p.hot_med_text) + '</div>' +
           '<div class="bar"><i style="width:' + (100*p.n_videos/mx).toFixed(0) + '%"></i></div></div>' +
         '<div class="ptrait">' + esc(p.trait) + '</div>' +
