@@ -641,10 +641,14 @@ def _problem_short(d):
 def _actions(position, concern, deviations, benchmarks):
     out = []
     if concern:
+        # 用 drill_seg 而不是词典里的原始分段：整片类维度若照抄 seg=[0,100]，
+        # 前端会把整张图铺成橙色高亮，等于把"该照哪一段"这条信息抹掉
         out.append({'n': 1, 'text': concern['advice'],
                     'basis': '%s%s（%s）' % (concern['label'], concern['pole'],
                                           concern['compare_text']),
-                    'ref': concern.get('ref'), 'seg': concern.get('seg')})
+                    'ref': concern.get('ref'),
+                    'seg': concern.get('drill_seg') or concern.get('seg'),
+                    'seg_why': concern.get('drill_why')})
     else:
         out.append({'n': 1,
                     'text': '你的节奏在同类里没有明显短板——维持现在的节奏结构就行。',
@@ -656,7 +660,8 @@ def _actions(position, concern, deviations, benchmarks):
                     'text': '参考《%s》：%s。%s' % (better['title'], better['similarity_label'],
                                                 better['learn_text']),
                     'basis': '它后来%s' % better['outcome_text'],
-                    'ref': {'bvid': better['bvid'], 'title': better['title']}, 'seg': None})
+                    'ref': {'bvid': better['bvid'], 'title': better['title']},
+                    'seg': better.get('learn_seg')})
     elif benchmarks and benchmarks[0]['has_outcome']:
         # 33 号 §3 视图 4：行动建议一律对标式——没有"可学一维"、但对方有后续数据时给同类参照
         b0 = benchmarks[0]

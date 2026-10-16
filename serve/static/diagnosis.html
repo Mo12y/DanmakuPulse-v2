@@ -255,7 +255,10 @@ async function load(bvid){
   FOCUS = null; BENCH = null; PEAK = null;
   const d = await api('/api/video/' + bvid + '/diagnosis');
   CUR = d;
-  history.replaceState(null, '', '?bvid=' + bvid);
+  // 只改 bvid，保留 drill/bench/act —— 直接写 '?bvid=...' 会把深链接参数洗掉
+  var u = new URLSearchParams(location.search);
+  u.set('bvid', bvid);
+  history.replaceState(null, '', '?' + u.toString());
   render();
 }
 
@@ -266,8 +269,22 @@ function render(){
   drawChart();
   drawTech(d);
   refreshFav();
+  // 深链接：?drill=N / ?bench=N / ?act=N 直接落到某个交互状态
+  // （用户能把"看这条证据"的链接发给别人；也让自动化截图能核验）
+  const usp = new URLSearchParams(location.search);
+  if (usp.get('drill') != null) { setTimeout(() => drillDeviation(+usp.get('drill'), true), 260); return; }
+  if (usp.get('bench') != null) { selectBench(+usp.get('bench')); return; }
+  if (usp.get('act') != null) { setTimeout(() => runAction(+usp.get('act')), 260); return; }
   // 军规 7：永远"你 vs 同类 vs 对标对象"三线对照 —— 默认叠上最像的那支
   if ((d.benchmarks || []).length) selectBench(0);
+}
+
+/* 把当前交互状态写进地址栏，便于分享与复现 */
+function markUrl(k, v){
+  const u = new URLSearchParams(location.search);
+  ['drill', 'bench', 'act'].forEach(x => u.delete(x));
+  if (k) u.set(k, v);
+  history.replaceState(null, '', '?' + u.toString());
 }
 
 /* 选中一支对标对象 → 上图叠它的曲线 */
@@ -278,6 +295,7 @@ function selectBench(i, toggle){
     BENCH = i;
   }
   document.querySelectorAll('.bcard').forEach((y, k) => y.classList.toggle('on', k === BENCH));
+  if (toggle) markUrl(BENCH == null ? null : 'bench', BENCH);
   const bseg = (BENCH != null) ? (CUR.benchmarks[BENCH].learn_seg || null) : null;
   FOCUS = bseg;
   drawChart();
@@ -543,6 +561,7 @@ function pctToSec(pct){
 
 function drillDeviation(i, scroll){
   const x = CUR.deviations[i]; if (!x) return;
+  markUrl('drill', i);
   BENCH = null;
   document.querySelectorAll('.bcard').forEach(y => y.classList.remove('on'));
   document.querySelectorAll('.dev').forEach((y, k) => y.classList.toggle('dim', k === i));
@@ -600,6 +619,7 @@ function renderDanmaku(x, seg, d, t0, t1){
 /* ── 行动落地：点建议 → 定位到该照谁、照哪一段 ── */
 function runAction(n){
   const a = (CUR.verdict.actions || []).find(x => x.n === n); if (!a) return;
+  markUrl('act', n);
   const bi = a.ref ? (CUR.benchmarks || []).findIndex(b => b.bvid === a.ref.bvid) : -1;
   if (bi >= 0) { selectBench(bi, false); }
   if (a.seg) {
