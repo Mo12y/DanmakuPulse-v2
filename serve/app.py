@@ -536,11 +536,20 @@ def api_danmaku_at(resp: Response, bvid: str = Query(..., min_length=4),
     rows = rows[:limit]
     for r in rows:
         r['t'] = float(r['t'])
+    # 共鸣卡片要的「复读」：该时段被重复发送最多的原文 + 各自次数。
+    # HAVING n>1 —— 只算真复读；一条都没重复就返回空，前端如实写「没有明显复读」。
+    top = q('SELECT txt, COUNT(*) AS n FROM v3_video_danmaku '
+              'WHERE bvid = %s AND batch_date = %s AND t >= %s AND t <= %s '
+              'GROUP BY txt HAVING COUNT(*) > 1 '
+              'ORDER BY n DESC, LENGTH(txt) DESC LIMIT 3', (bvid, bd, a, b))
+    for r in top:
+        r['n'] = int(r['n'])
     return ok(resp, {
         'bvid': bvid, 'batch_date': bd,
         't0': round(a, 1), 't1': round(b, 1),
         'n_in_range': int(total['n']) if total else 0,
         'returned': len(rows), 'truncated': truncated,
+        'top_repeat': top,
         'items': rows,
     }, cache=False)
 
@@ -583,6 +592,17 @@ def v3_overview(resp: Response):
 def v3_partitions(resp: Response):
     rows = diagnosis.partition_list()
     return ok(resp, rows, meta={'n': len(rows)}, cache=False)
+
+
+@app.get('/api/v3/deviation')
+def api_v3_deviation(resp: Response):
+    '''偏离检测（模型与验证组）：全库「最不典型」排序 + 分区偏离率分布。
+
+    口径 = 32 号 P4 稳健 z（z = (v − 分区中位) / (1.4826·MAD)），
+    取每支视频在自身分区内各展示维上的最大 |z|。
+    这页只回答「跟同类不一样」，不回答「好不好」——后者由 32 号 P3 控龄关联决定。
+    '''
+    return ok(resp, diagnosis.deviation_data(), cache=False)
 
 
 @app.get('/api/v3/partition/{tname}')

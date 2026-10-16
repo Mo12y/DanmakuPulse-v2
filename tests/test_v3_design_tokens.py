@@ -147,6 +147,25 @@ def test_c1_no_transition_all():
     assert not bad, 'DESIGN.md §1.2.3 C1 禁止 transition: all —— 命中：%s' % bad
 
 
+def test_c1_no_transition_shorthand():
+    """transition 简写同样是 all。
+
+    CSS 的 transition 简写里，第一个时间值之前的那个词才是属性名；
+    只写 transition:.15s 时属性缺省为 all —— 与 transition: all .15s 完全等价。
+
+    这条是补盲区：原守卫只匹配字面量 transition: all，而本项目实测有 7 处写成
+    transition:.15s / .12s（诊断卡 / 总览 / 收藏页的内联样式），守卫全绿却真实违规
+    （2026-10-16 发现）。教训与 A1 的 S>1% 那次同型：判据有多个条件时只查一个。
+    """
+    bad = []
+    for n in _static_files({'.css', '.html'}):
+        txt = _strip_comments(_read(os.path.join(STATIC, n)), os.path.splitext(n)[1])
+        for m in re.finditer(r'transition\s*:\s*[.0-9]', txt):
+            bad.append('%s@%d' % (n, txt[:m.start()].count(chr(10)) + 1))
+    assert not bad, ('DESIGN.md §1.2.3 C1：transition 简写（首值是时间）等价于 transition:all，'
+                     '必须写明具体属性 —— 命中：%s' % bad)
+
+
 def test_c5_has_reduced_motion():
     css = _read(os.path.join(STATIC, 'v3.css'))
     assert re.search(r'@media\s*\(prefers-reduced-motion:\s*reduce\)', css), \

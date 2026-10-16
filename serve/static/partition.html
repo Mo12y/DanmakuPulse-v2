@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh" data-theme="light">
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -43,9 +44,11 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="topbar" id="v3top"></div>
-  <div class="topbar">
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+  <div class="toolbar">
     <select id="picker" style="flex:1 1 260px"></select>
     <span class="secnote" id="picknote"></span>
   </div>
@@ -213,6 +216,8 @@ function drawChart(){
   window.addEventListener('resize', function(){ if (CHART) CHART.resize(); });
 }
 </script>
+    </div>
+  </div>
+</div>
 </body>
 </html>
-

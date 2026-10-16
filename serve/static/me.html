@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh" data-theme="light">
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -9,7 +10,7 @@
 <style>
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .fcard{border:1px solid var(--border);border-radius:13px;padding:14px 16px;background:var(--card);
-  display:flex;flex-direction:column;cursor:pointer;transition:.15s}
+  display:flex;flex-direction:column;cursor:pointer;transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
 .fcard:hover{border-color: var(--accent-ink);box-shadow:var(--shadow)}
 .ft{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:6px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -19,8 +20,10 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="topbar" id="v3top"></div>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
   <div class="card">
     <div class="verdict">
       <span class="tone ok">● 我的</span>
@@ -58,6 +61,8 @@ function load() {
     });
 }
 </script>
+    </div>
+  </div>
+</div>
 </body>
 </html>
-

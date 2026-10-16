@@ -125,7 +125,6 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 400 14px/1.75 var(--font);
-  padding: 24px 16px 64px;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -135,7 +134,7 @@ body {
 .wrap { max-width: 1000px; margin: 0 auto; }
 
 /* ── 顶栏 ───────────────────────────────────────────────── */
-.topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .brand { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-right: auto;
   display: flex; align-items: center; gap: 8px; }
 .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
@@ -267,4 +266,104 @@ details.tech[open] > summary::before { content: "▾ "; }
     transition-duration: .001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   左侧导航栏（2026-10-16：顶栏 → v2 三层 IA 侧栏）
+   分组是主次逻辑：诊断=主 / 市场=背景 / 模型与验证=让 ML 可被一指找到 / 系统=管理员
+   ══════════════════════════════════════════════════════════════ */
+.layout { display: flex; min-height: 100vh; }
+.main { flex: 1; min-width: 0; padding: 24px 24px 64px; }
+
+.sidebar {
+  width: 208px; flex-shrink: 0; background: var(--card);
+  border-right: 1px solid var(--border); padding: 20px 12px 24px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.sidebar .brand {
+  padding: 0 8px 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border);
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 8px;
+}
+.side-group { margin-bottom: 18px; }
+.side-group-title {
+  font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.08em;
+  padding: 0 8px; margin-bottom: 6px; font-weight: 600;
+}
+.side-group-title.core { color: var(--accent-ink); }
+.sidebar a {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 7px 10px; margin-bottom: 2px; border-radius: 8px; text-decoration: none;
+  color: var(--text-secondary); font-size: 13px;
+  transition: color .15s ease, background-color .15s ease;
+}
+.sidebar a:hover { color: var(--text); background: var(--surface-hover); text-decoration: none; }
+.sidebar a.active { color: var(--text); background: var(--surface-active); font-weight: 600; }
+.sidebar a .ml {
+  font-size: 9px; line-height: 1; font-weight: 700; letter-spacing: 0.04em;
+  background: var(--accent-soft); color: var(--accent-ink); border-radius: 6px; padding: 2px 5px;
+}
+.side-user { margin-top: auto; border-top: 1px solid var(--border); padding-top: 12px; }
+.side-user-name {
+  font-size: 13px; color: var(--text); padding: 0 8px 6px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.side-theme { width: 100%; text-align: left; margin-top: 2px; }
+
+/* 页内工具条（与侧栏无关，是内容区自己的操作行） */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+
+/* ── KPI 瓦片（定位区：大数字 + 标签 + 单位）───────────────── */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.kpi {
+  background: var(--surface-soft); border: 1px solid var(--border-subtle);
+  border-radius: 8px; padding: 12px 14px;
+}
+.kpi .kl { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.kpi .kv {
+  font-size: 30px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.kpi .kv .ku { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-left: 3px; }
+.kpi .kn { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+.kpi.accent .kv { color: var(--accent-ink); }
+
+/* ── 共鸣卡片（这一刻在刷什么）──────────────────────────── */
+.reso { border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-soft);
+  padding: 12px 14px; }
+.reso-h { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex;
+  gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.reso-h .n { color: var(--text-secondary); font-weight: 400; }
+.reso-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.reso-sub { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; font-weight: 600;
+  letter-spacing: 0.04em; }
+.reso-item { display: flex; align-items: baseline; gap: 8px; font-size: 13px; padding: 3px 0; }
+.reso-item .t { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reso-item .c { color: var(--accent-ink); font-weight: 700; font-variant-numeric: tabular-nums;
+  flex-shrink: 0; }
+.reso-s { font-size: 12px; color: var(--text-secondary); padding: 2px 0 2px 34px; position: relative;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reso-s .dt { position: absolute; left: 0; color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+.reso-empty { font-size: 12px; color: var(--text-tertiary); }
+
+/* ── 打印（A4 / 隐藏工具栏 / 深色下强制浅色）─────────────── */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  /* 打印一律白底黑字，与当前主题无关（深色下也强制浅色） */
+  :root, [data-theme="dark"] {
+    --bg: #FFFFFF; --card: #FFFFFF; --text: #000000; --text-secondary: #333333;
+    --text-tertiary: #555555; --border: #BBBBBB; --border-subtle: #DDDDDD;
+    --surface-soft: #F7F7F7; --surface-hover: #F0F0F0; --surface-active: #E8E8E8;
+    --shadow: none; --shadow-lg: none;
+  }
+  .sidebar, .toolbar, .rail, #v3side { display: none !important; }
+  .layout { display: block; }
+  .main { padding: 0; }
+  .wrap { max-width: none; }
+  .card { border: 0; box-shadow: none; }
+  details.tech { display: none !important; }   /* 技术层不进纸 */
+  a[href]::after { content: ""; }              /* 不把 URL 印出来 */
+  .reveal { opacity: 1 !important; transform: none !important; }
 }
