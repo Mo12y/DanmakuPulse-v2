@@ -53,10 +53,6 @@
     <span class="secnote" id="picknote"></span>
   </div>
   <div class="card" id="content"><div class="loading">正在加载分区画像…</div></div>
-  <details class="tech">
-    <summary>技术详情（口径 / 数据源 —— 主视图不显示这些术语）</summary>
-    <div class="techbody" id="techbody"></div>
-  </details>
 </div>
 <script src="v3chart.js"></script>
 <script src="v3nav.js"></script>
@@ -149,11 +145,7 @@ function render(d){
     el.onclick = function(){ location.href = 'diagnosis.html?bvid=' + el.dataset.b; };
   });
   drawChart();
-  $('#techbody').innerHTML =
-    '<h4>口径</h4><div>· 中位曲线 = 该分区所有视频"每 1% 进度的弹幕占比"的逐桶中位数；包络 = 逐桶 25%/75% 分位。<br>' +
-    '· 与全市场对比用的是各维<b>中位</b>之比；"最典型"按分区内 dm_per_min 稳健 z 最接近 0 取。<br>' +
-    '· 样本 ' + d.n_videos + ' 支' + (d.low_support ? '（<20，基准仅供参考）' : '') + '，曲线参与 ' + (d.n_curve || '—') + ' 支。</div>' +
-    '<h4>数据源</h4><div>dws_partition_rhythm（分区基准）+ serve/v3data 只读快照</div>';
+  
 }
 
 function col(title, note, items){

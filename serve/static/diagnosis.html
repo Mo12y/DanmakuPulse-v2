@@ -90,6 +90,14 @@
   font-weight:700;border-radius:999px;padding:2px 8px;margin-right:8px;vertical-align:1px}
 .livenotes{margin:0 0 12px;padding:0 0 0 18px;font-size:12px;color:var(--text-secondary);line-height:1.85}
 .livenotes li{margin-bottom:2px}
+/* 对标细节面板：贴着对标区，不占用下面的弹幕证据位 */
+.bdpanel{margin-top:12px;border:1px solid var(--accent-line);border-radius:8px;
+  background:var(--accent-soft);padding:12px 14px;font-size:13px;line-height:1.85}
+.bdhead{font-weight:600;margin-bottom:6px}
+.bdrow{color:var(--text-secondary)}
+.bdk{display:inline-block;min-width:64px;color:var(--text-tertiary);font-size:12px}
+.bdnote{color:var(--text-tertiary);font-size:12px;margin-left:10px}
+
 /* 点击互动：滚过去的区块闪一下，让"跳到哪了"看得见（§1.2.3 C4：只动 opacity/背景，不动布局） */
 .flash{border-radius:8px;animation:v3flash 1.4s ease-out}
 @keyframes v3flash{
@@ -178,7 +186,6 @@
 
   <div class="toolbar">
     <input id="search" placeholder="输入 BV 号诊断任意视频（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
-    <button class="btn" id="showList" title="展开库内视频下拉列表">从列表里挑</button>
     <select id="picker" style="flex:1 1 280px;min-width:190px" hidden></select>
     <button class="btn" id="randBtn" title="随机换一支同类视频">随机一支</button>
     <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
@@ -254,18 +261,12 @@ function liveFail(bvid, msg){
       '采不到就没有节奏可算。<b>本系统不会拿别的视频冒充它。</b></p>' +
       '<div class="row">' +
         '<button class="btn primary" id="lfRetry">重试一次</button>' +
-        '<button class="btn" id="lfPick">从库内列表挑一支</button>' +
+        '<button class="btn" id="lfRand">随机一支</button>' +
       '</div></div>';
   document.getElementById('lfRetry').onclick = function(){ loadLive(bvid); };
-  document.getElementById('lfPick').onclick = function(){ revealPicker(); };
+  document.getElementById('lfRand').onclick = loadRandom;
 }
 
-function revealPicker(){
-  var p = document.getElementById('picker');
-  if (!p) return;
-  p.hidden = false;
-  p.focus();
-}
 
 /* 点击互动：平滑滚动 + 闪一下（视觉强引导）。点了不动是 bug，不是"设计克制"。 */
 function focusSection(id){
@@ -333,12 +334,12 @@ function notFound(bvid){
       '本系统只覆盖已采集并跑完节奏分析的视频（当前 803 支），不是所有 B 站视频都在里面。</p>' +
       '<div class="row">' +
         '<button class="btn primary" id="nfTry">换一支试试</button>' +
-        '<button class="btn" id="nfList">从列表里挑</button>' +
+        '<button class="btn" id="nfRand">随机一支</button>' +
       '</div>' +
       '<div class="eg">也可以直接搜标题 / 分区，或点「随机一支」。</div>' +
     '</div>';
   $('#nfTry').onclick = function(){ setName(true); load(EXAMPLE.bvid); };
-  $('#nfList').onclick = function(){ $('#picker').focus(); $('#picker').click(); };
+  $('#nfRand').onclick = loadRandom;
 }
 
 function failState(msg, bvid){
@@ -364,12 +365,12 @@ function emptyState(){
       '没有目标视频就用下面这个例子——它是真实采集的。</p>' +
       '<div class="row">' +
         '<button class="btn primary" id="tryBtn" style="padding:11px 22px;font-size:14.5px">试试这个视频</button>' +
-        '<button class="btn" id="pickBtn" style="padding:11px 22px;font-size:14.5px">从列表里挑一支</button>' +
+        '<button class="btn" id="pickBtn" style="padding:11px 22px;font-size:14.5px">随机一支</button>' +
       '</div>' +
       '<div class="eg">例：' + esc(EXAMPLE.bvid) + '　' + esc(EXAMPLE.why) + '</div>' +
     '</div>';
   $('#tryBtn').onclick = function(){ $('#picker').value = EXAMPLE.bvid; setName(true); load(EXAMPLE.bvid); };
-  $('#pickBtn').onclick = function(){ $('#picker').focus(); $('#picker').click(); };
+  $('#pickBtn').onclick = loadRandom;
 }
 
 function fillPicker(){
@@ -405,11 +406,16 @@ $('#search').oninput = e => {
                             (x.tname || '').toLowerCase().includes(q));
   if (hit) { $('#picker').value = hit.bvid; setName(true); load(hit.bvid); }
 };
-$('#showList').onclick = () => revealPicker();
-$('#randBtn').onclick = () => {
+/* 「随机一支」：库内随机抽一支看诊断卡。工具栏 / 空态 / 错误态共用同一个入口。
+   （2026-10-16：按用户要求去掉「从列表里挑」—— 再弹一个下拉列表是多余的一步。） */
+function loadRandom(){
+  if (!IDX.length) return;
   const x = IDX[Math.floor(Math.random() * IDX.length)];
-  $('#picker').value = x.bvid; load(x.bvid);
-};
+  $('#picker').value = x.bvid;
+  setName(true);
+  load(x.bvid);
+}
+$('#randBtn').onclick = loadRandom;
 // 主题由统一顶栏（v3nav.js）管；切完通知本页重画图表
 V3.onTheme = () => { if (CHART) { CHART.dispose(); CHART = null; drawChart(); } };
 
@@ -513,9 +519,19 @@ function selectBench(i, toggle){
     (b.learn_seg ? '<br><b style="color:var(--accent-ink)">它这里比你好</b>：' + esc(b.learn_label || '') +
       '（第 ' + b.learn_seg[0] + '–' + b.learn_seg[1] + '%）——' +
       '它在这一段更接近同类中位，' + esc(b.outcome_text) + '。' : '');
-  $('#dmbox').innerHTML = '<div class="dmpanel"><h4>看它的完整诊断卡</h4>' +
-    '<button class="btn" onclick="location.search=\'?bvid=' + b.bvid + '\'">打开《' + esc(b.title) + '》的诊断卡 ↗</button>' +
-    '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:8px">后来表现：' + esc(b.outcome_text) + '</div></div>';
+  /* 对标细节：放在**对标区自己的位置**，不再劫持下面的弹幕证据面板；
+     "打开它的诊断卡" 走**新标签页** —— 顶掉当前这支的诊断卡是错的交互。 */
+  var bd = document.getElementById('benchdetail');
+  if (bd && BENCH == null) bd.innerHTML = '';
+  if (bd) bd.innerHTML = '<div class="bdpanel">' +
+    '<div class="bdhead">你正在对标《' + esc(b.title) + '》</div>' +
+    '<div class="bdrow"><span class="bdk">后来表现</span>' + esc(b.outcome_text) + '</div>' +
+    (b.learn_seg ? '<div class="bdrow"><span class="bdk">它比你好</span>' + esc(b.learn_label || '') +
+      '（第 ' + b.learn_seg[0] + '–' + b.learn_seg[1] + '%）：这一段它更接近同类中位。' +
+      '<b>上图已把它的曲线叠上去、并高亮这一段。</b></div>' : '') +
+    '<div class="bdrow"><a class="btn" href="/diagnosis.html?bvid=' + encodeURIComponent(b.bvid) +
+      '" target="_blank" rel="noopener">在新标签页打开它的诊断卡 ↗</a>' +
+      '<span class="bdnote">新开一页，免得把你正在看的这支顶掉</span></div></div>';
 }
 
 /* ① 一句话结论 */
@@ -755,7 +771,7 @@ function benchHTML(d){
   if (!bs.length) return '';
   return '<div class="sec" id="sec-bench">' +
     '<div class="sechead"><span class="secno">④</span><span class="sectitle">对标视频</span>' +
-      '<span class="secnote">同类＝' + esc(d.knn_scope) + ' ｜ 点卡片可把它的曲线叠到上图和看它的诊断卡</span></div>' +
+      '<span class="secnote">同类＝' + esc(d.knn_scope) + ' ｜ 点卡片：把它叠到上图 + 看它比你强在哪（不跳走）</span></div>' +
     '<div class="bench">' + bs.map((b, i) =>
       '<div class="bcard" data-bench="' + i + '">' +
         '<div class="btitle">《' + esc(b.title) + '》</div>' +
@@ -765,8 +781,8 @@ function benchHTML(d){
         '<div class="blearn">' + esc(b.learn_text) + '</div>' +
         (b.learn_seg ? '<div class="blearn" style="border-top:0;padding-top:2px;color: var(--accent-ink)">' +
           '▸ 点卡片：把它叠到上图，并高亮它比你好的那一段（' + esc(b.learn_seg_name || '') + '）</div>' : '') +
-        '<div class="bgo">看它的诊断卡 ↗</div>' +
       '</div>').join('') + '</div>' +
+    '<div id="benchdetail"></div>' +
   '</div>';
 }
 
