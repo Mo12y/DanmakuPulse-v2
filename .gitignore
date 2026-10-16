@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+# 自签证书与私钥（make tls-cert 生成）
+compose/assets/tls/
