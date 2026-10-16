@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>数据管理 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+.trow{display:grid;grid-template-columns:230px 92px 88px 1fr;gap:10px;align-items:baseline;
+  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border-subtle)}
+.trow:last-child{border-bottom:0}
+.trow.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.tname{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.tnum{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-secondary)}
+.tlab{font-weight:600}
+.tuse{color:var(--text-tertiary);font-size:12.5px;line-height:1.6}
+.tlist{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.v3row{background:var(--accent-soft)}
+@media (max-width:900px){ .trow{grid-template-columns:1fr 1fr} .trow.head{display:none} .thide{display:none} }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+      <div class="card" id="content"><div class="loading">正在加载表清单…</div></div>
+    </div>
+  </div>
+</div>
+<script src="v3chart.js"></script>
+<script src="v3nav.js"></script>
+<script>
+var $ = function(s){ return document.querySelector(s); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+function human(b){
+  if (b > 1048576) return (b / 1048576).toFixed(1) + ' MB';
+  if (b > 1024) return (b / 1024).toFixed(0) + ' KB';
+  return b + ' B';
+}
+var V3 = ['v3_video_danmaku', 'users', 'favorites'];
+function draw(d){
+  $('#content').innerHTML =
+    '<div class="verdict"><span class="tone ok">⚙ 后台</span>' +
+      '<div class="vmain"><div class="vproblem">' + esc(d.headline) + '</div>' +
+      '<div class="vdetail">' + esc(d.sub) + '</div></div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">①</span><span class="sectitle">表清单</span>' +
+      '<span class="secnote">粉底 = v3 在用的表</span></div>' +
+      '<div class="tlist"><div class="trow head"><span>表名</span><span class="tnum">行数</span>' +
+        '<span class="tnum thide">占用</span><span class="thide">用途</span></div>' +
+      d.tables.map(function(t){
+        var on = V3.indexOf(t.name) >= 0;
+        return '<div class="trow' + (on ? ' v3row' : '') + '">' +
+          '<span class="tname">' + esc(t.name) + '</span>' +
+          '<span class="tnum">' + t.rows.toLocaleString() + '</span>' +
+          '<span class="tnum thide">' + human(t.bytes) + '</span>' +
+          '<span class="tuse thide"><b class="tlab">' + esc(t.label) + '</b> —— ' + esc(t.use) + '</span>' +
+        '</div>';
+      }).join('') + '</div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span><span class="sectitle">v3 快照元信息</span></div>' +
+      '<div class="kpis">' +
+        [['视频-批次', d.snapshot.n_videos, '条'], ['曲线', d.snapshot.n_curve, '条'],
+         ['分区', d.snapshot.n_partitions, '个'], ['检出事件', d.snapshot.n_events, '个']]
+          .map(function(x){ return '<div class="kpi"><div class="kl">' + x[0] + '</div>' +
+            '<div class="kv">' + x[1] + '<span class="ku">' + x[2] + '</span></div></div>'; }).join('') +
+      '</div>' +
+      '<div class="secnote" style="margin-top:10px">快照生成于 ' +
+        esc((d.snapshot.generated_at || '').replace('T', ' ')) + '　｜　来源表：' +
+        esc((d.snapshot.source_tables || []).join(' / ')) + '</div></div>';
+}
+function fail(m){
+  $('#content').innerHTML = '<div class="empty"><h2>表清单没取到</h2><p>' + esc(m) + '</p>' +
+    '<div class="row"><button class="btn primary" id="rt">重试</button></div></div>';
+  $('#rt').onclick = load;
+}
+function load(){
+  fetch('/api/v3/tables').then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){ draw(j.data); }).catch(function(e){ fail(e.message); });
+}
+load();
+</script>
+</body>
+</html>

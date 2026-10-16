@@ -609,6 +609,108 @@ def api_live_diagnose(resp: Response, bvid: str = Query(..., min_length=6, max_l
         raise HTTPException(422, e.msg)
     return ok(resp, card, meta=dict(meta, n=1), cache=False)
 
+# ── 后台管理（仅管理员；门禁在 auth.ADMIN_PREFIXES）──
+
+# 表用途说明：写清「这张表是什么、谁在用」，数据管理页不列光秃秃的表名。
+TABLE_DOC = {
+    'v3_video_danmaku': ('v3 弹幕原文', '诊断卡的证据钻取与共鸣卡：按 (bvid, batch_date, t) 取某时段的真实弹幕'),
+    'users': ('账号', '登录系统：scrypt 口令哈希 + 角色（admin/user）'),
+    'favorites': ('收藏', '「我的收藏」页；按用户隔离'),
+    'ads_batch_meta': ('批次元信息', '旧 PG 层：批次的采集状态 / 覆盖率 / 已知问题'),
+    'ads_video_metrics': ('视频指标', '旧 PG 层：L1 指标汇总'),
+    'ads_video_fingerprint': ('节奏指纹', '旧 PG 层：8 维指纹'),
+    'ads_video_curve': ('密度曲线', '旧 PG 层：1% 桶曲线'),
+    'ads_video_curve_5s': ('密度曲线(5s)', '旧 PG 层：5s 桶曲线'),
+    'ads_video_rhythm_curve': ('节奏曲线', '旧 PG 层：节奏事件曲线'),
+    'ads_partition_fingerprint': ('分区基准', '旧 PG 层：分区内基准'),
+    'ads_hotlist_latest': ('榜单(最新)', '旧 PG 层：最近一次榜单快照'),
+    'ads_hotlist_history': ('榜单(历史)', '旧 PG 层：历次榜单快照'),
+    'ads_lifecycle': ('生命周期', '旧 PG 层：上榜跨度等后续表现'),
+    'ads_quality_report': ('质量报告', '旧 PG 层：数据质量检查结果'),
+    'ads_up_profile': ('UP 主画像', '旧 PG 层：UP 主维度汇总'),
+    'ads_video_highlights': ('高光卡', '旧 PG 层：事件高光'),
+    'ads_dual_axis': ('双时间轴', '旧 PG 层：位置×滞后热力'),
+    'ads_evolution_feats': ('演化特征', '旧 PG 层：批次演化'),
+}
+
+
+@app.get('/api/v3/collect')
+def api_v3_collect(resp: Response):
+    '''采集控制台：批次清单 + 采集量 + 采集脚本命令。
+
+    为什么没有 start/stop：采集脚本跑在**宿主机**（要写 data/cli_collected、要跑 Spark），
+    而本服务在容器里（256MB，没有采集代码也没有 HDFS 挂载）。在容器里伪装一个启停按钮，
+    只会给出一个按下去没反应的控件 —— 那比不做更糟。所以这里给真实状态 + 可直接复制的命令。
+    '''
+    rows = q('''SELECT batch_date, COUNT(DISTINCT bvid) AS n_videos, COUNT(*) AS n_danmaku,
+                      MAX(batch_date) AS _b
+               FROM v3_video_danmaku GROUP BY batch_date ORDER BY batch_date DESC''')
+    meta = {r['batch_date']: r for r in q('SELECT * FROM ads_batch_meta')}
+    out = []
+    for r in rows:
+        bd = str(r['batch_date'])
+        m = meta.get(bd) or meta.get(int(bd)) or {}
+        out.append({
+            'batch_date': bd,
+            'n_videos': int(r['n_videos']), 'n_danmaku': int(r['n_danmaku']),
+            'cadence': m.get('cadence') or 'daily',
+            'status': m.get('status') or 'collected',
+            'coverage': m.get('coverage') or ('%d 支' % int(r['n_videos'])),
+            'list_fetched_at': m.get('list_fetched_at'),
+            'known_issues': m.get('known_issues'),
+        })
+    tot_v = q1('SELECT COUNT(DISTINCT bvid) AS n FROM v3_video_danmaku')
+    tot_d = q1('SELECT COUNT(*) AS n FROM v3_video_danmaku')
+    snap = diagnosis._load()['meta']
+    return ok(resp, {
+        'headline': '已采集 %d 个批次、%d 支视频、%s 条弹幕' % (
+            len(out), int(tot_v['n']) if tot_v else 0, format(int(tot_d['n']) if tot_d else 0, ',')),
+        'stats': [
+            {'label': '批次数', 'value': len(out), 'unit': '个', 'note': '按榜单快照日期分批'},
+            {'label': '已采集视频', 'value': int(tot_v['n']) if tot_v else 0, 'unit': '支',
+             'note': '去重后的 bvid 数'},
+            {'label': '弹幕总量', 'value': format(int(tot_d['n']) if tot_d else 0, ','), 'unit': '条',
+             'note': '证据钻取可查的全部原文'},
+            {'label': '最近批次', 'value': (out[0]['batch_date'] if out else '—'), 'unit': '',
+             'note': ('采集于 ' + out[0]['list_fetched_at'][:10]) if (out and out[0].get('list_fetched_at')) else '采集时间未记录'},
+        ],
+        'batches': out,
+        'snapshot': snap,
+        'commands': [
+            {'label': '日频增量采集', 'cmd': './collect/collect_schedule.sh -n 200', 'note': '在宿主机项目根目录执行'},
+            {'label': '单支视频试采', 'cmd': 'python -m collect.bili --video BV1xxxxxxxxx', 'note': '调试用；正常走上面的排程'},
+            {'label': '重建 v3 快照', 'cmd': 'make v3-snapshot', 'note': '采集完要重导快照，前端才看得到新数据'},
+        ],
+    }, cache=False)
+
+
+@app.get('/api/v3/tables')
+def api_v3_tables(resp: Response):
+    '''数据管理：PG 表清单 + 行数 + 用途。'''
+    rows = q('''SELECT relname AS name, n_live_tup AS rows, pg_total_relation_size(relid) AS bytes
+               FROM pg_stat_user_tables ORDER BY n_live_tup DESC''')
+    out = []
+    for r in rows:
+        doc = TABLE_DOC.get(r['name'])
+        out.append({'name': r['name'], 'rows': int(r['rows'] or 0),
+                    'bytes': int(r['bytes'] or 0),
+                    'label': doc[0] if doc else '（未登记）',
+                    'use': doc[1] if doc else '这张表还没有用途说明，改 serve/app.py 的 TABLE_DOC 补上'})
+    n_v3 = sum(1 for r in out if r['name'].startswith('v3_') or r['name'] in ('users', 'favorites'))
+    return ok(resp, {
+        'headline': 'PostgreSQL 里共 %d 张表，其中 %d 张是 v3 在用的' % (len(out), n_v3),
+        'sub': 'ads_* 是上一版（v2）的 PG 层；v3 只读 v3_video_danmaku 与账号表，'
+               'ads_* 保留供溯源，不再被前端依赖。',
+        'tables': out,
+        'snapshot': diagnosis._load()['meta'],
+    }, cache=False)
+
+
+@app.get('/api/v3/partition_compare')
+def api_v3_partition_compare(resp: Response, top: int = Query(6, ge=2, le=12)):
+    '''分区画像页的「分区间对比」：N 个大区的中位曲线 + 关键指标。'''
+    return ok(resp, diagnosis.partition_compare_data(top), cache=False)
+
 @app.get('/api/v3/deviation')
 def api_v3_deviation(resp: Response):
     '''偏离检测（模型与验证组）：全库「最不典型」排序 + 分区偏离率分布。

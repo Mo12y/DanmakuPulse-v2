@@ -19,7 +19,11 @@
     { title: '诊断', core: true, items: [['diagnosis.html', '视频诊断卡']] },
     { title: '市场', items: [['overview.html', '市场总览'], ['partition.html', '分区画像']] },
     { title: '模型与验证', items: [['deviation.html', '偏离检测', 'ML']] },
-    { title: '系统', admin: true, items: [['users.html', '用户管理']] }
+    /* 后台管理：导师夸过的模块，单独成组放最后（管理员专有） */
+    { title: '后台管理', admin: true, items: [
+      ['collect.html', '采集控制台'],
+      ['data.html', '数据管理'],
+      ['users.html', '用户管理']] }
   ];
   var V3 = window.V3 = window.V3 || {};
   V3.me = null;

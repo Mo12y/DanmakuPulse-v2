@@ -46,12 +46,51 @@
 var $ = function(s){ return document.querySelector(s); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
 
+
+/* 偏离维度的分布：全库被判偏离的视频里，各维度各占多少 —— 回答「大家最常在**哪一维**上不像同类」 */
+function dimDistHTML(dd){
+  if (!dd || !dd.length) return '<div class="secnote">暂无数据。</div>';
+  var mx = Math.max.apply(null, dd.map(function(x){ return x.n; }).concat([1]));
+  return '<div class="rlist">' + dd.map(function(x){
+    return '<div class="rrow" style="grid-template-columns:160px 80px 1fr 72px">' +
+      '<span class="rname">' + esc(x.label) + '</span>' +
+      '<span class="rnum">' + x.n + ' 支</span>' +
+      '<span><span class="rbar"><i style="width:' + (100 * x.n / mx).toFixed(1) + '%"></i></span></span>' +
+      '<span class="rnum">' + x.rate.toFixed(1) + '%</span></div>';
+  }).join('') + '</div>';
+}
+
+/* 曲线缩略图：不引 ECharts，直接画 SVG —— 案例卡只要形状，不需要交互 */
+function spark(curve, w, h){
+  if (!curve || !curve.length) return '';
+  var mx = Math.max.apply(null, curve) || 1;
+  var pts = curve.map(function(v, i){
+    return (i / (curve.length - 1) * w).toFixed(1) + ',' + (h - v / mx * h).toFixed(1);
+  }).join(' ');
+  return '<svg width="100%" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" ' +
+    'preserveAspectRatio="none" style="display:block;margin:6px 0 4px" aria-hidden="true">' +
+    '<polyline points="' + pts + '" fill="none" stroke="var(--primary)" stroke-width="1.6"/></svg>';
+}
+
+/* 偏离案例：挑最不像同类的几支，带曲线缩略图，点进去看完整诊断卡 */
+function casesHTML(rows){
+  if (!rows || !rows.length) return '<div class="secnote">没有可展示的案例。</div>';
+  return '<div class="dgrid">' + rows.slice(0, 3).map(function(r){
+    return '<div class="dcard" data-bvid="' + esc(r.bvid) + '" tabindex="0" role="link" ' +
+      'aria-label="打开 ' + esc(r.title) + ' 的诊断卡">' +
+      '<div class="drank">案例 ｜ ' + esc(r.tname || '—') + ' ｜ 同类 ' + r.n_peers + ' 支</div>' +
+      '<div class="dtitle">' + esc(r.title) + '</div>' +
+      spark(r.curve, 300, 56) +
+      '<div class="dmeta"><span>' + esc(r.label) + ' ' + esc(r.pole) + '</span>' +
+        '<span class="dz">z=' + r.z.toFixed(2) + '</span></div></div>';
+  }).join('') + '</div>';
+}
+
 function verdictHTML(d){
   return '<div class="verdict">' +
     '<span class="tone warn">⚠ 模型与验证</span>' +
     '<div class="vmain">' +
       '<div class="vproblem">' + esc(d.headline) + '</div>' +
-      '<div class="vdetail">' + esc(d.sub) + '</div>' +
     '</div></div>';
 }
 
@@ -141,6 +180,14 @@ function draw(d){
       '<span class="secnote">哪个分区整体更容易出「不像同类」的视频</span></div>' +
       partsHTML(d.parts) + '</div>' +
     '<div class="sec"><div class="sechead"><span class="secno">④</span>' +
+      '<span class="sectitle">偏离维度分布</span>' +
+      '<span class="secnote">被判偏离的视频里，各维度各占多少 —— 看全市场最常在哪一维上不像同类</span></div>' +
+      dimDistHTML(d.dim_dist) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">⑤</span>' +
+      '<span class="sectitle">偏离案例</span>' +
+      '<span class="secnote">最不像同类的 3 支，点开看完整诊断卡</span></div>' +
+      casesHTML(d.rows) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">⑥</span>' +
       '<span class="sectitle">全库最不典型</span>' +
       '<span class="secnote">点任意一张打开它的诊断卡 ｜ ' + esc(d.z_note) + '</span></div>' +
       rowsHTML(d.rows, d.n_rows) + '</div>';
