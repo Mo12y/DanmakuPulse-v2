@@ -229,3 +229,26 @@ def test_dockerfile_copies_every_serve_module():
     missing = [m for m in mods if m not in joined]
     assert not missing, ('serve/Dockerfile 没把这些模块拷进镜像：%s —— 容器会 ModuleNotFoundError。'
                          '要么加进 COPY 行，要么改用 COPY *.py ./' % missing)
+
+
+def test_compose_fastapi_has_collector_mounts():
+    """采集控制台的三个挂载必须在 **fastapi** 服务里。
+
+    2026-10-16 实测踩过：用『mem_limit + restart』这种通用锚点改 compose，
+    匹配到了文件里更早的 **postgres** 段 —— 结果内存上限和 user 加到了数据库上，
+    而 fastapi 原封不动。postgres 当时没被重建所以没炸，下次 make up 就会坏。
+    教训：改 compose 必须**按服务块定位**，不能用跨服务都出现的行当锚点。
+    """
+    c = io.open(os.path.join(ROOT, 'compose', 'docker-compose.b0.yml'), encoding='utf-8').read()
+    ls = c.split(chr(10))
+    starts = [(i, l.split(':')[0].strip()) for i, l in enumerate(ls)
+              if re.match(r'^  [a-z][a-z0-9-]*:$', l)]
+    for k, (i, name) in enumerate(starts):
+        if name != 'fastapi':
+            continue
+        j = starts[k + 1][0] if k + 1 < len(starts) else len(ls)
+        blk = chr(10).join(ls[i:j])
+        for want in ('danmaku/collect:/collect', 'data/cli_collected:/data-out', 'danmaku/logs:/logs'):
+            assert want in blk, 'fastapi 服务块缺少挂载 %s —— 采集控制台会报脚本没挂进来' % want
+        return
+    raise AssertionError('compose 里找不到 fastapi 服务')
