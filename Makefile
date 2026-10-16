@@ -55,7 +55,18 @@ stage: ## cli_collected → raw-local 暂存（映射唯一事实源 = tools/sta
 session-secret: ## 生成会话签名密钥写入 compose/.env（不进 git；缺失时自动补）
 	@python3 -c "import io,secrets;p='compose/.env';t=io.open(p,encoding='utf-8').read();n=chr(10);t=t if 'ADS_SESSION_SECRET=change-me
 
-up: ## 起 B0 9 服务底座
+VM_IP ?= 192.168.88.100
+
+tls-cert: ## 生成自签证书（8088 的 TLS 用；证书不进 git，缺失时自动生成）
+	@mkdir -p compose/assets/tls
+	@test -f compose/assets/tls/server.crt || (openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+	  -keyout compose/assets/tls/server.key -out compose/assets/tls/server.crt \
+	  -subj '/CN=danmaku-diagnosis' \
+	  -addext 'subjectAltName=IP:$(VM_IP),IP:127.0.0.1,DNS:localhost' 2>/dev/null \
+	  && echo '已生成自签证书（浏览器首次用 HTTPS 访问会提示一次，点继续前往即可）')
+	@echo '证书就绪'
+
+up: tls-cert ## 起 B0 9 服务底座
 	$(COMPOSE) up -d --build
 
 down:

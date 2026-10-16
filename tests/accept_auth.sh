@@ -28,7 +28,9 @@ J1=$(mktemp); J2=$(mktemp); J3=$(mktemp)
 
 echo "=== ① 未登录：页面跳登录页 / API 回 401 JSON / 公开资源放行 ==="
 chk "未登录 GET /diagnosis.html" 302 "$(curl -s -o /dev/null -w '%{http_code}' $H/diagnosis.html)"
-has "跳转带 next" "/login?next=/diagnosis.html" "$(curl -s -o /dev/null -w '%{redirect_url}' $H/diagnosis.html)"
+# 必须连 host:port 一起断言：nginx 默认把相对 Location 补成绝对 URL 时用的是**内部监听端口**
+# （8080/8443），只查路径会漏掉"跳到未发布端口"这类 bug（2026-10-15 实测漏过一次）
+has "未登录跳登录页且保留原端口" "$H/login?next=/diagnosis.html" "$(curl -s -o /dev/null -w '%{redirect_url}' $H/diagnosis.html)"
 chk "未登录 GET /api/v3/overview" 401 "$(curl -s -o /dev/null -w '%{http_code}' $H/api/v3/overview)"
 has "401 带 login_required" "login_required" "$(curl -s $H/api/v3/overview)"
 for u in /api/health /login.html /403.html /v3.css /v3nav.js /vendor/echarts.min.js; do
@@ -64,7 +66,7 @@ curl -s -c $J2 -o /dev/null -X POST -d "username=$USER_NAME&password=$USER_PASS"
 chk "user GET /diagnosis.html" 200 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' $H/diagnosis.html)"
 chk "user GET /api/users" 403 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' $H/api/users)"
 has "403 带 forbidden" "forbidden" "$(curl -s -b $J2 $H/api/users)"
-has "user 打开 /users 被送去 403 页" "/403.html" "$(curl -s -b $J2 -o /dev/null -w '%{redirect_url}' $H/users)"
+has "user 打开 /users 被送去 403 页（保留原端口）" "$H/403.html" "$(curl -s -b $J2 -o /dev/null -w '%{redirect_url}' $H/users)"
 chk "user GET /rhythm.html（技术页仅管理员）" 302 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' $H/rhythm.html)"
 
 echo
@@ -105,6 +107,20 @@ echo
 echo "=== ⑩ 路径存在性：未登录不泄露，登录后仍是 404 ==="
 chk "未登录 未知路径（与已知路径同为 302）" 302 "$(curl -s -o /dev/null -w '%{http_code}' $H/no-such-page.html)"
 chk "已登录 未知路径" 404 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' $H/no-such-page.html)"
+
+echo
+echo "=== 双协议同端口（浏览器「始终使用安全连接」会把 http 升级成 https）==="
+HTTPS_H="${H/http:/https:}"
+chk "明文 http 取登录页" 200 "$(curl -s -o /dev/null -w '%{http_code}' $H/login.html)"
+chk "TLS https 取登录页（自签，-k 忽略证书）" 200 "$(curl -sk -o /dev/null -w '%{http_code}' $HTTPS_H/login.html)"
+chk "TLS 未登录取页面仍 302" 302 "$(curl -sk -o /dev/null -w '%{http_code}' $HTTPS_H/diagnosis.html)"
+has "TLS 跳转也保留原端口（不能指到内部 8443）" "$HTTPS_H/login" "$(curl -sk -o /dev/null -w '%{redirect_url}' $HTTPS_H/diagnosis.html)"
+chk "TLS 未登录取 API 仍 401" 401 "$(curl -sk -o /dev/null -w '%{http_code}' $HTTPS_H/api/v3/overview)"
+JT=$(mktemp)
+chk "TLS 下能登录" 302 "$(curl -sk -c $JT -o /dev/null -w '%{http_code}' -X POST -d "username=$ADMIN_USER&password=$ADMIN_PASS" $HTTPS_H/login)"
+chk "TLS 下带会话能取诊断卡" 200 "$(curl -sk -b $JT -o /dev/null -w '%{http_code}' $HTTPS_H/diagnosis.html)"
+chk "TLS 下带会话能取 API" 200 "$(curl -sk -b $JT -o /dev/null -w '%{http_code}' $HTTPS_H/api/v3/overview)"
+rm -f $JT
 
 rm -f $J1 $J2 $J3
 echo
