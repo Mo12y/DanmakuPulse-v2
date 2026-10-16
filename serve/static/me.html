@@ -15,6 +15,9 @@
 .ft{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:6px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .fm{font-size:12.5px;color:var(--text-secondary)}
+.fx{font-size:12px;color:var(--text-tertiary);margin-top:7px;line-height:1.65}
+.trbox{border-left:3px solid var(--accent-line);background:var(--accent-soft);border-radius:0 8px 8px 0;
+  padding:11px 14px;font-size:13px;line-height:1.8}
 .fgo{margin-top:auto;padding-top:10px;font-size:12.5px;color: var(--accent-ink);font-weight:700}
 .empty{padding:44px;text-align:center;color:var(--text-secondary)}
 </style>
@@ -24,6 +27,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
+      <p class="pagesub"><b>这一页解决什么 · 给 UP 主与运营：</b>存下要回看的视频，一处点开它们的诊断卡与跨批变化</p>
   <div class="card">
     <div class="verdict">
       <span class="tone ok">● 我的</span>
@@ -38,21 +42,52 @@
         <span class="secnote">在诊断卡页点「收藏这支」即可加入</span></div>
       <div class="fgrid" id="list"></div>
     </div>
+    <div class="sec">
+      <div class="sechead"><span class="secno">②</span><span class="sectitle">跨批追踪</span>
+        <span class="secnote" id="trnote"></span></div>
+      <div class="trbox" id="trbox"></div>
+    </div>
   </div>
 </div>
 <script src="v3nav.js"></script>
 <script>
 var $ = function (s) { return document.querySelector(s); };
-V3.ready(function () { load(); });
+var TRACK = {};   // bvid -> 跨批摘要（只有那 85 支有）
+V3.ready(function () { boot(); });
+
+/* 收藏页的跨批那一条：**如实标注数据上限**，而不是让 89% 的卡片都显示"暂无"却不说为什么 */
+function boot() {
+  fetch('/api/v3/track').then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      var d = j && j.data;
+      if (!d) return;
+      (d.items || []).forEach(function (x) { TRACK[x.bvid] = x; });
+      $('#trnote').textContent = '全库 803 支里只有 ' + d.n_videos + ' 支（' + d.share_pct + '%）跨批出现';
+      $('#trbox').innerHTML =
+        '<b>只列真正能用的那 ' + d.n_videos + ' 支</b>（连续两批都在榜 —— MCN/运营 那条' +
+        '「榜单持续性预测」的候选集）。<br>收藏夹里约 ' + (100 - d.share_pct).toFixed(1) +
+        '% 的视频只被采到一次，它们的跨批变化会显示「暂无追踪数据」——' +
+        '这是<b>数据上限</b>（0 支出现在 3 批及以上），不是功能没做。' +
+        '<div style="margin-top:9px"><a class="btn" href="track.html">打开跨批追踪（列全部 ' +
+        d.n_videos + ' 支）→</a></div>';
+    })
+    .catch(function () { })
+    .then(load);
+}
+
 function load() {
   fetch('/api/favorites', { credentials: 'same-origin' }).then(function (r) { return r.json(); })
     .then(function (j) {
       var rows = j.data || [];
       $('#cnt').textContent = rows.length ? ('共 ' + rows.length + ' 支') : '还没有收藏';
       $('#list').innerHTML = rows.length ? rows.map(function (f) {
+        var t = TRACK[f.bvid];
         return '<div class="fcard" data-b="' + V3.esc(f.bvid) + '">' +
           '<div class="ft">' + V3.esc(f.title || f.bvid) + '</div>' +
           '<div class="fm">' + V3.esc(f.tname || '') + ' ｜ ' + V3.esc(f.created_at) + '</div>' +
+          '<div class="fx">跨批变化：' +
+            (t ? V3.esc(t.conclusion) + '（两批隔 ' + (t.gap_days == null ? '—' : t.gap_days) + ' 天）'
+               : '暂无追踪数据') + '</div>' +
           '<div class="fgo">看它的诊断卡 →</div></div>';
       }).join('') : '<div class="empty">还没有收藏。去诊断卡点一下「收藏这支」。</div>';
       document.querySelectorAll('.fcard[data-b]').forEach(function (el) {

@@ -15,6 +15,7 @@
   - 曲线 = 每 1% 进度的弹幕占比（形状），展示前做 5 点滑动平均（33 号：不要 5s 毛刺）
   - 方向只来自 32 号 P3 控龄偏相关：量维有方向，形状维标"中性差异"
 '''
+import datetime
 import json
 import math
 import os
@@ -1320,3 +1321,392 @@ def partition_list():
         rows.append({'tname': t, 'n_videos': b['n_videos'], 'low_support': bool(b.get('low_support'))})
     rows.sort(key=lambda r: (-r['n_videos'], r['tname']))
     return rows
+
+
+# ── 跨批追踪（= 收藏追踪的跨批变化）────────────────────────────
+# 受众：UP 主 + MCN/运营。它帮用户做成的**那一件事**：看一支视频"跟上一次比变了没"。
+#
+# ⚠️ 数据上限（2026-10-16 实测，它直接决定"完整"的定义）：
+#   803 支去重视频里 718 支只出现在 1 个批次、85 支出现在 2 个批次、
+#   **0 支出现在 >=3 个批次**。⇒ 最多只有两个时间点，**画不出趋势线**。
+#   所以这里给的是"两批之间的逐维差（delta）"，**不是**时间序列趋势图。
+#   这条必须守住，否则会做出"两点折线图"冒充趋势 —— 那不是数据支持的东西。
+#
+# 另一个真实含义（页面上要点明）：这 85 支 = **连续两批都在榜**，
+# 正好对上 docs/05-新系统重构/07_最终设计方案.md 里 MCN 那条「榜单持续性预测」。
+TRACK_THR = 3.5          # 偏离阈值，与 deviation_view 同口径（32 号 P4 惯例）
+
+
+def _bd_gap_days(bd1, bd2):
+    '''两个批次日期（YYYYMMDD 字符串）之间隔了几天'''
+    try:
+        a = datetime.datetime.strptime(str(bd1), '%Y%m%d')
+        b = datetime.datetime.strptime(str(bd2), '%Y%m%d')
+        return (b - a).days
+    except Exception:
+        return None
+
+
+def _delta_phrase(dim, a, b):
+    '''两批之间这一维"动了多少"的人话。
+
+    形状维（direction=neutral）只说动没动，不判好坏 —— 与主视图同纪律：
+    形状差异与后续热度没有稳定关联，所以不许把"变了"说成"变好了"。
+    '''
+    if a is None or b is None:
+        return '这一批没测到'
+    if dim == 'main_peak_pct':
+        d = b - a
+        if abs(d) < 2:
+            return '位置基本没动'
+        return ('往后挪了约 %d 个百分点' % round(abs(d))) if d > 0 \
+            else ('往前挪了约 %d 个百分点' % round(abs(d)))
+    if dim == 'peak_cnt':
+        d = b - a
+        if abs(d) < 1:
+            return '个数没变'
+        return ('多了 %d 个' % round(d)) if d > 0 else ('少了 %d 个' % round(-d))
+    if a == 0:
+        return '从 0 变成 %s' % _precise(dim, b)
+    r = b / a
+    if abs(r - 1.0) <= 0.08:
+        return '基本没动'
+    return ('高了约 %d%%' % round((r - 1) * 100)) if r > 1 \
+        else ('低了约 %d%%' % round((1 - r) * 100))
+
+
+def _real_move(dim, a, b):
+    '''数值**本身**有没有实质变化。
+
+    必须与"|z2-z1|"分开：z 是相对**同类基准**的偏离度，而两次采集用的是各自批次的基准；
+    所以基准变了，z 会变，即使这支视频的值一点没动。把两者混为一谈会写出
+    「【中段留存】基本没动」这种自相矛盾的结论句（实测踩过）。
+    '''
+    if a is None or b is None:
+        return False
+    if dim == 'main_peak_pct':
+        return abs(b - a) >= 2
+    if dim == 'peak_cnt':
+        return abs(b - a) >= 1
+    if a == 0:
+        return b != 0
+    return abs(b / a - 1.0) > 0.08
+
+
+def _track_groups(snap):
+    '''按 bvid 归组，只保留出现在 >=2 个批次的（当前全库 85 支）'''
+    g = {}
+    for i, v in enumerate(snap['videos']):
+        g.setdefault(v['bvid'], []).append(i)
+    out = []
+    for bvid, idxs in g.items():
+        if len(idxs) < 2:
+            continue
+        idxs.sort(key=lambda i: snap['videos'][i]['batch_date'])
+        out.append((bvid, idxs))
+    return out
+
+
+def _pair_summary(snap, idxs):
+    v1, v2 = snap['videos'][idxs[0]], snap['videos'][idxs[-1]]
+    b1 = snap['baselines'].get(v1.get('tname')) or snap['global_base']
+    b2 = snap['baselines'].get(v2.get('tname')) or snap['global_base']
+    deltas = []
+    for dim, d in DICT.items():
+        if not d.get('display'):
+            continue
+        a = (v1.get('f') or {}).get(dim)
+        b = (v2.get('f') or {}).get(dim)
+        if a is None and b is None:
+            continue
+        z1, z2 = _z(v1, b1, dim), _z(v2, b2, dim)
+        # 变化幅度用"两批偏离度的差"（|z2-z1|）—— 与展示维同口径，
+        # 且是"相对同类"的变化，不是被时长/总量混淆的绝对差。
+        moved = abs(z2 - z1) if (z1 is not None and z2 is not None) else None
+        crossed = None
+        if z1 is not None and z2 is not None:
+            crossed = (abs(z1) < TRACK_THR) != (abs(z2) < TRACK_THR)
+        deltas.append({
+            'dim': dim, 'label': d['label'], 'seg_name': d.get('seg_name'),
+            'unit': d.get('unit'), 'direction': d.get('direction'),
+            'v1_text': _precise(dim, a), 'v2_text': _precise(dim, b),
+            'phrase': _delta_phrase(dim, a, b),
+            'real_move': _real_move(dim, a, b),
+            'z1': round(z1, 2) if z1 is not None else None,
+            'z2': round(z2, 2) if z2 is not None else None,
+            'crossed': crossed,
+            'moved': round(moved, 3) if moved is not None else None,
+        })
+    deltas.sort(key=lambda r: -(r['moved'] or 0))
+    moved_ones = [r for r in deltas if r['real_move']]
+    top = moved_ones[0] if moved_ones else None
+    n_changed = len(moved_ones)
+    n_crossed = sum(1 for r in deltas if r['crossed'])
+    if not deltas or all(r['moved'] is None for r in deltas):
+        conclusion = '这两批的节奏差没能算出来（缺少可比的分区基准）。'
+    elif top is None and n_crossed == 0:
+        conclusion = '跟上一批比，节奏没怎么变。'
+    elif top is None:
+        conclusion = ('跟上一批比，各维的数值几乎没动，但有 %d 维跨过了偏离阈值 —— '
+                      '那是同类基准在两次采集之间变了，不是这支视频变了。' % n_crossed)
+    else:
+        conclusion = '跟上一批比，【%s】%s。' % (top['label'], top['phrase'])
+    return {
+        'bvid': v1['bvid'], 'title': v1.get('title') or v1['bvid'],
+        'tname': v1.get('tname'), 'up_name': v1.get('up_name'),
+        'batches': [{'batch_date': v1['batch_date'], 'n_danmaku': v1.get('n_danmaku')},
+                    {'batch_date': v2['batch_date'], 'n_danmaku': v2.get('n_danmaku')}],
+        'gap_days': _bd_gap_days(v1['batch_date'], v2['batch_date']),
+        'n_changed': n_changed, 'n_crossed': n_crossed,
+        'score': top['moved'] if (top and top['moved'] is not None) else 0,
+        'top': top, 'deltas': deltas,
+        'conclusion': conclusion,
+    }
+
+
+def track_list(snap=None):
+    '''跨批追踪总表：**直接列出那 85 支**（而不是做成一个 89% 时间是空的页面）。
+
+    为什么直接列：如果只把它挂在"我的收藏"里，约 89% 的收藏会显示"暂无追踪数据"——
+    用户看不到这个功能到底能用在哪里。所以另开一个入口，把真正有两次数据的列出来。
+    '''
+    snap = snap or _load()
+    items = [_pair_summary(snap, idxs) for _, idxs in _track_groups(snap)]
+    items.sort(key=lambda r: -(r['score'] or 0))
+    n_all = len({v['bvid'] for v in snap['videos']})
+    n2 = len(items)
+    share = round(100.0 * n2 / n_all, 1) if n_all else 0.0
+    # 实际批次对（2026-10-16 实测，必须说出来）：84/85 是相邻两天，只有 1 支隔 3 天。
+    # 不说出来，"跟上一次比变了没"会被读成"隔了很久的变化"——那是误导。
+    gaps = {}
+    for r in items:
+        k = ' → '.join(b['batch_date'] for b in r['batches'])
+        a = gaps.setdefault(k, {'pair': k, 'n': 0, 'gap_days': r['gap_days']})
+        a['n'] += 1
+    gap_pairs = sorted(gaps.values(), key=lambda x: (-x['n'], x['pair']))
+    tp = gap_pairs[0] if gap_pairs else None
+    gap_note = ('按实际批次对看：%d/%d 支是**相邻两天**（%s，日频采集）%s —— 所以'
+                '"跟上一次比变了没"实际是"**隔 %s 天**变了没"，差值里有一部分可能来自'
+                '采集本身（同一支视频在两天各采一次），不能全当作"视频变了"。'
+                '要更长的跨度，只能继续按日频积累批次。'
+                % (tp['n'], n2, tp['pair'],
+                   ('，其余 %d 支隔更久' % (n2 - tp['n'])) if (tp and n2 > tp['n']) else '',
+                   tp['gap_days'] if tp else '—')) if tp else ''
+    return {
+        'headline': '803 支视频里 %d 支（%.1f%%）连续两批都被采到 —— 这是全库能看"跟上一次比"的全部' % (n2, share),
+        'sub': '**连续两批都在榜**，正好对上 07 设计里 MCN/运营 那条「榜单持续性预测」：'
+               '这些就是"被市场连续选中"的候选集。',
+        'stats': [
+            {'label': '去重视频', 'value': n_all, 'unit': '支', 'note': '快照覆盖的全部'},
+            {'label': '跨批出现', 'value': n2, 'unit': '支', 'note': '占 %.1f%%' % share},
+            {'label': '最多批次数', 'value': 2, 'unit': '批', 'note': '0 支出现在 3 批及以上'},
+            {'label': '主要间隔', 'value': (tp['gap_days'] if tp else 0), 'unit': '天',
+             'note': '%d/%d 支是这一对批次' % (tp['n'], n2) if tp else ''},
+        ],
+        'day_note': '所有跨批视频都只有**两个时间点**（0 支出现在 3 个及以上批次）—— '
+                    '所以这一页给的是**两批之间的逐维差**，不是时间序列趋势线。',
+        'gap_pairs': gap_pairs,
+        'gap_note': gap_note,
+        'items': items,
+        'n_videos': n2, 'n_all': n_all, 'share_pct': share, 'max_batches': 2,
+        'threshold': TRACK_THR,
+    }
+
+
+def track_detail(bvid, snap=None):
+    '''单支视频的跨批详情：两批曲线叠加 + 逐维 delta 表'''
+    snap = snap or _load()
+    groups = dict(_track_groups(snap))
+    idxs = groups.get(bvid)
+    if not idxs:
+        return None
+    s = _pair_summary(snap, idxs)
+    curves = []
+    for i in idxs:
+        v = snap['videos'][i]
+        cur = snap['curves'].get('%s|%s' % (v['bvid'], v['batch_date']))
+        curves.append({'batch_date': v['batch_date'], 'n_danmaku': v.get('n_danmaku'),
+                       'duration': v.get('duration'),
+                       'curve': [round(x, 6) for x in _smooth(cur)] if cur else None})
+    s['curves'] = curves
+    s['note'] = ('两批之间隔了 %s 天。图上 x 轴 = 播放进度（1%% 桶），y 轴 = 该位置的弹幕占比；'
+                 '两条线是**同一支视频在两个批次**的形状，不是趋势线。'
+                 % (s['gap_days'] if s['gap_days'] is not None else '？'))
+    return s
+
+
+# ── 两视频对比 ──────────────────────────────────────────────
+# 受众：UP 主。它帮用户做成的那一件事：**对标竞品，看出差在哪一维**。
+#
+# ⚠️ 数据前提（2026-10-16 实测，它直接改设计）：
+#   结果变量非空率很低（快照 888 条「视频-批次」）：halflife_d 28.2% / hk_halflife 18.7% /
+#   span_days 15.2% / half_decay_days 14.1%。而配对要**两支都有同一个变量**，
+#   概率约等于两个单支率的乘积（halflife_d 只有 ≈8%）⇒ 绝大多数配对比不出"谁更强"。
+#   所以：**两支都有同一个结果变量才显示"谁更强"**，否则如实写"只能比节奏形状"——
+#   绝不用别的字段凑一个"强弱"出来（这是本轮判据"不许用别的字段凑"的直接落地）。
+CMP_DIMS = tuple(k for k, d in DICT.items() if d.get('display'))
+
+
+def _cmp_phrase(dim, va, vb):
+    '''第二支相对第一支差在哪（页面上列头写明这个方向）'''
+    if va is None or vb is None:
+        return '有一支没测到'
+    if dim == 'main_peak_pct':
+        d = vb - va
+        if abs(d) < 2:
+            return '爆点位置差不多'
+        return (('第二支的爆点更靠后约 %d 个百分点' % round(abs(d))) if d > 0
+                else ('第二支的爆点更靠前约 %d 个百分点' % round(abs(d))))
+    if dim == 'peak_cnt':
+        d = vb - va
+        if abs(d) < 1:
+            return '爆点个数相同'
+        return ('第二支多 %d 个' % round(d)) if d > 0 else ('第二支少 %d 个' % round(-d))
+    if va == 0:
+        return '第一支为 0，第二支 %s' % _precise(dim, vb)
+    r = vb / va
+    if abs(r - 1.0) <= 0.08:
+        return '差不多'
+    return ('第二支高约 %d%%' % round((r - 1) * 100)) if r > 1 \
+        else ('第二支低约 %d%%' % round((1 - r) * 100))
+
+
+def _cmp_side(bvid, snap):
+    i = snap['by_bvid'].get(bvid)
+    if i is None:
+        return None
+    rec = snap['videos'][i]
+    tname = rec.get('tname')
+    base_p = snap['baselines'].get(tname) if tname else None
+    base = base_p or snap['global_base']
+    cur = snap['curves'].get('%s|%s' % (bvid, rec['batch_date']))
+    med = (base or {}).get('curve_med')
+    return {
+        'bvid': bvid, 'title': rec.get('title') or bvid,
+        'tname': tname, 'up_name': rec.get('up_name'),
+        'batch_date': rec['batch_date'], 'duration': rec.get('duration'),
+        'duration_text': _mmss(rec.get('duration')),
+        'n_danmaku': rec.get('n_danmaku'), 'play': rec.get('play'),
+        'curve': [round(x, 6) for x in _smooth(cur)] if cur else None,
+        'median': [round(x, 6) for x in _smooth(med)] if med else None,
+        'f': rec.get('f') or {}, 'pct': rec.get('pct') or {},
+        'outcome': rec.get('outcome') or {},
+        'partition_n': (base_p or {}).get('n_videos'),
+        'partition_low': bool((base_p or {}).get('low_support')),
+    }
+
+
+def _outcome_coverage(snap):
+    '''结果变量的**实际非空率**（现算，不硬编码）——用来如实交代"谁更强"为什么常常算不出来。'''
+    n = len(snap['videos']) or 1
+    out = []
+    for k in OUT_ORDER:
+        c = sum(1 for v in snap['videos'] if (v.get('outcome') or {}).get(k) is not None)
+        out.append({'key': k, 'label': OUT_LABEL[k], 'n': c,
+                    'pct': round(100.0 * c / n, 1),
+                    # 两支同时有该变量的概率 ≈ 单支率²（上界估计，用于对照）
+                    'pair_pct': round(100.0 * (c / n) ** 2, 1)})
+    return out
+
+
+_PAIR_STAT = None
+
+
+def _pair_outcome_rate(snap):
+    '''在**全部** C(n,2) 个两两配对里，能比"谁更强"的**精确**占比（不抽样、不用上界估计）。
+
+    做法：把每支视频的结果变量存在情况压成 4 位掩码（16 种），统计每种掩码的支数，
+    再在 16×16 上数"两个掩码有交集"的配对 —— O(n) 一次算好并缓存，
+    因为 322,003 个配对逐个比会每次请求都白跑一遍。
+
+    为什么值得精确算：页面上要写"多常能比出强弱"。写"约等于单支率平方"是**估计**，
+    写"322,003 个配对里只有 X 个能比"是**数出来的**——后者才经得起追问。
+    '''
+    global _PAIR_STAT
+    if _PAIR_STAT is not None:
+        return _PAIR_STAT
+    masks = {}
+    for i in snap['by_bvid'].values():
+        o = snap['videos'][i].get('outcome') or {}
+        m = 0
+        for b, k in enumerate(OUT_ORDER):
+            if o.get(k) is not None:
+                m |= (1 << b)
+        masks[m] = masks.get(m, 0) + 1
+    keys = sorted(masks)
+    n = sum(masks.values())
+    tot = n * (n - 1) // 2
+    can = 0
+    for a in keys:
+        for b in keys:
+            if a == b:
+                if a:
+                    can += masks[a] * (masks[a] - 1) // 2
+            elif a < b and (a & b):
+                can += masks[a] * masks[b]
+    _PAIR_STAT = {'n_videos': n, 'n_pairs': tot, 'n_can': can,
+                  'pct': (round(100.0 * can / tot, 1) if tot else 0.0)}
+    return _PAIR_STAT
+
+
+def compare_view(a, b, snap=None):
+    snap = snap or _load()
+    A, B = _cmp_side(a, snap), _cmp_side(b, snap)
+    if not A or not B:
+        return None
+    rows = []
+    for dim in CMP_DIMS:
+        va, vb = A['f'].get(dim), B['f'].get(dim)
+        pa, pb = A['pct'].get(dim), B['pct'].get(dim)
+        rows.append({
+            'dim': dim, 'label': DICT[dim]['label'], 'unit': DICT[dim].get('unit'),
+            'seg_name': DICT[dim].get('seg_name'),
+            'a_text': _precise(dim, va), 'b_text': _precise(dim, vb),
+            'a_pct': pa, 'b_pct': pb,
+            'pct_gap': (round(pa - pb, 1) if (pa is not None and pb is not None) else None),
+            'phrase': _cmp_phrase(dim, va, vb),
+        })
+    # 表按"百分位差"从大到小 —— 排在上面的是这两支最不一样的地方
+    rows.sort(key=lambda r: -(abs(r['pct_gap']) if r['pct_gap'] is not None else -1))
+
+    cov = _outcome_coverage(snap)
+    who = {'available': False, 'var': None, 'key': None, 'label': None,
+           'a_value': None, 'b_value': None, 'winner': None, 'basis': None}
+    # 在"两支都有"的结果变量里挑**覆盖最高**的那个来比：
+    # ① 覆盖高 ⇒ 这个结论适用的配对面更广；② 覆盖高的两个都是连续值，
+    # 少碰到 half_decay_days 这种"整数天"造成的并列（实测踩过：两支都 1.0 天 → 判不出强弱）。
+    both = [k for k in OUT_ORDER if A['outcome'].get(k) is not None and B['outcome'].get(k) is not None]
+    if both:
+        cvm = {c['key']: c['pct'] for c in cov}
+        k = max(both, key=lambda x: cvm.get(x, 0))
+        va, vb = A['outcome'][k], B['outcome'][k]
+        who = {'available': True, 'var': k, 'key': k, 'label': OUT_LABEL[k],
+               'a_value': round(float(va), 2), 'b_value': round(float(vb), 2),
+               'winner': ('a' if va > vb else ('b' if vb > va else None)),
+               'basis': ('两支都有「%s」（%s，单支覆盖 %s%%）数据，按这一个变量比'
+                         % (OUT_LABEL[k], k, cvm.get(k, '—')))}
+    same_part = bool(A['tname']) and A['tname'] == B['tname']
+    ps = _pair_outcome_rate(snap)
+    return {
+        'a': A, 'b': B,
+        'rows': rows,
+        'same_partition': same_part,
+        'median_lines': ([A['median']] if same_part else [A['median'], B['median']]),
+        'who': who,
+        'who_note': (('这两支都有「%s」数据，所以能比强弱。' % who['label']) if who['available'] else
+                     '这两支没有共同的后续表现数据，只能比节奏形状 —— '
+                     '不拿别的字段凑一个"强弱"出来。'),
+        'outcome_coverage': cov,
+        'pair_stat': ps,
+        'coverage_note': ('结果变量的覆盖很低（快照 %d 条「视频-批次」现算）：%s。'
+                          '而对比要**两支都有同一个变量**：在全部 %s 个两两配对里，'
+                          '只有 **%s%%**（%s 个）能比出"谁更强"，剩下的只能比节奏形状。'
+                          '这是数据上限，不是功能缺失。'
+                          % (len(snap['videos']),
+                             '；'.join('%s %s%%' % (c['label'], c['pct']) for c in cov),
+                             format(ps['n_pairs'], ','), ps['pct'], format(ps['n_can'], ','))),
+        'scope_note': (('两支同在【%s】，同类基准一致，百分位可直接比。' % A['tname']) if same_part else
+                       ('两支分属【%s】与【%s】—— 同类基准不同，所以逐维比的是各自分区内的**百分位**，'
+                        '绝对值只作参考。' % (A['tname'] or '未标注', B['tname'] or '未标注'))),
+        'gap_hint': '表按"百分位差"从大到小排 —— 排在最上面的是这两支最不一样的地方。',
+    }

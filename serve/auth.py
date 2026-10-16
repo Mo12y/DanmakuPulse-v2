@@ -38,7 +38,11 @@ ROLES = ('admin', 'user')
 # 仅管理员可访问的路径前缀（照抄旧 ADMIN_PREFIXES 语义；v3 把"原始细节"技术页也划进来）
 ADMIN_PREFIXES = ('/users', '/api/users',
                    '/api/v3/collect', '/api/v3/tables',
-                   '/api/collect')          # 采集启停：只给管理员
+                   '/api/collect',              # 采集启停：只给管理员
+                   '/api/v3/ai/config')         # AI 解读**开关**：只给管理员
+# ⚠️ 只把「开关」放进来：AI 解读的**状态与用量**（/api/v3/ai/state）与
+#    生成（/api/v3/ai/report）必须让普通用户也能用 —— 否则页面上没法显示"已用量"。
+#    /api/* 整体仍需登录（见 app._gate 中间件）。
 
 # 无需登录的路径（nginx 侧另有静态白名单；这里是 API 侧的，含义一致）
 _PUBLIC = ('/login', '/logout', '/api/session', '/api/health', '/docs', '/openapi.json')

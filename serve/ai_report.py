@@ -1,0 +1,347 @@
+# -*- coding: utf-8 -*-
+'''AI 报告解读 —— 把诊断能力产品化到**可交付形态**（受众：UP 主）。
+
+定位（答辩口径，照实说，不要改说法）：
+  诊断卡给人**看**，报告给人**转述**。这就是这一模块存在的理由。
+  ⚠️ 答辩别说"别人都有所以我们也做"（会被追问创新点在哪），也别说"全新的创新点"
+  （各行各业都有 ≠ 新）。
+  它**不是**"去 AI 味"的对象 —— 去 AI 味只指设计层（措辞 / 视觉），不指"不许有 AI 功能"。
+
+⚠️ 付费闸（铁律·付费服务先设闸；2026-09-22 曾一次失控约 ¥30，3 小时 56 分、1024+ 次调用）
+  三条**同时**生效，不可放松：
+    ① 单日 <= 200 次   ② 累计 <= ¥10   ③ 单次 max_tokens <= 600
+  并且：同 (bvid, 快照) **只解读一次**（缓存，缓存命中不计费）；
+        超限**自动停**（把开关置回关闭并记日志）；**默认关闭**，管理员在后台开；
+        密钥走 env（compose/.env.llm，**.gitignore 已忽略、不进 git**）。
+  成本量级（估计值，以实测为准）：一次约 2000 输入 + 400 输出 token ≈ ¥0.003。
+  ⚠️ 监控盯的是"累计花费"而不是"进度"——超阈值自动停。
+
+提示词硬约束（写死在 SYSTEM 里，不可放松）：
+  ① 只能基于给出的诊断数据解读，**不添加数据之外的因果推断或数字**；
+  ② 建议用"可参考 / 可尝试"，**禁用**"一定会 / 导致 / 因为…所以建议"；
+  ③ 不编造、不遗漏关键偏离。
+  输出后再过一遍禁用词校验：**命中就拒绝展示并记日志**（不许静默换成别的文案）。
+'''
+import json
+import os
+import re
+
+import psycopg
+
+try:
+    import requests
+except ImportError:            # 容器 .py 依赖见 serve/requirements.txt（已含 requests）
+    requests = None
+
+# ── 三条闸（改这里就是改闸，别在别处再定义一份）──
+DAY_LIMIT = 200                     # ① 单日最多调用次数
+BUDGET_CNY = 10.0                   # ② 累计花费上限（元）
+MAX_TOKENS = 600                    # ③ 单次输出 token 上限
+DEFAULT_ENABLED = False             # 默认关闭：管理员显式开启后才可用
+EST_COST_CNY = 0.003                # 单次成本量级（估计值；有 usage 时按实际 token 算）
+
+# 禁用词：断言"因果 / 必然"的措辞。命中即拒绝展示并记日志（规格要求，不许改成别的文案）。
+BANNED_WORDS = ('一定会', '必然会', '肯定会', '一定能', '必然导致', '必然', '导致', '造成',
+                '所以建议', '因此建议', '这就说明', '证明了')
+BANNED_RE = re.compile(r'因为[^。！？\n]{0,40}?(所以|因此|故)\s*建议')
+
+DDL = '''
+CREATE TABLE IF NOT EXISTS ai_config (
+  id         int PRIMARY KEY,
+  enabled    boolean NOT NULL DEFAULT false,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ai_config_single CHECK (id = 1)
+);
+INSERT INTO ai_config (id, enabled) VALUES (1, false) ON CONFLICT (id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS ai_call (
+  id         bigserial PRIMARY KEY,
+  ts         timestamptz NOT NULL DEFAULT now(),
+  bvid       text,
+  cache_key  text,
+  ok         boolean NOT NULL,
+  reason     text,
+  cost_cny   double precision NOT NULL DEFAULT 0,
+  cached     boolean NOT NULL DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS ai_report (
+  bvid        text NOT NULL,
+  snap_id     text NOT NULL,
+  batch_date  text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  model       text,
+  report      text NOT NULL,
+  suggestions text,
+  PRIMARY KEY (bvid, snap_id)
+);
+'''
+
+SYSTEM = '''你在为一个「B站视频弹幕互动节奏诊断系统」写一份**可转述的报告解读**。
+
+你只会收到一段结构化诊断数据（JSON）。硬约束，不可违反：
+1. 只能基于给定数据解读，**不得添加数据之外的因果推断或数字**；数据里没有的数字一律不许出现。
+2. 「建议」部分用"可参考 / 可尝试"这类措辞；**禁用**"一定会 / 导致 / 因为…所以建议"等
+   因果或必然断言。
+3. 不编造、不遗漏数据里的关键偏离项；数据里说"没有明显偏离"就照实说。
+
+输出格式（严格照此，两种标题必须原样出现）：
+【报告解读】
+一段 200–320 字的完整解读，按 定位 → 偏离 → 对标 → 后续表现 的顺序，说清这支视频的节奏
+处在什么位置、哪几维和同类不一样、可以看哪支对标。数据里没有的要写明"暂无"。
+【可执行建议】
+2–3 条，每条一行、一句话，以"可参考…"或"可尝试…"开头。'''
+
+
+def _dsn():
+    return os.environ['ADS_PG_DSN']
+
+
+def _q(sql, params=(), fetch=True):
+    with psycopg.connect(_dsn()) as conn, conn.cursor() as cur:
+        cur.execute(sql, params)
+        if not fetch:
+            conn.commit()
+            return None
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def _q1(sql, params=()):
+    r = _q(sql, params)
+    return r[0] if r else None
+
+
+def ensure_tables():
+    '''幂等建表；库没就绪只 warning，不阻塞服务启动（同 auth.ensure_tables 的做法）'''
+    try:
+        with psycopg.connect(_dsn()) as conn, conn.cursor() as cur:
+            cur.execute(DDL)
+            conn.commit()
+        return True
+    except Exception as e:
+        print('[ai] AI 解读表初始化失败（不阻塞启动）：%s' % e, flush=True)
+        return False
+
+
+# ── 配置与用量 ──────────────────────────────────────────────
+
+def _env():
+    key = (os.environ.get('LLM_API_KEY') or '').strip()
+    base = (os.environ.get('LLM_BASE_URL') or 'https://api.deepseek.com').rstrip('/')
+    model = (os.environ.get('LLM_MODEL') or 'deepseek-chat').strip()
+    return key, base, model
+
+
+def configured():
+    return bool(_env()[0])
+
+
+def is_enabled():
+    r = _q1('SELECT enabled FROM ai_config WHERE id = 1')
+    return bool(r and r['enabled'])
+
+
+def set_enabled(flag):
+    _q('UPDATE ai_config SET enabled = %s, updated_at = now() WHERE id = 1',
+       (bool(flag),), fetch=False)
+    return is_enabled()
+
+
+def set_enabled_off(reason):
+    '''超限自动停：把开关置回关闭，并把原因记进日志'''
+    _q('UPDATE ai_config SET enabled = false, updated_at = now() WHERE id = 1', fetch=False)
+    _q('INSERT INTO ai_call (ok, reason, cost_cny, cached) VALUES (false, %s, 0, false)',
+       ('自动停：' + reason,), fetch=False)
+
+
+def _used_today():
+    r = _q1("SELECT COUNT(*) AS n FROM ai_call WHERE ok AND NOT cached AND ts::date = CURRENT_DATE")
+    return int(r['n']) if r else 0
+
+
+def _spent():
+    r = _q1('SELECT COALESCE(SUM(cost_cny), 0) AS s FROM ai_call')
+    return round(float(r['s']), 4) if r else 0.0
+
+
+def usage():
+    key, base, model = _env()
+    return {
+        'enabled': is_enabled(),
+        'configured': bool(key),
+        'model': model if key else None,
+        'used_today': _used_today(),
+        'day_limit': DAY_LIMIT,
+        'spent_cny': _spent(),
+        'budget_cny': BUDGET_CNY,
+        'max_tokens': MAX_TOKENS,
+        'default_enabled': DEFAULT_ENABLED,
+        'key_source': 'compose/.env.llm（.gitignore 已忽略，不进 git）',
+    }
+
+
+def limits_tripped(autostop=True):
+    '''返回被触发的闸的原因；没触发返回 None。触发时**自动停**。'''
+    n, s = _used_today(), _spent()
+    reason = None
+    if n >= DAY_LIMIT:
+        reason = '单日调用已达上限 %d 次' % DAY_LIMIT
+    elif s >= BUDGET_CNY:
+        reason = '累计花费已达上限 ¥%.2f（当前 ¥%.4f）' % (BUDGET_CNY, s)
+    if reason and autostop and is_enabled():
+        set_enabled_off(reason)
+    return reason
+
+
+# ── 输出校验（禁用词）──────────────────────────────────────
+
+def check_output(text):
+    '''返回命中的禁用词/禁用构造；空列表 = 通过。命中即拒绝展示（规格要求，不许改文案）。'''
+    hits = [w for w in BANNED_WORDS if w in (text or '')]
+    if BANNED_RE.search(text or ''):
+        hits.append('"因为…所以建议"构造')
+    return hits
+
+
+# ── 提示词与调用 ────────────────────────────────────────────
+
+def diag_payload(d):
+    '''把诊断卡里**给人看的那部分**结构化出来当提示词输入。
+
+    刻意不喂：曲线 101 个点（太长）、tech 层（含口径参数，会诱导模型解释公式）、
+    原始 z 值（容易被模型当成"严重程度"去下结论）。
+    '''
+    d = d or {}
+    v = d.get('video') or {}
+    ve = d.get('verdict') or {}
+    po = d.get('position') or {}
+    return {
+        'video': {k: v.get(k) for k in ('title', 'up_name', 'tname', 'duration_text',
+                                        'n_danmaku', 'play_text', 'batch_date')},
+        'verdict': {k: ve.get(k) for k in ('tone', 'problem_5s', 'headline', 'detail')},
+        'position': {k: po.get(k) for k in ('rank', 'percentile', 'n_peers', 'main_label',
+                                            'headline', 'detail', 'scope')},
+        'deviations': [{'label': x.get('label'), 'direction': x.get('direction_label'),
+                        'position': x.get('position_text'), 'you': x.get('you_text'),
+                        'peer_median': x.get('median_text'), 'level': x.get('level'),
+                        'compare': x.get('compare_text'), 'advice': x.get('advice')}
+                       for x in (d.get('deviations') or [])],
+        'benchmarks': [{'title': x.get('title'), 'similarity': x.get('similarity_label'),
+                        'like': x.get('like_text'), 'outcome': x.get('outcome_text'),
+                        'learn': x.get('learn_text')}
+                       for x in (d.get('benchmarks') or [])],
+        'curve_summary': (d.get('curve') or {}).get('summary'),
+        'system_actions': [{'text': x.get('text'), 'basis': x.get('basis')}
+                           for x in (ve.get('actions') or [])],
+    }
+
+
+def build_messages(payload):
+    return [
+        {'role': 'system', 'content': SYSTEM},
+        {'role': 'user', 'content': '诊断数据（JSON，只能用这里的数字）：\n' +
+         json.dumps(payload, ensure_ascii=False, indent=1)},
+    ]
+
+
+def _call_llm(messages):
+    '''OpenAI 兼容协议的一次调用。max_tokens 硬钉在 MAX_TOKENS。'''
+    key, base, model = _env()
+    if requests is None:
+        raise RuntimeError('容器里没有 requests（见 serve/requirements.txt）')
+    r = requests.post(
+        base + '/chat/completions',
+        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+        json={'model': model, 'messages': messages, 'max_tokens': MAX_TOKENS, 'temperature': 0.3},
+        timeout=45)
+    if r.status_code != 200:
+        raise RuntimeError('上游返回 %s：%s' % (r.status_code, (r.text or '')[:200]))
+    j = r.json()
+    text = ((j.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
+    return text.strip(), (j.get('usage') or {}), model
+
+
+def _cost_cny(usage_info):
+    '''按实际 token 算，价格可配（env）；拿不到 usage 就退回单次估计值。
+    监控口径 = **累计花费**，不是进度。'''
+    try:
+        pin = float(os.environ.get('LLM_PRICE_IN_PER_M') or 1.0)
+        pout = float(os.environ.get('LLM_PRICE_OUT_PER_M') or 2.0)
+    except ValueError:
+        pin, pout = 1.0, 2.0
+    pi = usage_info.get('prompt_tokens')
+    po = usage_info.get('completion_tokens')
+    if pi is None or po is None:
+        return EST_COST_CNY
+    return round(pi / 1e6 * pin + po / 1e6 * pout, 6)
+
+
+def _split(text):
+    '''按提示词约定的两个标题切出「解读」与「建议」'''
+    t = (text or '').strip()
+    m = re.search(r'【可执行建议】|可执行建议\s*[:：]', t)
+    if not m:
+        return re.sub(r'^【报告解读】\s*', '', t).strip(), []
+    rep = re.sub(r'^【报告解读】\s*', '', t[:m.start()].strip()).strip()
+    tail = t[m.end():].strip()
+    items = [re.sub(r'^\s*(?:[-*•]|\d+[.、)])\s*', '', x).strip()
+             for x in re.split(r'\n+', tail) if x.strip()]
+    return rep, items[:3]
+
+
+def generate(bvid, snap_id, batch_date, diag):
+    '''返回 (payload, status)。status ∈ {ok, cached, disabled, unconfigured, limited, blocked}。'''
+    # ① 未配置密钥：明确说"未配置"，不是报错
+    if not configured():
+        raise PermissionError('AI 解读未配置：需要在 compose/.env.llm 里放 LLM_API_KEY（不进 git）。')
+    # ② 默认关闭：管理员开了才跑
+    if not is_enabled():
+        raise PermissionError('AI 解读默认关闭。管理员可在「后台管理 · 采集控制台」开启。')
+    # ③ 缓存：同 (bvid, 快照) 只解读一次 —— 命中不重复计费
+    hit = _q1('SELECT * FROM ai_report WHERE bvid = %s AND snap_id = %s', (bvid, snap_id))
+    if hit:
+        _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
+           'VALUES (%s,%s,true,%s,0,true)', (bvid, snap_id, '缓存命中'), fetch=False)
+        return ({'report': hit['report'],
+                 'suggestions': [x for x in (hit['suggestions'] or '').split('\n') if x.strip()],
+                 'model': hit['model'],
+                 'created_at': hit['created_at'].strftime('%Y-%m-%d %H:%M')},
+                'cached')
+    # ④ 三条闸（超限自动停）
+    reason = limits_tripped()
+    if reason:
+        raise OverflowError('已自动停：' + reason + '（本次不调用，不产生费用）')
+
+    messages = build_messages(diag_payload(diag))
+    try:
+        text, ui, model = _call_llm(messages)
+    except Exception as e:
+        _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
+           'VALUES (%s,%s,false,%s,0,false)', (bvid, snap_id, '上游失败：' + str(e)[:200]),
+           fetch=False)
+        raise RuntimeError('模型调用失败：%s' % e)
+
+    cost = _cost_cny(ui)
+    # ⑤ 禁用词校验：命中 -> 拒绝展示 + 记日志（不计费入缓存，但**记录真实花费**）
+    hits = check_output(text)
+    if hits:
+        _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
+           'VALUES (%s,%s,false,%s,%s,false)',
+           (bvid, snap_id, '命禁用词拒绝展示：' + '、'.join(hits), cost), fetch=False)
+        raise ValueError('模型输出命中禁用词（%s），已拒绝展示并记入日志。本次费用 ¥%.4f。'
+                         % ('、'.join(hits), cost))
+
+    report, suggestions = _split(text)
+    if not report:
+        _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
+           'VALUES (%s,%s,false,%s,%s,false)', (bvid, snap_id, '输出为空', cost), fetch=False)
+        raise RuntimeError('模型返回空内容。本次费用 ¥%.4f。' % cost)
+
+    _q('INSERT INTO ai_report (bvid, snap_id, batch_date, model, report, suggestions) '
+       'VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (bvid, snap_id) DO NOTHING',
+       (bvid, snap_id, batch_date, model, report, '\n'.join(suggestions)), fetch=False)
+    _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
+       'VALUES (%s,%s,true,%s,%s,false)', (bvid, snap_id, '生成成功', cost), fetch=False)
+    return ({'report': report, 'suggestions': suggestions, 'model': model,
+             'created_at': None, 'cost_cny': cost,
+             'prompt_tokens': ui.get('prompt_tokens'), 'completion_tokens': ui.get('completion_tokens')},
+            'ok')

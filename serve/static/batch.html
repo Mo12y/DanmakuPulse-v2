@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>批量体检 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+/* 本页专有（共用外壳见 v3.css） */
+#ids{width:100%;min-height:92px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12.5px;line-height:1.7;resize:vertical}
+.brow{display:grid;grid-template-columns:1fr 108px 1fr 96px 82px;gap:10px;align-items:baseline;
+  padding:10px 14px;font-size:12.5px;border-bottom:1px solid var(--border-subtle)}
+.brow:last-child{border-bottom:0}
+.brow.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.bt{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bm{font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bn{font-variant-numeric:tabular-nums;color:var(--text-secondary);text-align:right}
+.bcon{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blink{color:var(--accent-ink);font-size:12px;font-weight:700;cursor:pointer}
+.bar{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.mini{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.prog{font-size:13px;color:var(--text-secondary);margin-bottom:10px}
+.prog b{color:var(--text);font-variant-numeric:tabular-nums}
+.ex{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.exr{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:10px 14px;font-size:12.5px;
+  border-bottom:1px solid var(--border-subtle)}
+.exr:last-child{border-bottom:0}
+.exr b{color:var(--text)}
+.tagw{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;
+  background:var(--warn-soft);color:var(--warn-ink)}
+.tagl{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;
+  background:var(--accent-soft);color:var(--accent-ink)}
+.aud{border-left:3px solid var(--accent-line);background:var(--accent-soft);border-radius:0 8px 8px 0;
+  padding:11px 14px;font-size:12.5px;line-height:1.8;margin-bottom:14px}
+@media (max-width:960px){
+  .brow{grid-template-columns:1fr 1fr;gap:6px} .brow.head{display:none} .bhid{display:none}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+      <p class="pagesub"><b>这一页解决什么 · 给 MCN/运营：</b>一次查一批号，谁该细看、谁没问题，一张表扫出来</p>
+      <div class="card" id="content"><div class="loading">正在加载…</div></div>
+    </div>
+  </div>
+</div>
+<script src="v3nav.js"></script>
+<script>
+var $ = function(s){ return document.querySelector(s); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+var bold = function(s){ return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); };
+var MAX_IDS = 20;      // 单次上限：库外视频要现场采集，放开会让一次体检跑到几分钟
+var LIVE_GAP_MS = 1200;  // 库外必须控速：并发 1、间隔 >=1s（否则 B站返回 412）
+var IDX = null, RUNNING = false;
+
+function apiRaw(p){
+  return fetch(p, {cache:'no-store'}).then(function(r){
+    if (!r.ok) {
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        var e = new Error(j.detail || j.error || ('HTTP ' + r.status)); e.status = r.status; throw e; });
+    }
+    return r.json();
+  });
+}
+
+/* 从粘贴的文本里抽出 bvid：整行 BV 号、或用空格/逗号/换行分隔的列表都行；
+   粘一条 B 站链接也能识别（URL 里带 BV 号）。 */
+function parseIds(txt){
+  var out = [], seen = {};
+  String(txt || '').split(/[\s,，、;；]+/).forEach(function(x){
+    var m = (x || '').match(/BV[0-9A-Za-z]{10}/);
+    if (!m || seen[m[0]]) return;
+    seen[m[0]] = 1; out.push(m[0]);
+  });
+  return out;
+}
+
+function summary(r){
+  if (!r.ok) {
+    return {ok:false, bvid:r.bvid, live:r.live, concl:'诊断失败：' + r.err};
+  }
+  var d = r.d || {}, v = d.video || {}, ve = d.verdict || {};
+  var de = d.deviations || [], po = d.position || {};
+  return {
+    ok:true, bvid:r.bvid, live:r.live,
+    title: v.title || r.bvid, tname: v.tname || '—',
+    noDur: (v.duration == null), noDm: (v.n_danmaku == null || !v.n_danmaku),
+    concl: ve.problem_5s || ve.headline || '（这支没有结论句）',
+    dev: de.length ? (de[0].label + '　' + (de[0].direction_label || '') + '（' + (de[0].position_text || '') + '）')
+                   : '没有明显偏离（节奏与同类高度一致）',
+    pct: (po.percentile == null ? '—' : (po.percentile + '%')),
+    rank: (po.rank == null ? '—' : ('第 ' + po.rank + ' 名')),
+    nPeers: po.n_peers
+  };
+}
+
+function tableHTML(rows){
+  if (!rows.length) return '<div class="secnote">没有可汇总的视频。</div>';
+  return '<div class="mini"><div class="brow head"><span>视频</span>' +
+    '<span class="bhid">分区</span><span>最显著偏离</span><span class="bhid">同类百分位</span>' +
+    '<span class="bhid">同类排名</span></div>' + rows.map(function(r){
+    return '<div class="brow">' +
+      '<span class="bt">' + esc(r.title) + (r.live ? ' <span class="tagl">在线采集</span>' : '') +
+        '<div class="bm">' + esc(r.bvid) + ' · <span class="blink" data-b="' + esc(r.bvid) +
+        '" role="link" tabindex="0">诊断卡 ↗</span></div></span>' +
+      '<span class="bm bhid">' + esc(r.tname) + '</span>' +
+      '<span class="bcon">' + esc(r.concl) + '<div class="bm">' + esc(r.dev) + '</div></span>' +
+      '<span class="bn bhid">' + esc(r.pct) + '</span>' +
+      '<span class="bn bhid">' + esc(r.rank) + '</span>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+function exceptionsHTML(ex){
+  if (!ex.length) return '<div class="secnote">没有例外项 —— 这批全部拿到了完整节奏数据。</div>';
+  return '<div class="ex">' + ex.map(function(x){
+    var badge = !x.ok ? '诊断失败' : (x.noDur ? '没有时长' : '没有弹幕');
+    var why = !x.ok
+      ? ('接口返回：' + x.err + '（这不等于"这支没问题"，是这次没取到）')
+      : (x.noDur ? '没有时长 ⇒ 无法把曲线上的位置换算成"第几分几秒"，也不能定位证据段'
+                 : '没有弹幕 ⇒ 算不出节奏特征，只能确认它被采到了');
+    return '<div class="exr"><span><b><span class="tagw">' + esc(badge) + '</span> ' + esc(x.bvid) +
+      '</b><div class="bm">' + esc(x.live ? '库外（在线采集）' : '库内') + '</div></span>' +
+      '<span>' + esc(why) + '</span></div>';
+  }).join('') + '</div>';
+}
+
+function resultsHTML(rows){
+  var ok = rows.map(summary).filter(function(r){ return r.ok; });
+  var ex = rows.map(summary).filter(function(r){ return !r.ok || r.noDur || r.noDm; });
+  var nLive = rows.filter(function(r){ return r.live; }).length;
+  return '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+      '<span class="sectitle">结果</span><span class="secnote">' + rows.length + ' 支，其中 ' +
+      nLive + ' 支走在线采集</span></div>' +
+    tableHTML(ok) +
+    '<div class="secnote" style="margin-top:10px">点"诊断卡"列里的 BV 号可进单支诊断卡（在新标签页打开）。</div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
+      '<span class="sectitle">需要单独看：共 ' + ex.length + ' 支</span>' +
+      '<span class="secnote">无时长 / 无弹幕 / 取数失败 —— 单独列出，不静默丢掉</span></div>' +
+    exceptionsHTML(ex) + '</div>';
+}
+
+function progressHTML(done, total, note){
+  return '<div class="loading">正在逐个诊断：<b>' + done + ' / ' + total + '</b><div class="prog" ' +
+    'style="margin-top:8px">' + esc(note) + '</div></div>';
+}
+
+function runBatch(ids){
+  if (RUNNING) return;
+  RUNNING = true;
+  var rows = [], i = 0;
+  $('#content').innerHTML = '<div class="card">' + progressHTML(0, ids.length, '库内视频直接读快照；库外要现场采集，每支之间至少隔 1 秒（B站限流）。') + '</div>';
+  function step(){
+    if (i >= ids.length) { RUNNING = false; $('#content').innerHTML = resultsHTML(rows); bind(); return; }
+    var bvid = ids[i++];
+    var isLive = !(IDX && IDX[bvid]);
+    $('#content').innerHTML = '<div class="card">' + progressHTML(rows.length, ids.length,
+      '正在处理 ' + bvid + (isLive ? '（库外：现场采集，较慢）' : '（库内：直读快照）')) + '</div>';
+    var url = isLive ? ('/api/live_diagnose?bvid=' + encodeURIComponent(bvid))
+                     : ('/api/video/' + encodeURIComponent(bvid) + '/diagnosis');
+    // 控速：只在"库外"这一档等待，避免对 B站 形成连打（412 Frequency Cap）
+    setTimeout(function(){
+      apiRaw(url).then(function(j){
+        rows.push({bvid:bvid, ok:true, d:j.data, live:isLive});
+      }).catch(function(e){
+        rows.push({bvid:bvid, ok:false, err:(e && e.message) || String(e), live:isLive});
+      }).then(step);
+    }, isLive ? LIVE_GAP_MS : 0);
+  }
+  step();
+}
+
+function bind(){
+  document.querySelectorAll('.blink[data-b]').forEach(function(el){
+    el.onclick = function(){ window.open('diagnosis.html?bvid=' + encodeURIComponent(el.dataset.b), '_blank', 'noopener'); };
+  });
+}
+
+function page(idsIn){
+  $('#content').innerHTML =
+    '<div class="aud">' + bold('**这一页给 MCN / 运营 / 品牌方**：一次查一批号，横向扫一遍谁该细看。' +
+      '单个 UP 主一周发一支，用不上这个 —— 需要一次看多个号时才用它。' +
+      '（出处：docs/05-新系统重构/02_系统设计方案.md 的目标用户表与 07_最终设计方案.md 的 MCN 行）') + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
+      '<span class="sectitle">粘贴 bvid</span>' +
+      '<span class="secnote">一行一个；也可粘 B 站链接。单次最多 ' + MAX_IDS + ' 支</span></div>' +
+      '<textarea id="ids" placeholder="BV1xxxxxxxxx&#10;BV1yyyyyyyyy&#10;https://www.bilibili.com/video/BV1zzzzzzzzz"></textarea>' +
+      '<div class="bar" style="margin-top:10px">' +
+        '<button class="btn primary" id="go">开始体检</button>' +
+        '<button class="btn" id="clr">清空</button>' +
+        '<span class="secnote" id="cnt"></span></div>' +
+      '<div class="secnote" style="margin-top:8px">库内视频（803 支）直接读快照；' +
+        '<b>库外视频会现场采集</b>——为保证不触发 B站 限流，它们逐个跑、每支之间至少隔 1 秒。' +
+        '所以一次的支数越多、失败风险与耗时越需要盯。</div></div>' +
+    '<div id="result"></div>';
+  var ta = $('#ids');
+  if (idsIn) { ta.value = idsIn.join('\n'); }
+  function cnt(){
+    var n = parseIds(ta.value).length;
+    $('#cnt').textContent = n ? ('已识别 ' + n + ' 支' + (n > MAX_IDS ? ('（超过上限，本次只跑前 ' + MAX_IDS + ' 支）') : '')) : '还没识别到 bvid';
+  }
+  ta.oninput = cnt;
+  cnt();
+  $('#go').onclick = function(){
+    var ids = parseIds(ta.value);
+    if (!ids.length) { V3.toast('没有识别到 bvid'); return; }
+    if (ids.length > MAX_IDS) { V3.toast('最多 ' + MAX_IDS + ' 支，已取前 ' + MAX_IDS + ' 支'); ids = ids.slice(0, MAX_IDS); }
+    runBatch(ids);
+  };
+  $('#clr').onclick = function(){ ta.value = ''; cnt(); };
+}
+
+function boot(){
+  // 深链接 ?ids=BV1...,BV1... —— 与全站约定一致（状态写进地址栏，可分享、可复现）
+  var usp = new URLSearchParams(location.search);
+  var pre = parseIds(usp.get('ids') || '');
+  function start(){
+    page(pre);
+    if (pre.length) runBatch(pre.slice(0, MAX_IDS));
+  }
+  apiRaw('/api/diagnosis/index').then(function(j){
+    IDX = {};
+    (j.data || []).forEach(function(x){ IDX[x.bvid] = x; });
+    start();
+  }).catch(function(e){
+    start();
+    $('#result').insertAdjacentHTML('afterbegin',
+      '<div class="sec"><div class="ex"><div class="exr"><span><b>库内索引没取到</b></span>' +
+      '<span>' + esc(e.message) + ' —— 仍可粘贴 bvid，但都会走在线采集（更慢）。</span></div></div></div>');
+  });
+}
+boot();
+</script>
+</body>
+</html>

@@ -42,6 +42,13 @@
   border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:11.5px;line-height:1.6;color:var(--text-secondary);white-space:pre-wrap}
 @media (max-width:900px){ .brow{grid-template-columns:1fr 1fr} .brow.head{display:none} .bhide{display:none} }
+/* AI 报告解读（付费闸）：默认关闭，管理员在这里开 —— 受三道闸约束 */
+.aitog{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);padding:14px 16px}
+.aitog .row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.aitog .st{font-size:12.5px;color:var(--text-secondary);line-height:1.8}
+.aitog .st b{color:var(--text)}
+.gate{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);margin-top:8px}
+.gate b{color:var(--text);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -49,6 +56,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
+      <p class="pagesub"><b>这一页解决什么 · 给管理员：</b>管理采集 —— 真的启停采集脚本，并看清批次的覆盖率与已知问题</p>
       <div class="card" id="content"><div class="loading">正在加载采集状态…</div></div>
     </div>
   </div>
@@ -142,6 +150,52 @@ function wireCtl(st){
   };
 }
 
+/* ── AI 报告解读的付费闸（默认关闭；这里只开/关，真正的闸在后端 serve/ai_report.py）──
+   为什么闸放在这一页：它属于「后台管理」，而且它是**会计费**的功能 ——
+   开关必须在管理员手里，并且页面要一直显示"累计花了多少"。 */
+function aiHTML(a){
+  return '<div class="aitog"><div class="row">' +
+      '<button class="btn ' + (a.enabled ? '' : 'primary') + '" id="aiTog">' +
+        (a.enabled ? '关闭 AI 解读' : '开启 AI 解读') + '</button>' +
+      '<span class="st">当前：<b>' + (a.enabled ? '已开启' : '已关闭（默认）') + '</b>' +
+        (a.configured ? '' : '　·　密钥<b>未配置</b>（compose/.env.llm，不进 git）') + '</span></div>' +
+    '<div class="gate">' +
+      '<span>单日 <b>' + a.used_today + ' / ' + a.day_limit + '</b> 次</span>' +
+      '<span>累计 <b>¥' + Number(a.spent_cny).toFixed(4) + ' / ¥' + Number(a.budget_cny).toFixed(2) +
+        '</b></span>' +
+      '<span>单次输出上限 <b>' + a.max_tokens + '</b> token</span>' +
+      (a.model ? '<span>模型 <b>' + esc(a.model) + '</b></span>' : '') + '</div>' +
+    '<div class="st" style="margin-top:8px">密钥来源：' + esc(a.key_source) +
+      '。超限会<b>自动停</b>（开关置回关闭）—— 监控盯的是<b>累计花费</b>，不是进度。' +
+      '同一支视频、同一快照只解读一次（命中缓存不重复计费）；输出还要过一遍禁用词校验，' +
+      '命中就拒绝展示并记日志。</div></div>';
+}
+
+function wireAI(a){
+  var b = document.getElementById('aiTog');
+  if (!b) return;
+  b.onclick = function(){
+    b.disabled = true;
+    b.textContent = '正在切换…';
+    fetch('/api/v3/ai/config', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !a.enabled }) })
+      .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
+      .then(function(o){
+        if (o.s !== 200) { alert('切换失败：' + ((o.j && o.j.detail) || o.s)); }
+        refreshAI();
+      });
+  };
+}
+
+function refreshAI(){
+  var box = document.getElementById('aiwrap');
+  if (!box) return;
+  fetch('/api/v3/ai/state', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){ box.innerHTML = aiHTML(j.data); wireAI(j.data); })
+    .catch(function(e){ box.innerHTML = '<div class="clog">AI 解读状态取不到：' + esc(e.message) + '</div>'; });
+}
+
 function draw(d){
   $('#content').innerHTML =
     '<div class="verdict"><span class="tone ok">⚙ 后台</span>' +
@@ -164,8 +218,12 @@ function draw(d){
       }).join('') + '</div>' +
     '<div class="sec"><div class="sechead"><span class="secno">④</span><span class="sectitle">采集控制</span>' +
       '<span class="secnote">真的会跑起来：后端执行 collect/bili.py hotlist</span></div>' +
-      '<div id="ctlbox"><div class="clog">正在读采集状态…</div></div></div>';
+      '<div id="ctlbox"><div class="clog">正在读采集状态…</div></div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">⑤</span><span class="sectitle">AI 报告解读（付费闸）</span>' +
+      '<span class="secnote">默认关闭；开启后每调用一次都受三道闸约束</span></div>' +
+      '<div id="aiwrap"><div class="clog">正在读 AI 解读状态…</div></div></div>';
   refresh();          // 控件是真的：进页面就把状态拉起来；跑着时每 3 秒刷
+  refreshAI();        // AI 开关与已用量
 }
 function fail(m){
   var cb = document.getElementById('ctlbox');

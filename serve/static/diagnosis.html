@@ -176,6 +176,24 @@
   .poshuman{display:none}
   #chart{height:300px}
 }
+
+/* ── AI 报告解读（诊断能力产品化的**交付形态**：卡片给人看，报告给人转述）──
+   闸与提示词约束都在后端（serve/ai_report.py）；本页只显示状态与**已用量**。 */
+.aicard{margin-top:var(--card-gap);border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--card);box-shadow:var(--shadow);padding:20px 22px}
+.aihead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.aititle{font-size:15px;font-weight:600}
+.aistate{font-size:12px;color:var(--text-tertiary)}
+.airep{font-size:14.5px;line-height:1.95;margin:8px 0 14px;white-space:pre-wrap}
+.aiadv{background:var(--surface-soft);border-left:3px solid var(--accent-line);
+  border-radius:0 8px 8px 0;padding:11px 14px;font-size:13.5px;line-height:1.9}
+.aiadv b{color:var(--accent-ink)}
+.aiadv ol{margin:6px 0 0 20px}
+.aiadv li{margin:3px 0}
+.aigate{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);
+  margin-top:12px;line-height:1.8}
+.aigate b{color:var(--text);font-variant-numeric:tabular-nums}
+.aibar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
 </style>
 </head>
 <body>
@@ -183,6 +201,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
+      <p class="pagesub"><b>这一页解决什么 · 给 UP 主：</b>把一支视频的节奏跟同类比一遍，看出它哪儿不一样、该照谁改</p>
 
   <div class="toolbar">
     <input id="search" placeholder="输入 BV 号诊断任意视频（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
@@ -191,6 +210,7 @@
     <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
     <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
     <button class="btn" id="printBtn" title="按 A4 打印或导出 PDF（工具栏与技术层不印）">打印 / 导出 PDF</button>
+    <button class="btn" id="aiBtn" title="把这张卡的结构化诊断数据交给模型，产出一段可转述的完整报告解读">✦ AI 解读</button>
   </div>
 
   <div id="livebadge" hidden></div>
@@ -200,6 +220,9 @@
   <div class="card" id="shot">
     <div id="content"><div class="loading">正在加载诊断快照…</div></div>
   </div>
+
+  <!-- AI 报告解读面板：放在卡外 —— 卡片给人看、报告给人转述，两者不互相挤占 -->
+  <div id="aipanel" hidden></div>
 </div>
 
 <script>
@@ -230,6 +253,7 @@ function loadLive(bvid){
   $('#content').innerHTML = '<div class="loading">正在采集这支视频的弹幕并算节奏…' +
     '<br><span style="font-size:12px">库外视频走在线采集（几秒到十几秒），采完再与库内基线比对</span></div>';
   document.getElementById('rail') && (document.getElementById('rail').hidden = true);
+  resetAI();
   fetch('/api/live_diagnose?bvid=' + encodeURIComponent(bvid), { cache: 'no-store' })
     .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
     .then(function(o){
@@ -319,7 +343,7 @@ const EXAMPLE = {bvid: 'BV1PJpE6QEx6', why: '电子竞技区，开场吸引力�
 /* 工具条上的按钮只在真的有卡片时才出现 */
 function setName(has){
   var lb = document.getElementById('livebadge'); if (lb && !has) { lb.hidden = true; lb.innerHTML = ''; }
-  ['#favBtn', '#shotBtn', '#randBtn'].forEach(function(k){
+  ['#favBtn', '#shotBtn', '#randBtn', '#aiBtn'].forEach(function(k){
     const el = $(k); if (el) el.classList.toggle('hideWhenEmpty', !has);
   });
 }
@@ -455,6 +479,7 @@ $('#shotBtn').onclick = async () => {
 async function load(bvid){
   $('#content').innerHTML = '<div class="loading">正在算这张诊断卡…</div>';
   FOCUS = null; BENCH = null; PEAK = null;
+  resetAI();
   let d;
   try {
     d = await api('/api/video/' + bvid + '/diagnosis');
@@ -487,6 +512,8 @@ function render(){
   if (usp.get('drill') != null) { setTimeout(() => drillDeviation(+usp.get('drill'), true), 260); return; }
   if (usp.get('bench') != null) { selectBench(+usp.get('bench')); return; }
   if (usp.get('act') != null) { setTimeout(() => runAction(+usp.get('act')), 260); return; }
+  // ?ai=1 → 直接把 AI 解读面板打开（与 drill/bench/act 同约定：状态可分享、可被自动核验）
+  if (usp.get('ai') != null) { setTimeout(runAI, 260); return; }
   // 军规 7：永远"你 vs 同类 vs 对标对象"三线对照 —— 默认叠上最像的那支
   if ((d.benchmarks || []).length) selectBench(0);
 }
@@ -963,6 +990,127 @@ function initNarrative(){
 }
 
 /* 技术层的敏感性滑块：拖一下看结论稳不稳（只在这里，主卡没有） */
+
+/* ══════════════════════════════════════════════════════════════
+   AI 报告解读 —— 把诊断能力产品化到**可交付形态**：卡片给人看，报告给人转述。
+   · 定位口径（答辩别说"别人都有所以我们也做"，也别说"全新的创新点"）：
+     就是上面那一句而已。
+   · 它**不是**"去 AI 味"的对象 —— 去 AI 味只指设计层（措辞/视觉），不指"不许有 AI 功能"。
+   · 三道闸与提示词约束都在后端（serve/ai_report.py）；本页只显示状态与**已用量**，
+     并在被拒绝时**如实说明原因**（不把"没开"说成"诊断失败"）。
+   ══════════════════════════════════════════════════════════════ */
+var AISTATE = null;
+var AITEXT = '';
+
+function aiUsageLine(ai){
+  if (!ai) return '用量暂时取不到（接口没返回）。';
+  return '已用 <b>' + ai.used_today + ' / ' + ai.day_limit + '</b> 次　｜　累计 <b>¥' +
+    Number(ai.spent_cny).toFixed(4) + ' / ¥' + Number(ai.budget_cny).toFixed(2) +
+    '</b>　｜　单次上限 ' + ai.max_tokens + ' token' +
+    (ai.model ? ('　｜　模型 ' + esc(ai.model)) : '　｜　未配置密钥');
+}
+
+function resetAI(){
+  var p = document.getElementById('aipanel');
+  if (p) { p.hidden = true; p.innerHTML = ''; }
+  AITEXT = '';
+}
+
+function aiShell(inner, ai){
+  var p = document.getElementById('aipanel');
+  if (!p) return;
+  p.hidden = false;
+  p.innerHTML = '<div class="aicard"><div class="aihead">' +
+    '<span class="aititle">✦ AI 报告解读</span>' +
+    '<span class="aistate">卡片给人看，报告给人转述 —— 输入只有这张卡的结构化诊断数据</span>' +
+    '</div>' + inner + '<div class="aigate">' + aiUsageLine(ai) + '</div></div>';
+}
+
+function copyAI(){
+  var t = AITEXT || '';
+  function done(){ V3.toast('已复制全文，可直接转述'); }
+  function fallback(){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = t;
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      done();
+    } catch (e) { V3.toast('复制失败，请手动选中文字'); }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(done).catch(fallback);
+  } else { fallback(); }
+}
+
+function aiOK(d, ai){
+  var sug = d.suggestions || [];
+  AITEXT = d.report + (sug.length ? ('\n\n可执行建议：\n' + sug.map(function(x, i){
+    return (i + 1) + '. ' + x; }).join('\n')) : '');
+  var sugHTML = sug.length ? '<div class="aiadv"><b>可执行建议</b><ol>' +
+    sug.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>' : '';
+  aiShell(
+    (d.cached ? '<div class="aistate">这次命中了缓存：同一支视频、同一快照只解读一次，不重复计费。</div>' : '') +
+    '<div class="airep">' + esc(d.report) + '</div>' + sugHTML +
+    '<div class="aibar"><button class="btn" id="aiCopy">复制全文（方便转述）</button>' +
+      (d.cost_cny != null ? '<span class="aistate">本次约 ¥' + Number(d.cost_cny).toFixed(4) + '</span>' : '') +
+    '</div>' +
+    '<div class="aistate" style="margin-top:8px">' + esc(d.note || '') + '</div>', ai);
+  var cb = document.getElementById('aiCopy');
+  if (cb) cb.onclick = copyAI;
+}
+
+function aiBlocked(msg, ai){
+  aiShell('<div class="aiadv"><b>这次没有给出解读</b>' +
+    '<div style="margin-top:6px">' + esc(msg) + '</div>' +
+    '<div class="aistate" style="margin-top:8px">这不是"这支视频没问题"，也不是"诊断失败"——' +
+    '是这一模块当前不可用。管理员可在「后台管理 · 采集控制台」开启或关闭它。</div></div>', ai);
+}
+
+function refreshAIState(cb){
+  fetch('/api/v3/ai/state', { credentials: 'same-origin', cache: 'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ AISTATE = (j && j.data) ? j.data : null; if (cb) cb(AISTATE); })
+    .catch(function(){ if (cb) cb(null); });
+}
+
+function runAI(){
+  if (!CUR) { V3.toast('先选一支视频'); return; }
+  var b = document.getElementById('aiBtn');
+  if (b) { b.disabled = true; b.textContent = '正在解读…'; }
+  aiShell('<div class="loading">正在把这张诊断卡的结构化数据交给模型解读…</div>', AISTATE);
+  fetch('/api/v3/ai/report', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bvid: CUR.video.bvid }) })
+    .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
+    .then(function(o){
+      if (o.s === 200 && o.j && o.j.code === 0) { aiOK(o.j.data, (o.j.meta || {}).ai); }
+      else { aiBlocked((o.j && (o.j.detail || o.j.error)) || ('HTTP ' + o.s), null); }
+    })
+    .catch(function(e){ aiBlocked('请求没发出去：' + ((e && e.message) || e), null); })
+    .then(function(){
+      if (b) { b.disabled = false; b.textContent = '✦ AI 解读'; }
+      refreshAIState(function(ai){
+        var g = document.querySelector('.aigate');
+        if (g) g.innerHTML = aiUsageLine(ai);
+      });
+    });
+}
+
+(function initAI(){
+  var b = document.getElementById('aiBtn');
+  if (b) b.onclick = runAI;
+  refreshAIState(function(ai){
+    if (ai && b) {
+      b.title = '把这张诊断卡交给模型解读（默认关闭；已用 ' + ai.used_today + '/' + ai.day_limit + ' 次）';
+    }
+  });
+})();
 
 /* 折叠技术层 */
 </script>
