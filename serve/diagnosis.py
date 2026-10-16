@@ -779,6 +779,7 @@ def diagnose(bvid, batch_date=None):
             'percentiles': pct_map,
             'outcome_raw': rec.get('outcome'),
             'similarity_metric': 'cosine on partition-z shape vector (32 号 P1 口径)',
+            'sensitivity': sensitivity_payload(snap, rec),
             'dict_map': [{'tech': v.get('tech'), 'label': v['label'],
                           'direction': v['direction'], 'display': bool(v.get('display'))}
                          for v in DICT.values()],
@@ -984,6 +985,102 @@ def partition_profile(snap, tname):
         'dims_note': '分区中位 vs 全市场中位：差得越多，说明这个分区的观众习惯越有特色。',
     }
 
+
+
+# ── 参数 / 尺度敏感性（只进技术层，主卡不出现；给答辩看"结果稳不稳"） ──
+
+# 22 号 §1 的 θ 扫描实测表（原样搬进来，不重算）：
+#   θ | 事件数 | 覆盖 video-batch | 覆盖占比 | 每 vb 事件数
+THETA_SCAN = [
+    (0.0, 13952, 836, 100.0, 16.69), (0.1, 3765, 836, 100.0, 4.50),
+    (0.2, 2366, 836, 100.0, 2.83), (0.3, 1341, 784, 93.8, 1.71),
+    (0.4, 722, 582, 69.6, 1.24), (0.5, 551, 473, 56.6, 1.16),
+    (0.6, 385, 353, 42.2, 1.09), (0.7, 320, 305, 36.5, 1.05),
+    (0.8, 198, 193, 23.1, 1.03), (0.9, 147, 146, 17.5, 1.01),
+    (1.0, 113, 113, 13.5, 1.00),
+]
+# 分母是 836 不是 888：22 号 §1 的 θ 扫描跑在 l2_candidates 候选池上（θ=0 时覆盖 836 个
+# video-batch）。用 888 会算出零事件 415 个，与文档的 363 个对不上。
+THETA_CURRENT = 0.5
+TOTAL_VB = 836
+
+
+def z_sensitivity(snap):
+    """偏离阈值 z 的敏感性：改阈值，全市场有多少支会被判"有偏离"。
+    本页"偏离卡"进不进候选就用这个闸门，所以这是直接相关的参数。"""
+    out = []
+    for th in (1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0):
+        n = sum(1 for z, _ in snap['outlier_rank'] if z >= th)
+        out.append({'z': th, 'n': n, 'pct': round(100.0 * n / max(1, len(snap['outlier_rank'])), 1)})
+    return out
+
+
+def knn_sensitivity(snap, rec):
+    """K（取几支最像的）敏感性：第 K 近的相似度掉到多少。
+    说明"取 3 支"不是拍脑袋——超过某点之后就不像了。"""
+    pool = [i for i, v in enumerate(snap['videos']) if v.get('tname') == rec.get('tname')] \
+        if rec.get('tname') else []
+    if len(pool) < 8:
+        pool = list(range(len(snap['videos'])))
+    base = snap['baselines'].get(rec.get('tname'))
+    if not (base and not base.get('low_support')):
+        base = None
+    you = _shape_z(rec, base, snap['global_shape'])
+    sims = []
+    for i in pool:
+        o = snap['videos'][i]
+        if o['bvid'] == rec['bvid']:
+            continue
+        sims.append(_cos(you, _shape_z(o, base, snap['global_shape'])))
+    sims.sort(reverse=True)
+    out = []
+    for k in (1, 2, 3, 5, 8, 12, 20):
+        if k <= len(sims):
+            out.append({'k': k, 'sim_pct': max(0, round(sims[k - 1] * 100))})
+    return out
+
+
+def batch_check(snap, rec):
+    """批次敏感性：同一支视频换批次，结论会不会变。
+    只对有 ≥2 个批次的视频算（32 号 P1：85 个 bvid 出现在 ≥2 批）。"""
+    bv = rec['bvid']
+    rows = [v for v in snap['videos'] if v['bvid'] == bv]
+    if len(rows) < 2:
+        return None
+    out = []
+    for v in sorted(rows, key=lambda x: x['batch_date']):
+        d = diagnose(bv, v['batch_date'])
+        if not d:
+            continue
+        top = d['deviations'][0] if d['deviations'] else None
+        out.append({
+            'batch_date': v['batch_date'],
+            'problem': d['verdict']['problem_5s'],
+            'tone': d['verdict']['tone'],
+            'top_label': top['label'] if top else '—',
+            'top_pole': top['pole'] if top else '',
+            'pct': d['position']['percentile'],
+            'n_danmaku': v.get('n_danmaku'),
+        })
+    same = len({r['problem'] for r in out}) == 1
+    return {'rows': out, 'stable': same, 'n_batches': len(out)}
+
+
+def sensitivity_payload(snap, rec):
+    return {
+        'theta': {'current': THETA_CURRENT, 'total_vb': TOTAL_VB,
+                  'rows': [{'theta': t, 'events': e, 'vb': v, 'cover': c, 'per_vb': p}
+                           for t, e, v, c, p in THETA_SCAN],
+                  'note': '出处 docs/05-新系统重构/22_theta敏感性扫描.md §1（原样搬运，未重算）'},
+        'z': {'rows': z_sensitivity(snap),
+              'note': '偏离候选闸门；本页偏离卡就是按这个阈值筛的（32 号 P4 惯例 z>3.5）'},
+        'knn': {'rows': knn_sensitivity(snap, rec),
+                'note': '第 K 近的相似度；相似对标只展示 3 支，K 再大就不像了'},
+        'batch': batch_check(snap, rec),
+        'batch_stability': {'within_median': 0.992, 'between_median': 0.069, 'between_p90': 0.814,
+                            'n_multi': 85,
+                            'note': '32 号 P1：形状签名跨批 within 中位 0.992 > between P90 0.814'},
+    }
 
 
 def overview_view():
