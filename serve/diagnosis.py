@@ -1137,8 +1137,111 @@ def sensitivity_payload(snap, rec):
     }
 
 
+def deviation_view(snap=None):
+    """偏离检测：全库「最不典型」排序 + 分区偏离率分布。
+
+    口径 = 32 号 P4 的稳健 z：z = (v − 分区中位) / (1.4826·MAD)，取每支视频在自身分区内
+    各展示维上的**最大 |z|** 作为「有多不典型」。阈值沿用 P4 惯例 z >= 3.5。
+
+    ⚠️ 只统计**样本 >= 20 支的分区**（快照 snapshot_meta.min_partition 的同一口径）。
+    为什么必须过滤（2026-10-16 实测）：不过滤时榜首出现 z=185，而它来自一个 n=8 的分区
+    （该维中位 0.0006、MAD 0.00088，整区几乎全 0，一支 0.1629 就成了 185 倍）；
+    另一个 z=153 来自 n=3 的分区 —— 小分区算不出稳定的中位/MAD，z 不可解释。
+    过滤后 maxZ 185 -> 43，且判偏离的维度从「观众来得快不快」变成有意义的
+    「爆点位置 / 节奏起伏 / 开场吸引力」；全库偏离率 33.1% -> 31.3%（头条数字不变）。
+
+    这页只回答「跟同类不一样」，不回答「好不好」——后者由 32 号 P3 控龄关联决定。
+    """
+    snap = snap or _load()
+    THR = 3.5
+    MIN_N = 20
+
+    def ok_part(tname):
+        b = snap['baselines'].get(tname) or {}
+        return (b.get('n_videos') or 0) >= MIN_N
+
+    rank = [(z, i) for z, i in snap['outlier_rank']
+            if ok_part(snap['videos'][i].get('tname'))]
+
+    per = {}
+    for z, i in rank:
+        v = snap['videos'][i]
+        t = v.get('tname') or '未标注'
+        a = per.setdefault(t, {'n': 0, 'n_out': 0})
+        a['n'] += 1
+        if z >= THR:
+            a['n_out'] += 1
+    parts = []
+    for t, a in per.items():
+        parts.append({'tname': t, 'n': a['n'], 'n_out': a['n_out'],
+                      'rate': round(100.0 * a['n_out'] / max(1, a['n']), 1)})
+    parts.sort(key=lambda r: (-r['rate'], -r['n']))
+
+    n_all = max(1, len(rank))
+    n_out = sum(1 for z, _ in rank if z >= THR)
+    rows = []
+    for z, i in rank:
+        v = snap['videos'][i]
+        base = snap['baselines'].get(v.get('tname')) or snap['global_base']
+        dim = _max_dim(v, base)
+        if not dim:
+            continue
+        zz = abs(_z(v, base, dim) or 0.0)
+        cur = snap['curves'].get('%s|%s' % (v['bvid'], v['batch_date']))
+        rows.append({'bvid': v['bvid'],
+                     'title': v.get('title') or v['bvid'],
+                     'tname': v.get('tname'),
+                     'n_peers': (base.get('n_videos') or 0),
+                     'label': DICT[dim]['label'],
+                     'pole': pole_word(dim, _z(v, base, dim) or 0.0),
+                     'level': level_of(zz),
+                     'z': round(zz, 2),
+                     'pct': (v.get('pct') or {}).get(dim),
+                     'curve': [round(x, 6) for x in _smooth(cur)] if cur else None})
+
+    bins = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 999)]
+    dist = [{'lo': lo, 'hi': (hi if hi < 999 else None),
+             'n': sum(1 for z, _ in rank if lo <= z < hi)} for lo, hi in bins]
+
+    n_bv = len({snap['videos'][i]['bvid'] for _, i in rank})
+    n_batch = len({snap['videos'][i]['batch_date'] for _, i in rank})
+    top_part = parts[0] if parts else {'rate': 0, 'tname': '—', 'n': 0}
+    n_part_all = len(snap['baselines'])
+    return {
+        'headline': '样本 >= 20 支的分区里，%d 支视频中有 %d 支（%.1f%%）在某一维上明显偏离同类'
+                    % (n_all, n_out, 100.0 * n_out / n_all),
+        'sub': ('「偏离」不等于「差」：这页只回答「它在哪个维度上跟同类不一样」，'
+                '好不好由 32 号 P3 的控龄关联决定（量维有方向，形状维标中性）。'),
+        'scope_note': ('只统计样本 >= %d 支的分区（%d/%d 个）—— 小分区算不出稳定的中位与 MAD，'
+                       'z 会被放大到不可解释（实测未过滤时榜首 z=185 来自 n=8 的分区）。'
+                       % (MIN_N, len(parts), n_part_all)),
+        'z_note': ('z 是 MAD 倍数（稳健 z）。某个维度在同类里几乎没有差异时（MAD 很小），'
+                   'z 会被放大 —— 所以榜上同时给出 z 与分区样本量，两个一起看。'),
+        'threshold': THR,
+        'min_partition': MIN_N,
+        'stats': [
+            {'label': '纳入视频', 'value': n_all, 'unit': '支', 'note': '%d 个批次' % n_batch},
+            {'label': '检出偏离', 'value': n_out, 'unit': '支',
+             'note': 'z >= %.1f（32 号 P4 惯例）' % THR},
+            {'label': '偏离占比', 'value': round(100.0 * n_out / n_all, 1), 'unit': '%',
+             'note': '样本 >= %d 支的分区内' % MIN_N},
+            {'label': '分区偏离率最高', 'value': top_part['rate'], 'unit': '%',
+             'note': '%s（%d 支）' % (top_part['tname'], top_part.get('n', 0))},
+        ],
+        'parts': parts,
+        'dist': dist,
+        'rows': rows[:40],
+        'n_rows': len(rows),
+        'n_unique_bvid': n_bv,
+    }
+
+
 def overview_view():
     return overview(_load())
+
+
+def deviation_data():
+    return deviation_view(_load())
 
 
 def partition_view(tname):

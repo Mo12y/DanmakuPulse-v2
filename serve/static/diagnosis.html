@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh" data-theme="light">
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -33,14 +34,14 @@
 .legend .sw{display:inline-block;width:16px;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}
 .peaks{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .chip{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;cursor:pointer;
-  background:var(--card);transition:.15s}
+  background:var(--card);transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
 .chip:hover,.chip.on{border-color: var(--accent-ink);color: var(--accent-ink);background:var(--accent-soft)}
 .dmpanel{margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-soft)}
 .dmpanel h4{font-size:13px;margin-bottom:8px;font-weight:700}
 .dmpanel ul{margin-left:18px;font-size:13px;color:var(--text)}
 .dmpanel li{margin:2px 0}
 .dev{border:1px solid var(--border);border-radius:13px;padding:15px 17px;margin-bottom:11px;background:var(--card);
-  cursor:pointer;transition:.15s}
+  cursor:pointer;transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
 .dev:hover{border-color: var(--accent-ink);box-shadow:var(--shadow)}
 .dev.dim{border-color: var(--accent-ink);background:var(--accent-soft)}
 .devtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
@@ -58,7 +59,7 @@
 .devfoot{font-size:12px;color:var(--text-tertiary);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
 .bench{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .bcard{border:1px solid var(--border);border-radius:13px;padding:15px 16px;background:var(--card);
-  display:flex;flex-direction:column;cursor:pointer;transition:.15s}
+  display:flex;flex-direction:column;cursor:pointer;transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
 .bcard:hover{border-color: var(--accent-ink);box-shadow:var(--shadow)}
 .bcard.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .btitle{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:7px;
@@ -78,7 +79,7 @@
 .caveat{font-size:12.5px;color:var(--text-secondary);background:var(--surface-soft);border-radius:10px;
   padding:11px 14px;margin-top:14px}
 /* 可点关键词：结论 → 证据 */
-.jump{color: var(--accent-ink);cursor:pointer;border-bottom:1px dashed var(--accent);transition:.12s}
+.jump{color: var(--accent-ink);cursor:pointer;border-bottom:1px dashed var(--accent);transition: color .12s ease, border-color .12s ease}
 .jump:hover{background:var(--accent-soft);border-radius:4px}
 .vproblem .jump{border-bottom-width:2px}
 .jumphint{font-size:12.5px;color:var(--text-tertiary);margin-top:6px}
@@ -111,7 +112,7 @@
 .dmline .dt{color:var(--text-tertiary);font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums}
 .dmempty{font-size:13px;color:var(--text-secondary);padding:14px 4px}
 /* 行动建议可点 */
-.act{cursor:pointer;border-radius:8px;transition:.12s}
+.act{cursor:pointer;border-radius:8px;transition: background-color .12s ease, border-color .12s ease}
 .act:hover{background:var(--accent-soft)}
 .actmore{font-size:12px;color: var(--accent-ink);font-weight:700;margin-top:5px}
 /* 空状态 */
@@ -156,16 +157,18 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
 
-  <div class="topbar" id="v3top"></div>
-
-  <div class="topbar">
+  <div class="toolbar">
     <input id="search" placeholder="搜标题 / 分区 / BV号" style="flex:1 1 220px;min-width:170px">
     <select id="picker" style="flex:1 1 280px;min-width:190px"></select>
     <button class="btn" id="randBtn" title="随机换一支同类视频">随机一支</button>
     <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
     <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
+    <button class="btn" id="printBtn" title="按 A4 打印或导出 PDF（工具栏与技术层不印）">打印 / 导出 PDF</button>
   </div>
 
   <nav class="rail" id="rail" aria-label="诊断卡段落导航" hidden></nav>
@@ -182,7 +185,10 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const api = async p => { const r = await fetch(p); if (!r.ok) throw new Error((await r.json()).detail || r.status); return (await r.json()).data; };
+const api = async p => { const r = await fetch(p);
+  if (!r.ok) { const j = await r.json().catch(() => ({}));
+    const e = new Error(j.detail || ("HTTP " + r.status)); e.status = r.status; throw e; }
+  return (await r.json()).data; };
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const mmss = s => { if (s == null) return ''; s = Math.round(s); return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); };
 const TONE = { warn:['需要调整','warn'], ok:['节奏健康','ok'] };
@@ -203,11 +209,13 @@ const EXAMPLE = {bvid: 'BV1PJpE6QEx6', why: '电子竞技区，开场吸引力�
       $('#picker').value = want;
       setName(true);
       await load(want);
+    } else if (want) {
+      setName(true); notFound(want);   // 给了 BV 号但快照里没有 -> 明确说没找到
     } else {
       emptyState();
     }
   } catch(e) {
-    $('#content').innerHTML = '<div class="err">加载失败：' + esc(e.message) + '</div>';
+    failState((e && e.message) || String(e), null);   // 列表没取到 -> 错误态，不是空白页
   }
 })();
 
@@ -219,6 +227,35 @@ function setName(has){
 }
 
 /* 空状态：没给 bvid 时给一个"试试这个视频"，降低试用门槛 */
+/* 空态与错误态：接口没结果 / 接口挂了，都必须给明确交代，不许停在"正在算…" */
+function notFound(bvid){
+  $('#content').innerHTML =
+    '<div class="empty">' +
+      '<h2>没找到这个视频</h2>' +
+      '<p><b>' + esc(bvid) + '</b> 不在节奏诊断快照里。<br>' +
+      '本系统只覆盖已采集并跑完节奏分析的视频（当前 803 支），不是所有 B 站视频都在里面。</p>' +
+      '<div class="row">' +
+        '<button class="btn primary" id="nfTry">换一支试试</button>' +
+        '<button class="btn" id="nfList">从列表里挑</button>' +
+      '</div>' +
+      '<div class="eg">也可以直接搜标题 / 分区，或点「随机一支」。</div>' +
+    '</div>';
+  $('#nfTry').onclick = function(){ setName(true); load(EXAMPLE.bvid); };
+  $('#nfList').onclick = function(){ $('#picker').focus(); $('#picker').click(); };
+}
+
+function failState(msg, bvid){
+  $('#content').innerHTML =
+    '<div class="empty">' +
+      '<h2>诊断卡没能加载出来</h2>' +
+      '<p>接口返回：' + esc(msg) + '<br>' +
+      '这不是"这支视频没问题"，而是"这次没取到数据"——请重试；' +
+      '若持续失败，多半是后端服务或快照没起来。</p>' +
+      '<div class="row"><button class="btn primary" id="fsRetry">重试</button></div>' +
+    '</div>';
+  $('#fsRetry').onclick = function(){ if (bvid) load(bvid); };
+}
+
 function emptyState(){
   setName(false);
   const r = document.getElementById('rail'); if (r) r.hidden = true;
@@ -282,6 +319,8 @@ $('#favBtn').onclick = () => {
       if (window.V3 && V3.toast) V3.toast(j.data && j.data.favorited ? '已加入我的收藏' : '已取消收藏');
     }).catch(() => {});
 };
+$("#printBtn").onclick = function(){ window.print(); };
+
 $('#shotBtn').onclick = async () => {
   const btn = $('#shotBtn'); btn.textContent = '生成中…'; btn.disabled = true;
   try {
@@ -299,7 +338,13 @@ $('#shotBtn').onclick = async () => {
 async function load(bvid){
   $('#content').innerHTML = '<div class="loading">正在算这张诊断卡…</div>';
   FOCUS = null; BENCH = null; PEAK = null;
-  const d = await api('/api/video/' + bvid + '/diagnosis');
+  let d;
+  try {
+    d = await api('/api/video/' + bvid + '/diagnosis');
+  } catch (e) {
+    if (e && e.status === 404) notFound(bvid); else failState((e && e.message) || String(e), bvid);
+    return;
+  }
   CUR = d;
   // 悬停要即时：弹幕摘要一次取回（≤101 行），不在 hover 里发请求
   DIGEST = null;
@@ -413,7 +458,18 @@ function positionHTML(d){
     '<div class="sechead"><span class="secno">①</span><span class="sectitle">市场定位</span>' +
       '<span class="secnote">左 = 同类靠后 ｜ 右 = 同类靠前' +
       (d.scope_note ? ' ｜ ' + esc(d.scope_note) : '') + '</span></div>' +
-    '<div class="poshero">' + esc(p.headline) + '</div>' +
+    '<div class="kpis" style="margin-bottom:14px">' +
+      '<div class="kpi accent"><div class="kl">同类排名</div>' +
+        '<div class="kv">第 ' + p.rank + '<span class="ku">名</span></div>' +
+        '<div class="kn">共 ' + p.n_peers + ' 支同类</div></div>' +
+      '<div class="kpi"><div class="kl">同类百分位</div>' +
+        '<div class="kv">' + p.percentile + '<span class="ku">%</span></div>' +
+        '<div class="kn">' + esc(p.detail || '') + '</div></div>' +
+      '<div class="kpi"><div class="kl">主对照维</div>' +
+        '<div class="kv" style="font-size:22px">' + esc(p.main_label || '互动热度') + '</div>' +
+        '<div class="kn">同类＝' + esc(p.scope) + '</div></div>' +
+    '</div>' +
+    '<div class="poshero" style="font-size:22px">' + esc(p.headline) + '</div>' +
     '<div class="possub">' + esc(p.detail || '') + '　（同类＝' + esc(p.scope) + '，共 ' + p.n_peers + ' 支）</div>' +
     rows +
     (p.dims.length > 6 ? '<button class="morebtn" id="morePos">查看其余 ' + (p.dims.length - 6) + ' 项 ▾</button>' : '') +
@@ -701,43 +757,35 @@ function renderDanmaku(x, seg, d, t0, t1){
   const mine = d.n_in_range;
   const peer = x.peer_count;
   const ratio = (peer && mine != null) ? Math.round(mine / peer * 100) : null;
-  const cmp = peer ? '<div class="dmcmp">' +
+  const reps = d.top_repeat || [];
+  const samples = (d.items || []).slice(0, 3);
+  const repHTML = reps.length
+    ? reps.map(r => '<div class="reso-item"><span class="t">' + esc(r.txt) + '</span>' +
+        '<span class="c">×' + r.n + '</span></div>').join('')
+    : '<div class="reso-empty">这一段没有被重复发送的弹幕。</div>';
+  const smpHTML = samples.length
+    ? samples.map(it => '<div class="reso-s"><span class="dt">' + mmss(it.t) + '</span>' +
+        esc(it.txt) + '</div>').join('')
+    : '<div class="reso-empty">这一段时间里没有弹幕。</div>';
+  const cmp = peer ? '<div class="dmcmp" style="margin-top:10px">' +
       '<span class="u">你这一段：<b>' + mine + '</b> 条</span>' +
       '<span class="p">同类中位：<b>' + peer + '</b> 条</span>' +
       (ratio != null ? '<span>你 = 同类的 <b>' + ratio + '%</b></span>' : '') +
     '</div>' : '';
-  const list = d.items && d.items.length
-    ? '<div class="dmlist">' + d.items.map(it =>
-        '<div class="dmline"><span class="dt">' + mmss(it.t) + '</span><span>' + esc(it.txt) + '</span></div>').join('') +
-      '</div>' + (d.truncated ? '<div class="dmwhy" style="margin-top:8px">（只显示前 ' + d.returned + ' 条，这一段共 ' + mine + ' 条）</div>' : '')
-    : '<div class="dmlist"><div class="dmempty">这一段时间里没有弹幕——' +
-      (ratio != null && ratio < 60 ? '这本身就是"这一段没抓住人"的直接证据。' : '可以换个偏离维再看看。') + '</div></div>';
   $('#dmbox').innerHTML = '<div class="dmpanel">' +
-    '<h4>' + esc(x.label) + '｜第 ' + seg[0] + '–' + seg[1] + '%（' + mmss(t0) + '–' + mmss(t1) +
-      '）该时段的弹幕</h4>' +
+    '<h4>' + esc(x.label) + '｜第 ' + seg[0] + '–' + seg[1] + '%（' + mmss(t0) + '–' + mmss(t1) + '）</h4>' +
     '<div class="dmwhy">' + esc(x.drill_why || '') + '　' + esc(x.compare_text) + '</div>' +
-    cmp + list +
+    '<div class="reso">' +
+      '<div class="reso-h">这一刻在刷什么<span class="n">共 ' + (mine || 0) + ' 条弹幕</span></div>' +
+      '<div class="reso-cols">' +
+        '<div><div class="reso-sub">复读最多</div>' + repHTML + '</div>' +
+        '<div><div class="reso-sub">代表弹幕（按时间）</div>' + smpHTML + '</div>' +
+      '</div>' + cmp +
+    '</div>' +
     '<div style="font-size:12px;color:var(--text-tertiary);margin-top:9px">' +
-      '弹幕按发送时间排序，原文未做任何筛选或改写；"同类中位"由同分区各视频的曲线换算，是估计值。' +
+      '弹幕原文未做任何筛选或改写；「同类中位」由同分区各视频的曲线换算，是估计值。' +
+      (d.truncated ? '（只显示前 ' + d.returned + ' 条）' : '') +
     '</div></div>';
-}
-
-/* ── 行动落地：点建议 → 定位到该照谁、照哪一段 ── */
-function runAction(n){
-  const a = (CUR.verdict.actions || []).find(x => x.n === n); if (!a) return;
-  markUrl('act', n);
-  const bi = a.ref ? (CUR.benchmarks || []).findIndex(b => b.bvid === a.ref.bvid) : -1;
-  if (bi >= 0) { selectBench(bi, false); }
-  if (a.seg) {
-    FOCUS = a.seg;
-    drawChart();
-    const b = bi >= 0 ? CUR.benchmarks[bi] : null;
-    $('#cap').innerHTML = '<b>照着做</b>：' + esc(a.text) +
-      '　<span style="color:var(--text-secondary)">上图粉色区域 = 该照的那一段（第 ' + a.seg[0] + '–' + a.seg[1] + '%）' +
-      (b ? '；灰色点线 = 《' + esc(b.title) + '》的曲线' : '') + '</span>';
-  }
-  document.querySelectorAll('.act').forEach(el => el.classList.toggle('dim', +el.dataset.act === n));
-  const anchor = $('#sec-curve'); if (anchor) anchor.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 /* 钻取：点爆点 → 看当时弹幕 */
@@ -921,6 +969,8 @@ function drawTech(d){
   wireSensitivity(d);   // 技术层的滑块在这里接上（主卡没有这些控件）
 }
 </script>
+    </div>
+  </div>
+</div>
 </body>
 </html>
-

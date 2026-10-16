@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>偏离检测 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+.rlist{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.rrow{display:grid;grid-template-columns:150px 56px 74px 1fr 62px;gap:10px;align-items:center;
+  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border-subtle);
+  transition: background-color .15s ease}
+.rrow:last-child{border-bottom:0}
+.rrow:hover{background:var(--surface-hover)}
+.rrow.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.rname{font-weight:600}
+.rnum{font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.rbar{height:7px;background:var(--surface-soft);border-radius:4px;overflow:hidden}
+.rbar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.dcard{border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:var(--card);
+  cursor:pointer;transition: border-color .15s ease, box-shadow .15s ease}
+.dcard:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.drank{font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.dtitle{font-size:13px;font-weight:600;line-height:1.5;margin:4px 0 6px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dmeta{font-size:12px;color:var(--text-secondary);display:flex;gap:8px;flex-wrap:wrap}
+.dz{color:var(--accent-ink);font-weight:700;font-variant-numeric:tabular-nums}
+@media (max-width:860px){ .rrow{grid-template-columns:1fr 1fr;gap:6px} .rrow.head{display:none} .rhide{display:none} }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+      <div class="card" id="content"><div class="loading">正在加载偏离检测…</div></div>
+    </div>
+  </div>
+</div>
+<script src="v3chart.js"></script>
+<script src="v3nav.js"></script>
+<script>
+var $ = function(s){ return document.querySelector(s); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+
+function verdictHTML(d){
+  return '<div class="verdict">' +
+    '<span class="tone warn">⚠ 模型与验证</span>' +
+    '<div class="vmain">' +
+      '<div class="vproblem">' + esc(d.headline) + '</div>' +
+      '<div class="vdetail">' + esc(d.sub) + '</div>' +
+    '</div></div>';
+}
+
+function kpiHTML(stats){
+  return '<div class="kpis">' + stats.map(function(s, i){
+    return '<div class="kpi' + (i === 1 ? ' accent' : '') + '">' +
+      '<div class="kl">' + esc(s.label) + '</div>' +
+      '<div class="kv">' + esc(s.value) + '<span class="ku">' + esc(s.unit) + '</span></div>' +
+      '<div class="kn">' + esc(s.note) + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function distHTML(dist, total){
+  var mx = Math.max.apply(null, dist.map(function(b){ return b.n; }).concat([1]));
+  return '<div class="kpis">' + dist.map(function(b){
+    var label = b.hi == null ? ('z ≥ ' + b.lo) : ('z ' + b.lo + '–' + b.hi);
+    return '<div class="kpi"><div class="kl">' + label + '</div>' +
+      '<div class="kv">' + b.n + '<span class="ku">支</span></div>' +
+      '<div class="kn">' + (100.0 * b.n / total).toFixed(1) + '%</div>' +
+      '<div class="rbar" style="margin-top:6px"><i style="width:' +
+        (100.0 * b.n / mx).toFixed(1) + '%"></i></div></div>';
+  }).join('') + '</div>';
+}
+
+function partsHTML(parts){
+  if (!parts.length) return '<div class="secnote">没有样本足够的分区。</div>';
+  var mx = Math.max.apply(null, parts.map(function(p){ return p.rate; }));
+  return '<div class="rlist"><div class="rrow head">' +
+    '<span>分区</span><span class="rhide">样本</span><span>偏离数</span>' +
+    '<span>偏离率</span><span class="rhide">占比条</span></div>' +
+    parts.map(function(p){
+      return '<div class="rrow">' +
+        '<span class="rname">' + esc(p.tname) + '</span>' +
+        '<span class="rnum rhide">' + p.n + ' 支</span>' +
+        '<span class="rnum">' + p.n_out + ' 支</span>' +
+        '<span class="rnum">' + p.rate.toFixed(1) + '%</span>' +
+        '<span class="rhide"><span class="rbar"><i style="width:' +
+          (mx ? (100.0 * p.rate / mx).toFixed(1) : 0) + '%"></i></span></span>' +
+      '</div>';
+    }).join('') + '</div>';
+}
+
+var PARTS = [];
+
+function rowsHTML(rows, nRows){
+  if (!rows.length) return '<div class="secnote">没有可排序的视频。</div>';
+  // 排序榜天然会被高一维的某个分区刷屏（实测前 12 支里 9 支来自手机游戏）。
+  // 与其加"同分区最多 N 支"的上限把真实排序改掉，不如把这件事**说出来**，并指回 ③。
+  var by = {};
+  rows.forEach(function(r){ by[r.tname] = (by[r.tname] || 0) + 1; });
+  var topT = null, topN = 0;
+  Object.keys(by).forEach(function(k){ if (by[k] > topN) { topT = k; topN = by[k]; } });
+  var conc = (topN >= 4 && topN * 3 >= rows.length)
+    ? '<div class="secnote" style="margin-bottom:10px">前 ' + rows.length + ' 支里有 <b>' + topN +
+      '</b> 支来自【' + esc(topT) + '】—— 这不是巧合：该分区偏离率 ' +
+      (function(){ for (var i=0;i<PARTS.length;i++){ if (PARTS[i].tname === topT) return PARTS[i].rate.toFixed(1) + '%，见 ③'; } return '见 ③'; })() +
+      '。排序榜本身没做「同分区限流」，看到的就是真实排名。</div>'
+    : '';
+  return conc + '<div class="dgrid">' + rows.map(function(r, i){
+    return '<div class="dcard" data-bvid="' + esc(r.bvid) + '" tabindex="0" role="link" ' +
+      'aria-label="打开 ' + esc(r.title) + ' 的诊断卡">' +
+      '<div class="drank">#' + (i + 1) + ' ｜ ' + esc(r.tname || '—') + ' ｜ 同类 ' + r.n_peers + ' 支</div>' +
+      '<div class="dtitle">' + esc(r.title) + '</div>' +
+      '<div class="dmeta"><span>' + esc(r.label) + ' ' + esc(r.pole) + '</span>' +
+        '<span class="dz">z=' + r.z.toFixed(2) + '</span>' +
+        (r.pct != null ? '<span>同类前 ' + (100 - r.pct).toFixed(0) + '%</span>' : '') +
+      '</div></div>';
+  }).join('') + '</div>' +
+  (nRows > rows.length ? '<div class="secnote" style="margin-top:10px">共 ' + nRows +
+     ' 支，此处只列偏离最大的 ' + rows.length + ' 支。</div>' : '');
+}
+
+function draw(d){
+  PARTS = d.parts || [];
+  $('#content').innerHTML =
+    verdictHTML(d) +
+    '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
+      '<span class="sectitle">总览</span>' +
+      '<span class="secnote">' + esc(d.scope_note) + '</span></div>' +
+      kpiHTML(d.stats) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+      '<span class="sectitle">偏离强度分布</span>' +
+      '<span class="secnote">多数视频贴着同类，少数拉出长尾 —— 这就是「异常」的形状</span></div>' +
+      distHTML(d.dist, d.stats[0].value) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
+      '<span class="sectitle">分区偏离率</span>' +
+      '<span class="secnote">哪个分区整体更容易出「不像同类」的视频</span></div>' +
+      partsHTML(d.parts) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">④</span>' +
+      '<span class="sectitle">全库最不典型</span>' +
+      '<span class="secnote">点任意一张打开它的诊断卡 ｜ ' + esc(d.z_note) + '</span></div>' +
+      rowsHTML(d.rows, d.n_rows) + '</div>';
+
+  var cards = document.querySelectorAll('.dcard');
+  Array.prototype.forEach.call(cards, function(c){
+    function go(){ location.href = 'diagnosis.html?bvid=' + encodeURIComponent(c.dataset.bvid); }
+    c.addEventListener('click', go);
+    c.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+  });
+}
+
+function fail(msg){
+  $('#content').innerHTML = '<div class="empty"><h2>偏离检测加载失败</h2>' +
+    '<p>' + esc(msg) + '</p>' +
+    '<div class="row"><button class="btn primary" id="retry">重试</button></div></div>';
+  var b = $('#retry');
+  if (b) b.onclick = load;
+}
+
+function load(){
+  $('#content').innerHTML = '<div class="loading">正在加载偏离检测…</div>';
+  fetch('/api/v3/deviation')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){ draw(j.data); })
+    .catch(function(e){ fail('接口没有返回可用数据（' + e.message + '）。'); });
+}
+load();
+</script>
+</body>
+</html>
