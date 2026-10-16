@@ -50,9 +50,33 @@ def _get(url, params='', timeout=20):
     req = urllib.request.Request(url + params, headers=HDR)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read()
-        if (r.headers.get('Content-Encoding') or '') == 'gzip':
-            raw = gzip.decompress(raw)
-        return raw
+        enc = (r.headers.get('Content-Encoding') or '').lower()
+        return _unzip(raw, enc)
+
+
+def _unzip(raw, enc):
+    '''按 Content-Encoding 解压。
+
+    ⚠️ 2026-10-16 修：原来**只解 gzip**，而 dm/list.so 与 comment.bilibili.com 返回的是
+    **deflate** —— 于是 XML 那条路一直把压缩包当文本用（表现为乱码、<d p= 命中 0），
+    只能退回 PB 分段；而 PB 分段有额度，采不满。库内采集走 requests（自动解压）所以是满的。
+    这条 bug 直接导致在线诊断的样本量只有库内的一半左右，会污染形状指纹。
+    '''
+    if enc == 'gzip':
+        return gzip.decompress(raw)
+    if enc == 'deflate':
+        import zlib
+        try:
+            return zlib.decompress(raw)              # zlib 包装
+        except zlib.error:
+            return zlib.decompress(raw, -zlib.MAX_WBITS)   # 裸 deflate
+    if enc == 'br':
+        try:
+            import brotli
+            return brotli.decompress(raw)
+        except ImportError:
+            return raw
+    return raw
 
 
 # ── 纯 Python protobuf 读（不引 protobuf 依赖，也不在镜像里跑 protoc）──
@@ -118,6 +142,49 @@ def parse_seg(raw):
         if e['text']:
             out.append(e)
     return out
+
+
+def fetch_xml(cid):
+    """XML 全量弹幕 —— **与库内采集（collect/bili.py::fetch_danmaku_xml）同一条路径**。
+
+    ⚠️ 为什么必须优先走这条：它一次给**整个保留池**；而 seg.so(PB) 是分段的、有额度，
+    实测同一支视频 PB 只拿到 677 条 / XML 拿到 1417 条（与 B站报告数一致）。
+    在线诊断要跟库内比形状，样本量差一半会系统性污染 opening_5pct / mid_ratio / ending_5pct。
+    """
+    raw = _get('https://api.bilibili.com/x/v1/dm/list.so', '?oid=%d' % cid)
+    txt = raw.decode('utf-8', 'ignore')
+    out = []
+    for attr, text in re.findall(r'<d p="([^"]+)"[^>]*>(.*?)</d>', txt):
+        p = attr.split(',')
+        if len(p) < 8:
+            continue
+        t = text.strip()
+        if not t:
+            continue
+        try:
+            out.append({
+                'progress_ms': int(float(p[0]) * 1000),
+                'mode': int(p[1]), 'fontsize': int(p[2]), 'color': int(p[3]),
+                'send_time': int(p[4]), 'pool': int(p[5]), 'text': t,
+            })
+        except ValueError:
+            continue
+    return out
+
+
+def fetch_danmaku(cid, duration):
+    """XML 优先，PB 兜底。返回 (弹幕列表, 来源, 段数)。"""
+    dms = []
+    try:
+        dms = fetch_xml(cid)
+    except Exception:
+        dms = []
+    if dms:
+        return dms, 'xml', 0
+    pb, segs, blocked = fetch_pb(cid, duration)
+    if blocked:
+        return [], 'blocked', segs
+    return pb, 'pb', segs
 
 
 def fetch_pb(cid, duration):
@@ -317,8 +384,8 @@ def diagnose_live(bvid):
     if not view['duration']:
         raise LiveError('no_duration', '这支视频没有时长信息，无法把弹幕定位到播放进度上。')
 
-    dms, segs, blocked = fetch_pb(view['cid'], view['duration'])
-    if blocked:
+    dms, source, segs = fetch_danmaku(view['cid'], view['duration'])
+    if source == 'blocked':
         raise LiveError('blocked', 'B站拒绝了这次采集（HTTP 412，触发反爬限流）。'
                                    '等几分钟再试；这不是这支视频的问题。')
     if not dms:
@@ -371,19 +438,23 @@ def diagnose_live(bvid):
         'collected_at': time.strftime('%Y-%m-%d %H:%M:%S'),
         'n_collected': len(dms),
         'segments': segs,
+        'source': source,
         'reported': view['danmaku_reported'],
         'partition_in_library': partition_ok,
         'tname': tname or None,
         'tid': view.get('tid'),
         'notes': [
-            '弹幕是**实时快照**（本次采到 %d 条%s），可能被 B站截断——历史上限约 1800 条。'
-            % (len(dms), ('，B站报告 %d 条' % view['danmaku_reported'])
-               if view['danmaku_reported'] else ''),
-            '**不做刷量排除**：库内那 803 支按批次统计刷量，单视频算不出同一口径，'
-            '所以在线结果可能含刷量弹幕。',
+            ('弹幕是**实时快照**（本次采到 %d 条%s），可能被 B站截断 —— 历史上限约 1800 条。'
+             % (len(dms), ('，B站报告 %d 条' % view['danmaku_reported'])
+                if view['danmaku_reported'] else '')),
+            ('采样路径：%s。' % ('XML 全量池 —— 与库内采集同一条路径'
+                              if source == 'xml' else
+                              'PB 分段兜底（XML 不可用时的退路，**样本可能不全**）')),
+            '**不做刷量排除**：库内那 803 支按批次统计刷量，单视频算不出同一口径，所以在线结果可能含刷量弹幕。',
             '除以上两点，曲线与 11 维指纹的算法与库内**逐条对齐**（见 live_diag.py 头注）。',
         ],
     }
+
     if len(_CACHE) >= _CACHE_MAX:
         _CACHE.pop(min(_CACHE, key=lambda k: _CACHE[k][0]), None)
     _CACHE[bvid] = (time.time(), card, meta)

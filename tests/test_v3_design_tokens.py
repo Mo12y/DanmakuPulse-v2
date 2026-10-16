@@ -252,3 +252,46 @@ def test_compose_fastapi_has_collector_mounts():
             assert want in blk, 'fastapi 服务块缺少挂载 %s —— 采集控制台会报脚本没挂进来' % want
         return
     raise AssertionError('compose 里找不到 fastapi 服务')
+
+
+def test_all_inline_scripts_compile_as_js():
+    """每个页面内联的 <script> 必须能被真正的 JS 引擎**编译通过**。
+
+    2026-10-16 实测踩过**两次**，两次都只表现为「页面一直显示正在加载」：
+      ① 按行区间 splice 删函数，留下一个孤立的 }  → SyntaxError
+      ② 插入代码时又写了一遍 const b（和上面已有的重名）
+         → SyntaxError: invalid redefinition of lexical identifier
+    而 pytest 全绿、HTTP 200、curl 拿到的 HTML 完全正常 —— **只有人眼看截图才发现**。
+
+    为什么用 quickjs 而不是 esprima：重复声明是 **JS 早期错误**，esprima 是解析器、不查
+    （已实测确认它放行）。quickjs 是真引擎，两类都拦得住。
+    判据：**只有 SyntaxError 算失败** —— 页面脚本必然会摸 DOM，缺 document 抛的
+    ReferenceError 恰恰证明「编译过了、开始执行了」。
+
+    注：曾试图用 Python 扫「同层重复 const」补 esprima 的缺口，但花括号计数处理不了
+    对象字面量与 for...of 作用域，在**干净的代码上就误报 7 处** —— 会喊狼来了的守卫
+    等于没有，故弃用，改真引擎。
+    """
+    import re
+    import quickjs
+    bad = []
+    for name in sorted(os.listdir(os.path.join(ROOT, 'serve', 'static'))):
+        if not name.endswith('.html'):
+            continue
+        src = io.open(os.path.join(ROOT, 'serve', 'static', name), encoding='utf-8').read()
+        for i, blk in enumerate(re.findall(r'<script>(.*?)</script>', src, re.S)):
+            if not blk.strip():
+                continue
+            # ⚠️ 每块**新建上下文**：共用一个 Context 会让上一块的 $ / var 泄漏到下一块，
+            # 于是报出假的 redeclaration（实测踩过）。
+            try:
+                quickjs.Context().eval(blk)
+            except Exception as e:
+                # ⚠️ quickjs 抛的是 JSException，消息**以 SyntaxError 开头**，
+                # 不能写 except SyntaxError（那是 Python 的类型，匹配不上，会被下面的兜底吞掉）。
+                msg = str(e).split(chr(10))[0]
+                if msg.startswith('SyntaxError'):
+                    bad.append('%s 第 %d 个 <script>: %s' % (name, i + 1, msg[:110]))
+                # 其余（ReferenceError/TypeError）= 编译通过、开始执行了，正常
+    assert not bad, ('这些页面的内联 JS 编译不过 —— 整段脚本会失败、页面只表现为停在「正在加载」：'
+                     + chr(10) + chr(10).join(bad))

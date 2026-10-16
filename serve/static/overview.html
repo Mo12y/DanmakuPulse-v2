@@ -48,10 +48,6 @@
   <div class="main">
     <div class="wrap">
   <div class="card" id="content"><div class="loading">正在加载市场总览…</div></div>
-  <details class="tech">
-    <summary>技术详情（口径 / 数据源 / 参数 —— 主视图不显示这些术语）</summary>
-    <div class="techbody" id="techbody"></div>
-  </details>
 </div>
 <script src="v3nav.js"></script>
 <script>
@@ -132,12 +128,7 @@ function render(d){
   document.querySelectorAll('button[data-go]').forEach(function(el){
     el.onclick = function(ev){ ev.stopPropagation(); location.href = 'partition.html?t=' + encodeURIComponent(el.dataset.go); };
   });
-  $('#techbody').innerHTML =
-    '<h4>口径</h4><div>· 每个视频只跟<b>自己分区</b>内的其它视频比（分区内稳健 z / 分区内百分位），不与全站混合。<br>' +
-    '· "观众习惯"= 该分区各维中位相对全市场中位的偏离，取最狠的 2 维转成人话；偏离不足 0.35 倍稳健尺度就不写。<br>' +
-    '· "最不典型"= 分区内最大 |z|，用于挑样本，不代表好坏。<br>' +
-    '· 样本 <20 支的分区标"样本少"，其基准仅作参考（本次共 ' + d.partitions.length + ' 个可比分区）。</div>' +
-    '<h4>数据源</h4><div>serve/v3data 只读快照（dws_video_rhythm_features / dws_density_1pct / dim_video / dws_lifecycle / dws_rhythm_events）</div>';
+  
 }
 </script>
     </div>
