@@ -32,7 +32,13 @@
     document.documentElement.setAttribute('data-theme', t);
     try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
   }
-  try { var saved = localStorage.getItem(THEME_KEY); if (saved) document.documentElement.setAttribute('data-theme', saved); } catch (e) {}
+  // 默认深色：用户指定的「v2 那版」观感就是深色（2026-10-16 对齐）。
+  // 切过之后以用户的选择为准（localStorage）。浅色主题（暖米灰）完整保留，点 ◐ 可切。
+  (function () {
+    var t = 'dark';
+    try { t = localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t);
+  })();
 
   function here() {
     var p = location.pathname.split('/').pop();
