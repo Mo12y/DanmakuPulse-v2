@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, quote
 import psycopg
 import auth
 import diagnosis
+import collector
 import live_diag
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -633,6 +634,33 @@ TABLE_DOC = {
     'ads_evolution_feats': ('演化特征', '旧 PG 层：批次演化'),
 }
 
+
+@app.get('/api/collect/status')
+def api_collect_status(resp: Response):
+    '''采集控制台的实时状态（是否在跑 / 日志尾巴 / 快照是否过期）。'''
+    return ok(resp, collector.status(), cache=False)
+
+
+@app.post('/api/collect/start')
+async def api_collect_start(request: Request, resp: Response):
+    '''起一次采集。参数只有 count 与 skip_cooldown 两个，**命令本身是固定的**。'''
+    raw = (await request.body()).decode('utf-8', 'ignore')
+    f = {k: v[0] for k, v in parse_qs(raw, keep_blank_values=True).items()}
+    try:
+        st = collector.start(count=int(f.get('count') or 10),
+                            skip_cooldown=(f.get('skip_cooldown') == '1'),
+                            fresh=(f.get('fresh') != '0'))   # 默认刷新榜单
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+    except ValueError:
+        raise HTTPException(400, 'count 必须是整数')
+    return ok(resp, st, cache=False)
+
+
+@app.post('/api/collect/stop')
+def api_collect_stop(resp: Response):
+    '''停采集：发 SIGTERM —— 采集脚本自己装了处理、会落 manifest，所以是可续采的中断。'''
+    return ok(resp, collector.stop(), cache=False)
 
 @app.get('/api/v3/collect')
 def api_v3_collect(resp: Response):

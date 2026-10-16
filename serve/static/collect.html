@@ -26,6 +26,21 @@
 .warnbox{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);
   padding:12px 14px;font-size:13px;color:var(--text-secondary);line-height:1.8}
 .warnbox b{color:var(--text)}
+/* 采集控制 */
+.ctl{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);padding:14px 16px}
+.ctlrow{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.ctlrow label{font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:6px}
+.ctlrow input[type=number]{width:76px}
+.ctlrow .cn{font-size:11px;color:var(--text-tertiary)}
+.cstat{font-size:12.5px;color:var(--text-secondary);margin-left:4px}
+.cstale{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:12.5px;line-height:1.7;
+  background:var(--warn-soft);color:var(--warn-ink)}
+.cstale code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.clogwrap{margin-top:12px}
+.clog-h{font-size:12px;color:var(--text-tertiary);margin-bottom:6px}
+.clog{margin:0;max-height:300px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);
+  border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11.5px;line-height:1.6;color:var(--text-secondary);white-space:pre-wrap}
 @media (max-width:900px){ .brow{grid-template-columns:1fr 1fr} .brow.head{display:none} .bhide{display:none} }
 </style>
 </head>
@@ -59,6 +74,74 @@ function batches(d){
     }).join('') + '</div>';
 }
 
+
+/* ── 采集控制：真的能启停（后端跑 collect/bili.py）── */
+var POLL = null;
+function ctlHTML(st){
+  var dis = st.running ? ' disabled' : '';
+  return '<div class="ctl">' +
+    '<div class="ctlrow">' +
+      '<label>每次采集 <input id="cCount" type="number" min="1" max="300" value="10"' + dis + '> 支</label>' +
+      '<label class="ck"><input id="cFresh" type="checkbox" checked' + dis + '> 刷新榜单（开新批次）</label>' +
+      '<label class="ck"><input id="cSkip" type="checkbox"' + dis + '> 跳过初始冷却' +
+        '<span class="cn">（仅演示；正常流程有 5 分钟冷却用来避开反爬）</span></label>' +
+    '</div>' +
+    '<div class="ctlrow">' +
+      '<button class="btn primary" id="cStart"' + dis + '>▶ 开始采集</button>' +
+      '<button class="btn" id="cStop"' + (st.running ? '' : ' disabled') + '>■ 停止</button>' +
+      '<span class="cstat" id="cStat">' + statusText(st) + '</span>' +
+    '</div>' +
+    (st.snapshot_stale
+      ? '<div class="cstale">⚠ 产物比快照新：新采的数据还没有进 v3 快照，前端暂时看不到。' +
+        '在宿主机跑 <code>make v3-snapshot</code> 后刷新。</div>' : '') +
+    '<div class="clogwrap"><div class="clog-h">采集日志' +
+      (st.log_path ? '（' + esc(st.log_path) + '）' : '') + '</div>' +
+      '<pre class="clog" id="cLog">' + (st.log_tail && st.log_tail.length
+        ? esc(st.log_tail.join('\n')) : '（还没有采集日志）') + '</pre></div>' +
+  '</div>';
+}
+function statusText(st){
+  if (!st.available) return '采集脚本没有挂进容器 —— 检查 compose 的 volumes';
+  if (st.running) return '● 正在采集（已跑 ' + st.elapsed_sec + ' 秒，pid ' + st.pid + '）';
+  if (st.exit_code != null && st.exit_code !== 0) return '上次采集退出码 ' + st.exit_code + '（看日志）';
+  return '空闲。最近产物：' + (st.newest_csv || '—') + (st.newest_csv_at ? '（' + st.newest_csv_at + '）' : '');
+}
+function refresh(){
+  return fetch('/api/collect/status', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      var st = j.data, box = document.getElementById('ctlbox');
+      if (box) {
+        box.innerHTML = ctlHTML(st);
+        wireCtl(st);
+      }
+      if (POLL) { clearTimeout(POLL); POLL = null; }
+      if (st.running) POLL = setTimeout(refresh, 3000);   // 跑着才轮询，空闲不打扰
+    });
+}
+function wireCtl(st){
+  var b = document.getElementById('cStart');
+  if (b && !st.running) b.onclick = function(){
+    var body = 'count=' + encodeURIComponent(document.getElementById('cCount').value) +
+      '&fresh=' + (document.getElementById('cFresh').checked ? '1' : '0') +
+      '&skip_cooldown=' + (document.getElementById('cSkip').checked ? '1' : '0');
+    b.disabled = true; b.textContent = '正在启动…';
+    fetch('/api/collect/start', { method: 'POST', body: body })
+      .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
+      .then(function(o){
+        if (o.s !== 200) { alert('启动失败：' + ((o.j && o.j.detail) || o.s)); }
+        refresh();
+      });
+  };
+  var s2 = document.getElementById('cStop');
+  if (s2 && st.running) s2.onclick = function(){
+    s2.disabled = true; s2.textContent = '正在停止…';
+    fetch('/api/collect/stop', { method: 'POST' })
+      .then(function(r){ return r.json(); })
+      .then(function(){ refresh(); });
+  };
+}
+
 function draw(d){
   $('#content').innerHTML =
     '<div class="verdict"><span class="tone ok">⚙ 后台</span>' +
@@ -79,12 +162,15 @@ function draw(d){
         return '<div class="cmd"><div class="cl">' + esc(c.label) + '</div><code>' + esc(c.cmd) + '</code>' +
           '<div class="cn">' + esc(c.note) + '</div></div>';
       }).join('') + '</div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">④</span><span class="sectitle">为什么这里没有启停按钮</span></div>' +
-      '<div class="warnbox">采集脚本跑在<b>宿主机</b>（要写 <code>data/cli_collected</code>、要跑 Spark），' +
-      '而本服务在容器里（256MB，没有采集代码、没有 HDFS 挂载）。' +
-      '在容器里放一个按下去没反应的启停按钮，<b>比不做更糟</b> —— 所以这页给真实状态 + 可直接复制的命令。</div></div>';
+    '<div class="sec"><div class="sechead"><span class="secno">④</span><span class="sectitle">采集控制</span>' +
+      '<span class="secnote">真的会跑起来：后端执行 collect/bili.py hotlist</span></div>' +
+      '<div id="ctlbox"><div class="clog">正在读采集状态…</div></div></div>';
+  refresh();          // 控件是真的：进页面就把状态拉起来；跑着时每 3 秒刷
 }
 function fail(m){
+  var cb = document.getElementById('ctlbox');
+  if (cb) cb.innerHTML = '<div class="clog">采集状态取不到：' + esc(m) + '</div>';
+
   $('#content').innerHTML = '<div class="empty"><h2>采集状态没取到</h2><p>' + esc(m) + '</p>' +
     '<div class="row"><button class="btn primary" id="rt">重试</button></div></div>';
   $('#rt').onclick = load;

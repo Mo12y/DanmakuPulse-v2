@@ -37,6 +37,8 @@ services:
   postgres:
     image: ${PG_IMAGE}
     container_name: postgres
+    # 采集控制台要跑 collect/bili.py —— 它逐个视频写盘、不累积内存，
+    # 但跑起来会跟 API 抢内存，所以从 256m 提到 384m（实测够用且留余量）。
     mem_limit: 256m
     restart: unless-stopped
     ports: ["${PG_PORT}:5432"]
@@ -133,13 +135,23 @@ services:
       context: ../serve
       dockerfile: Dockerfile
     container_name: fastapi
-    mem_limit: 256m
+    # 采集控制台要跑 collect/bili.py —— 它逐个视频写盘、不累积内存，
+    # 但跑起来会跟 API 抢内存，所以从 256m 提到 384m（实测够用且留余量）。
+    mem_limit: 384m
+    # 采集产物写进宿主机 data/cli_collected —— 以宿主机用户身份跑，
+    # 否则 CSV 是 root 属主，宿主机的 clean.py / 后续 ETL 处理起来别扭。
+    user: "1000:1000"
     restart: unless-stopped
     ports: ["${FASTAPI_PORT}:8000"]
     environment:
       ADS_PG_DSN: "host=postgres port=5432 dbname=ads user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}"
       # 会话签名密钥：必须显式给定，否则容器重启后随机生成 -> 所有人被登出
       ADS_SESSION_SECRET: "${ADS_SESSION_SECRET}"
+    volumes:
+      # 采集控制台：脚本只读挂进来，产物与日志读写
+      - ../../danmaku/collect:/collect:ro
+      - ../../danmaku/data/cli_collected:/data-out
+      - ../../danmaku/logs:/logs
     depends_on: [postgres]
     networks: [net]
 

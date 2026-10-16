@@ -1,3 +1,5 @@
 fastapi==0.115.*
 uvicorn[standard]==0.32.*
 psycopg[binary]==3.2.*
+# 采集控制台要跑 collect/bili.py（它只依赖 requests）
+requests==2.32.*
