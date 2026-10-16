@@ -233,8 +233,10 @@ def q1(sql, params=()):
     return rows[0] if rows else None
 
 
-def ok(resp: Response, data, meta=None):
-    resp.headers['Cache-Control'] = 'public, max-age=300'
+def ok(resp: Response, data, meta=None, cache=True):
+    """cache=False 用于诊断类端点：数据虽是静态快照，但后端一改、用户却看 5 分钟旧结果，
+    排查时会被当成"改了没生效"（本轮截图就踩过一次）。"""
+    resp.headers['Cache-Control'] = 'public, max-age=300' if cache else 'no-store'
     return {'code': 0, 'data': data, 'meta': meta or {'n': len(data) if isinstance(data, list) else 1}}
 
 
@@ -443,7 +445,7 @@ def diagnosis_meta(resp: Response):
 def diagnosis_index(resp: Response):
     '''选片索引（803 支，按分区 + 互动热度排序）'''
     rows = diagnosis.index()
-    return ok(resp, rows, meta={'n': len(rows)})
+    return ok(resp, rows, meta={'n': len(rows)}, cache=False)
 
 
 @app.get('/api/video/{bvid}/diagnosis')
@@ -454,7 +456,7 @@ def video_diagnosis(bvid: str, resp: Response,
     if not d:
         raise HTTPException(404, f'{bvid} 不在节奏诊断快照里（快照覆盖 803 支视频）')
     return ok(resp, d, meta={'n': 1, 'engine_version': 'b2-v1', 'quality_flag': 'ok',
-                             'dict_version': d['tech']['dict_version']})
+                             'dict_version': d['tech']['dict_version']}, cache=False)
 
 
 @app.get('/api/danmaku_at')
@@ -497,19 +499,19 @@ def api_danmaku_at(resp: Response, bvid: str = Query(..., min_length=4),
         'n_in_range': int(total['n']) if total else 0,
         'returned': len(rows), 'truncated': truncated,
         'items': rows,
-    })
+    }, cache=False)
 
 
 @app.get('/api/v3/overview')
 def v3_overview(resp: Response):
     '''市场总览：池子规模 + 各分区性格 + 全市场最不典型的视频'''
-    return ok(resp, diagnosis.overview_view())
+    return ok(resp, diagnosis.overview_view(), cache=False)
 
 
 @app.get('/api/v3/partitions')
 def v3_partitions(resp: Response):
     rows = diagnosis.partition_list()
-    return ok(resp, rows, meta={'n': len(rows)})
+    return ok(resp, rows, meta={'n': len(rows)}, cache=False)
 
 
 @app.get('/api/v3/partition/{tname}')
@@ -518,7 +520,7 @@ def v3_partition(tname: str, resp: Response):
     d = diagnosis.partition_view(tname)
     if not d:
         raise HTTPException(404, f'分区 {tname} 无基准数据')
-    return ok(resp, d, meta={'n': 1})
+    return ok(resp, d, meta={'n': 1}, cache=False)
 
 
 @app.get('/api/lifecycle/{bvid}')
