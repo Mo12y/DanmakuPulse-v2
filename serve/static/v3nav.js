@@ -6,21 +6,30 @@
  *   · window.V3.onTheme = fn  → 切主题后回调（图表页用来重画）
  *   · window.V3.toast(msg) / window.V3.esc(s) / window.V3.markUrl()
  *
- * 分组本身是「主次逻辑」，不是目录树：
- *   诊断 = 唯一的产品（我要做什么）
- *   市场 = 「市场平均」从哪来（背景，不是主菜）
- *   模型与验证 = 让 ML 产品**可被一指找到**（导师问「机器学习部分呢」时能直接指）
- *   系统 = 数据可信 + 后台（仅管理员）
+ * 分组标题**就是类别**（本轮判据要求"受众 / 类别"落在界面上，不许只写在计划书里）：
+ *   诊断 / 追踪 = 任务（UP 主、MCN/运营 真要做的那件事）
+ *   市场        = 框架（诊断的尺子 —— 没有它，每句「你在第 X 百分位」都无从谈起）
+ *   模型与验证  = 证据（受众是答辩组，**必须明标**，不拿"证据"当万能标签）
+ *   后台管理    = 系统（仅管理员）
+ * 每页再配一句副标题写「受众 + 它帮谁做成了哪件事」（.pagesub，见 v3.css）。
  * ⛔ 明确不放：节奏地图(PCA) / 形态归属(K-Means) —— 已否决，不要搬回来。
  */
 (function () {
   var THEME_KEY = 'v3-theme';
   var GROUPS = [
-    { title: '诊断', core: true, items: [['diagnosis.html', '视频诊断卡']] },
-    { title: '市场', items: [['overview.html', '市场总览'], ['partition.html', '分区画像']] },
-    { title: '模型与验证', items: [['deviation.html', '偏离检测', 'ML']] },
+    { title: '诊断 · 任务', core: true, items: [
+      ['diagnosis.html', '视频诊断卡'],
+      ['compare.html', '两视频对比'],
+      ['batch.html', '批量体检']] },
+    { title: '追踪 · 任务', items: [['track.html', '跨批追踪']] },
+    { title: '市场 · 框架', items: [
+      ['overview.html', '市场总览'],
+      ['partition.html', '分区画像']] },
+    { title: '模型与验证 · 证据', items: [
+      ['deviation.html', '偏离检测', 'ML'],
+      ['spark.html', '为什么用 Spark']] },
     /* 后台管理：导师夸过的模块，单独成组放最后（管理员专有） */
-    { title: '后台管理', admin: true, items: [
+    { title: '后台管理 · 系统', admin: true, items: [
       ['collect.html', '采集控制台'],
       ['data.html', '数据管理'],
       ['users.html', '用户管理']] }

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>两视频对比 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+/* 本页专有（共用外壳见 v3.css） */
+.legend2{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);margin-bottom:6px}
+.legend2 i{display:inline-block;width:24px;height:0;border-top-width:2.4px;border-top-style:solid;
+  vertical-align:middle;margin-right:6px}
+.cmp{display:grid;grid-template-columns:150px 1fr 1fr 116px;gap:10px;align-items:baseline;
+  padding:9px 13px;font-size:12.5px;border-bottom:1px solid var(--border-subtle)}
+.cmp:last-child{border-bottom:0}
+.cmp.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.cdim{font-weight:600}
+.cval{font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.cval b{color:var(--text)}
+.gapbar{position:relative;height:8px;background:var(--surface-soft);border-radius:4px;overflow:hidden}
+.gapbar i{position:absolute;top:0;height:100%;border-radius:4px;background:var(--accent)}
+.cnote{font-size:12px;color:var(--text-tertiary);text-align:right}
+.who{border:1px solid var(--border);border-radius:8px;background:var(--surface-soft);padding:14px 16px;
+  font-size:13.5px;line-height:1.85}
+.who .big{font-size:20px;font-weight:800;margin-bottom:4px}
+.who .win{color:var(--accent-ink);font-weight:700}
+.keynote{border-left:3px solid var(--accent-line);background:var(--accent-soft);border-radius:0 8px 8px 0;
+  padding:11px 14px;font-size:13px;line-height:1.8;margin-top:12px}
+.covr{display:grid;grid-template-columns:1fr 120px 120px;gap:10px;padding:8px 13px;font-size:12.5px;
+  border-bottom:1px solid var(--border-subtle)}
+.covr:last-child{border-bottom:0}
+.covr.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.cnum{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-secondary)}
+.cnum b{color:var(--text)}
+.mini{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+@media (max-width:960px){
+  .cmp{grid-template-columns:1fr 1fr;gap:6px} .cmp.head{display:none}
+  .covr{grid-template-columns:1fr 1fr} .covr.head{display:none}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+      <p class="pagesub"><b>这一页解决什么 · 给 UP 主：</b>把两支视频并排比一遍，看出它俩到底差在哪一维</p>
+      <div class="toolbar">
+        <select id="selA" style="flex:1 1 280px;min-width:200px"></select>
+        <select id="selB" style="flex:1 1 280px;min-width:200px"></select>
+        <button class="btn" id="swapBtn" title="交换第一支与第二支">交换</button>
+        <button class="btn" id="randBtn" title="随机取两支同类视频">随机两支</button>
+      </div>
+      <div class="card" id="content"><div class="loading">正在加载可选视频…</div></div>
+    </div>
+  </div>
+</div>
+<script src="v3nav.js"></script>
+<script>
+var $ = function(s){ return document.querySelector(s); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+var bold = function(s){ return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); };
+var api = function(p){ return fetch(p, {cache:'no-store'}).then(function(r){
+  if (!r.ok) { return r.json().catch(function(){ return {}; }).then(function(j){
+    var e = new Error(j.detail || ('HTTP ' + r.status)); e.status = r.status; throw e; }); }
+  return r.json(); }).then(function(j){ return j.data; }); };
+var IDX = [];
+var MM = function(s){ if (s == null) return ''; s = Math.round(s);
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); };
+
+/* 两支并排曲线：第一支 = --primary 实线，第二支 = --accent 实线；
+   同类中位 = --chart-axis 点线（同分区时只画一条，两区不同则各画一条） */
+function overlay(d){
+  var a = d.a.curve, b = d.b.curve;
+  if (!a || !b) return '<div class="secnote">有支视频没有曲线数据，只能看下面的逐维表。</div>';
+  var n = Math.min(a.length, b.length), i, mx = 0;
+  for (i = 0; i < n; i++) { mx = Math.max(mx, a[i], b[i]); }
+  var meds = d.median_lines || [];
+  for (i = 0; i < meds.length; i++) { if (meds[i]) { for (var k = 0; k < meds[i].length; k++) mx = Math.max(mx, meds[i][k]); } }
+  if (mx <= 0) mx = 1;
+  var W = 900, H = 170;
+  function pts(c){
+    var s = [];
+    var m = Math.min(n, c.length);
+    for (var k = 0; k < m; k++) { s.push((k/(m-1)*W).toFixed(1) + ',' + (H - c[k]/mx*(H-8) - 4).toFixed(1)); }
+    return s.join(' ');
+  }
+  var lines = '<polyline points="' + pts(a) + '" fill="none" stroke="var(--primary)" stroke-width="2.4"/>' +
+              '<polyline points="' + pts(b) + '" fill="none" stroke="var(--accent)" stroke-width="2.4"/>';
+  for (i = 0; i < meds.length; i++) {
+    if (meds[i]) { lines += '<polyline points="' + pts(meds[i]) + '" fill="none" stroke="var(--chart-axis)" ' +
+      'stroke-width="1.4" stroke-dasharray="2 4"/>'; }
+  }
+  return '<div class="legend2">' +
+      '<span><i style="border-color:var(--primary)"></i>第一支 ' + esc(d.a.bvid) + '</span>' +
+      '<span><i style="border-color:var(--accent)"></i>第二支 ' + esc(d.b.bvid) + '</span>' +
+      '<span><i style="border-color:var(--chart-axis);border-top-style:dotted"></i>同类中位' +
+        (d.same_partition ? '（两支同区，同一条）' : '（各自分区各一条）') + '</span>' +
+    '</div>' +
+    '<svg width="100%" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" ' +
+      'aria-hidden="true" style="display:block;margin:4px 0">' + lines + '</svg>' +
+    '<div class="secnote">x 轴 = 播放进度（1% 桶）｜ y 轴 = 该位置的弹幕占比（形状可比，不受时长与总量混淆）</div>';
+}
+
+function sideCard(tag, s, color){
+  return '<div class="kpi"><div class="kl" style="color:' + color + '">' + tag + '</div>' +
+    '<div style="font-size:14px;font-weight:700;line-height:1.5;margin:4px 0">' + esc(s.title) + '</div>' +
+    '<div class="kn">' + esc(s.tname || '—') + ' ｜ ' + esc(s.up_name || '') + ' ｜ 批次 ' +
+      esc(s.batch_date) + '</div>' +
+    '<div class="kn">时长 ' + esc(s.duration_text || '—') + ' ｜ 弹幕 ' +
+      esc(s.n_danmaku == null ? '—' : Number(s.n_danmaku).toLocaleString()) + ' 条</div></div>';
+}
+
+function rowsHTML(d){
+  var mx = Math.max.apply(null, d.rows.map(function(r){ return Math.abs(r.pct_gap || 0); }).concat([1]));
+  var rows = d.rows.map(function(r){
+    var g = r.pct_gap;
+    var w = g == null ? 0 : Math.min(100, Math.abs(g) / mx * 100);
+    var left = (g == null || g <= 0) ? 50 : 50 - w / 2;
+    return '<div class="cmp">' +
+      '<span class="cdim">' + esc(r.label) + '</span>' +
+      '<span class="cval">' + esc(r.a_text) + '</span>' +
+      '<span class="cval"><b>' + esc(r.b_text) + '</b></span>' +
+      '<span><span class="gapbar"><i style="left:' + left.toFixed(1) + '%;width:' + w.toFixed(1) + '%"></i></span>' +
+        '<span class="cnote">' + esc(r.phrase) + '</span></span>' +
+    '</div>';
+  }).join('');
+  return '<div class="mini"><div class="cmp head"><span>维度</span>' +
+    '<span>第一支</span><span>第二支</span><span>差在哪</span></div>' + rows + '</div>' +
+    '<div class="secnote" style="margin-top:8px">' + esc(d.gap_hint) +
+      '　条形 = 两边在各自分区里的百分位差（越长越不一样）。</div>';
+}
+
+function whoHTML(d){
+  var w = d.who;
+  var inner;
+  if (w.available) {
+    var aWin = w.winner === 'a', bWin = w.winner === 'b';
+    inner = '<div class="big">按「' + esc(w.label) + '」比：' +
+        (aWin ? '<span class="win">第一支更强</span>' : bWin ? '<span class="win">第二支更强</span>'
+                                                             : '两支相同') + '</div>' +
+      '<div>第一支 <b>' + w.a_value + '</b>　第二支 <b>' + w.b_value + '</b>　（单位：天）</div>' +
+      '<div class="secnote">' + esc(w.basis) + '。</div>';
+  } else {
+    inner = '<div class="big">这两支没有后续表现数据，只能比节奏形状</div>' +
+      '<div>' + esc(d.who_note) + '</div>' +
+      '<div class="secnote">「结果变量」指上榜跨度 / 热度半衰期这类**后续表现**；' +
+        '本系统只在这些数据真的存在时才拿它判强弱。</div>';
+  }
+  var cov = (d.outcome_coverage || []).map(function(c){
+    return '<div class="covr"><span>' + esc(c.label) + ' <span class="cnote">' + esc(c.key) + '</span></span>' +
+      '<span class="cnum">单支有 <b>' + c.pct + '%</b></span>' +
+      '<span class="cnum">两支都有 ≈ <b>' + c.pair_pct + '%</b></span></div>';
+  }).join('');
+  var ps = d.pair_stat || {};
+  var fmt = function(v){ return v == null ? '—' : Number(v).toLocaleString(); };
+  return '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
+      '<span class="sectitle">谁更强</span>' +
+      '<span class="secnote">只看后续表现数据，不看形状</span></div>' +
+    '<div class="kpis" style="margin-bottom:12px">' +
+      '<div class="kpi"><div class="kl">全库两两配对</div><div class="kv">' + fmt(ps.n_pairs) +
+        '<span class="ku">对</span></div><div class="kn">' + (ps.n_videos || '—') + ' 支视频的全部组合</div></div>' +
+      '<div class="kpi accent"><div class="kl">能比出"谁更强"</div><div class="kv">' +
+        (ps.pct == null ? '—' : ps.pct) + '<span class="ku">%</span></div><div class="kn">' +
+        fmt(ps.n_can) + ' 对（精确计数，不是估计）</div></div>' +
+    '</div>' +
+    '<div class="who">' + inner + '</div>' +
+    '<div class="keynote">' + bold(d.coverage_note) + '</div>' +
+    '<div class="mini" style="margin-top:12px"><div class="covr head"><span>结果变量</span>' +
+      '<span class="cnum">单支覆盖</span><span class="cnum">两支都有</span></div>' + cov + '</div>' +
+    '<div class="secnote" style="margin-top:8px">表里「两支都有」按单支率平方估（≈上界）；' +
+      '上面那个百分比是**数出来的精确值** —— 四个变量彼此有重叠，所以两者不等。</div></div>';
+}
+
+function draw(d){
+  $('#content').innerHTML =
+    '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
+      '<span class="sectitle">两支是什么</span>' +
+      '<span class="secnote">' + esc(d.scope_note) + '</span></div>' +
+      '<div class="kpis">' + sideCard('第一支', d.a, 'var(--primary)') +
+        sideCard('第二支', d.b, 'var(--accent)') + '</div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+      '<span class="sectitle">节奏曲线并排</span></div>' + overlay(d) + '</div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+      '<span class="sectitle">逐维对比：差在哪</span>' +
+      '<span class="secnote">"差在哪"= 第二支相对第一支</span></div>' + rowsHTML(d) + '</div>' +
+    whoHTML(d);
+}
+
+function empty(msg){
+  $('#content').innerHTML = '<div class="empty"><h2>选两支视频开始对比</h2>' +
+    '<p>' + esc(msg || '上面两个下拉里各选一支，或点「随机两支」。') + '</p>' +
+    '<div class="row"><button class="btn primary" id="egBtn">随机两支试试</button></div></div>';
+  var b = $('#egBtn');
+  if (b) b.onclick = randomPair;
+}
+
+function fail(msg){
+  $('#content').innerHTML = '<div class="empty"><h2>对比没取到</h2><p>' + esc(msg) + '</p>' +
+    '<div class="row"><button class="btn primary" id="rt">重试</button></div></div>';
+  var b = $('#rt');
+  if (b) b.onclick = run;
+}
+
+function run(){
+  var a = $('#selA').value, b = $('#selB').value;
+  if (!a || !b) { empty(); return; }
+  if (a === b) { empty('第一支和第二支选了同一支 —— 请换一支。'); return; }
+  var u = new URLSearchParams(); u.set('a', a); u.set('b', b);
+  history.replaceState(null, '', '?' + u.toString());
+  $('#content').innerHTML = '<div class="loading">正在对比这两支…</div>';
+  api('/api/v3/compare?a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
+    .then(draw)
+    .catch(function(e){ fail('接口返回：' + e.message); });
+}
+
+function fill(){
+  var groups = {}, h = '<option value="">— 选第一支 —</option>', h2 = '<option value="">— 选第二支 —</option>';
+  IDX.forEach(function(x){ (groups[x.tname || '未知分区'] = groups[x.tname || '未知分区'] || []).push(x); });
+  Object.keys(groups).sort().forEach(function(t){
+    h += '<optgroup label="' + esc(t) + '（' + groups[t].length + '）">';
+    h2 += '<optgroup label="' + esc(t) + '（' + groups[t].length + '）">';
+    groups[t].forEach(function(x){
+      var o = '<option value="' + x.bvid + '">' + esc((x.title || '').slice(0, 40)) + '</option>';
+      h += o; h2 += o;
+    });
+    h += '</optgroup>'; h2 += '</optgroup>';
+  });
+  $('#selA').innerHTML = h;
+  $('#selB').innerHTML = h2;
+}
+
+function randomPair(){
+  if (IDX.length < 2) return;
+  var i = Math.floor(Math.random() * IDX.length), j;
+  do { j = Math.floor(Math.random() * IDX.length); } while (j === i);
+  $('#selA').value = IDX[i].bvid;
+  $('#selB').value = IDX[j].bvid;
+  run();
+}
+
+$('#selA').onchange = run;
+$('#selB').onchange = run;
+$('#randBtn').onclick = randomPair;
+$('#swapBtn').onclick = function(){
+  var a = $('#selA').value; $('#selA').value = $('#selB').value; $('#selB').value = a; run();
+};
+
+(function init(){
+  var usp = new URLSearchParams(location.search);
+  api('/api/diagnosis/index').then(function(rows){
+    IDX = rows || [];
+    fill();
+    if (IDX.length < 2) { fail('快照里没有足够的视频可选。'); return; }
+    var a = usp.get('a'), b = usp.get('b');
+    if (a && b && IDX.some(function(x){ return x.bvid === a; }) && IDX.some(function(x){ return x.bvid === b; })) {
+      $('#selA').value = a; $('#selB').value = b; run();
+    } else { empty(); }
+  }).catch(function(e){ fail('可选视频列表没取到（' + e.message + '）。'); });
+})();
+</script>
+</body>
+</html>

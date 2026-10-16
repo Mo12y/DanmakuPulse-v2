@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>跨批追踪 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+/* 本页专有（共用外壳见 v3.css） */
+.trlist{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.trrow{display:grid;grid-template-columns:1fr 120px 150px 74px 200px;gap:10px;align-items:baseline;
+  padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border-subtle);cursor:pointer}
+.trrow:last-child{border-bottom:0}
+.trrow:hover{background:var(--surface-hover)}
+.trrow.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600;cursor:default}
+.trrow.head:hover{background:var(--surface-soft)}
+.trt{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trm{font-size:12px;color:var(--text-secondary)}
+.trn{font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--text-secondary)}
+.trcon{font-size:12.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr.on td{background:var(--accent-soft)}
+.dl{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.drow{display:grid;grid-template-columns:150px 108px 108px 1fr 108px 86px;gap:10px;align-items:baseline;
+  padding:9px 13px;font-size:12.5px;border-bottom:1px solid var(--border-subtle)}
+.drow:last-child{border-bottom:0}
+.drow.head{background:var(--surface-soft);font-size:12px;color:var(--text-secondary);font-weight:600}
+.ddim{font-weight:600}
+.dnum{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-secondary)}
+.dnum b{color:var(--text)}
+.dhit{color:var(--accent-ink);font-weight:700}
+.legend2{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);margin-bottom:6px}
+.legend2 i{display:inline-block;width:24px;height:0;border-top-width:2px;border-top-style:solid;
+  vertical-align:middle;margin-right:6px}
+.keynote{border-left:3px solid var(--accent-line);background:var(--accent-soft);border-radius:0 8px 8px 0;
+  padding:11px 14px;font-size:13px;line-height:1.8;margin-top:12px}
+.pick{border:1px solid var(--border);border-radius:8px;background:var(--surface-soft);padding:13px 15px;margin-top:12px}
+.pick h4{font-size:14px;font-weight:700;margin-bottom:6px}
+.pick .sub{font-size:12.5px;color:var(--text-secondary);margin-bottom:8px}
+@media (max-width:960px){
+  .trrow{grid-template-columns:1fr 1fr;gap:6px} .trrow.head{display:none} .thide{display:none}
+  .drow{grid-template-columns:1fr 1fr;gap:6px} .drow.head{display:none}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
+  <div class="main">
+    <div class="wrap">
+      <p class="pagesub"><b>这一页解决什么 · 给 UP 主与 MCN/运营：</b>看连续两批都在榜的视频，这轮节奏跟上一次比变了没</p>
+      <div class="card" id="content"><div class="loading">正在加载跨批数据…</div></div>
+    </div>
+  </div>
+</div>
+<script src="v3nav.js"></script>
+<script>
+var $ = function(s){ return document.querySelector(s); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+var bold = function(s){ return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); };
+var LIST = [];
+
+/* 两批曲线叠加：同一支视频、两个批次的形状（x = 播放进度 1% 桶）—— 两条线，不是趋势线 */
+function overlay(curves){
+  var a = curves[0] ? curves[0].curve : null;
+  var b = curves[1] ? curves[1].curve : null;
+  if (!a || !b) return '<div class="secnote">这个批次没有曲线数据，只能看逐维差。</div>';
+  var n = Math.min(a.length, b.length), i, mx = 0;
+  for (i = 0; i < n; i++) { mx = Math.max(mx, a[i], b[i]); }
+  if (mx <= 0) mx = 1;
+  var W = 600, H = 130;
+  function pts(c){
+    var s = [];
+    for (var k = 0; k < n; k++) {
+      s.push((k / (n - 1) * W).toFixed(1) + ',' + (H - c[k] / mx * (H - 6) - 3).toFixed(1));
+    }
+    return s.join(' ');
+  }
+  return '<div class="legend2">' +
+      '<span><i style="border-color:var(--chart-axis);border-top-style:dashed"></i>上一批 ' +
+        esc(curves[0].batch_date) + '</span>' +
+      '<span><i style="border-color:var(--primary)"></i>这一批 ' + esc(curves[1].batch_date) + '</span>' +
+    '</div>' +
+    '<svg width="100%" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" ' +
+      'aria-hidden="true" style="display:block;margin:4px 0">' +
+      '<polyline points="' + pts(a) + '" fill="none" stroke="var(--chart-axis)" stroke-width="1.6" ' +
+        'stroke-dasharray="6 4"/>' +
+      '<polyline points="' + pts(b) + '" fill="none" stroke="var(--primary)" stroke-width="1.8"/></svg>';
+}
+
+function deltaTable(d){
+  var rows = d.deltas.map(function(x){
+    var z = (x.z1 == null || x.z2 == null) ? '—' : (x.z1 + ' → ' + x.z2);
+    return '<div class="drow">' +
+      '<span class="ddim">' + esc(x.label) + '</span>' +
+      '<span class="dnum">' + esc(x.v1_text) + '</span>' +
+      '<span class="dnum"><b>' + esc(x.v2_text) + '</b></span>' +
+      '<span>' + esc(x.phrase) + (x.direction === 'neutral' ? ' <span class="trm">（形状维，不说好坏）</span>' : '') + '</span>' +
+      '<span class="dnum">' + esc(z) + '</span>' +
+      '<span class="dnum' + (x.crossed ? ' dhit' : '') + '">' + (x.crossed ? '跨过阈值' : '未跨') + '</span>' +
+    '</div>';
+  }).join('');
+  return '<div class="dl"><div class="drow head"><span>维度</span>' +
+    '<span class="dnum">上一批</span><span class="dnum">这一批</span><span>变化</span>' +
+    '<span class="dnum">偏离度 z（批内）</span><span class="dnum">偏离阈值</span></div>' + rows + '</div>';
+}
+
+function detailHTML(d){
+  return '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+      '<span class="sectitle">' + esc(d.title) + '</span>' +
+      '<span class="secnote">' + esc(d.tname || '—') + ' ｜ ' + esc(d.up_name || '') + '</span></div>' +
+    '<div class="pick"><h4>' + esc(d.conclusion) + '</h4>' +
+      '<div class="sub">' + bold(d.note || '') + '</div>' +
+      overlay(d.curves || []) + '</div>' +
+    '<div style="margin-top:12px">' + deltaTable(d) + '</div>' +
+  '</div>';
+}
+
+function draw(d){
+  LIST = d.items || [];
+  var rows = LIST.map(function(r, i){
+    var span = (r.batches[0].batch_date || '') + ' → ' + (r.batches[1].batch_date || '');
+    return '<div class="trrow" data-i="' + i + '" tabindex="0" role="button" ' +
+      'aria-label="打开《' + esc(r.title) + '》的两批对比">' +
+      '<span class="trt">' + esc(r.title) + '</span>' +
+      '<span class="trm thide">' + esc(r.tname || '—') + '</span>' +
+      '<span class="trn">' + esc(span) + '</span>' +
+      '<span class="trn">隔 ' + (r.gap_days == null ? '—' : r.gap_days) + ' 天</span>' +
+      '<span class="trcon">' + esc(r.conclusion) + '</span>' +
+    '</div>';
+  }).join('');
+  var stats = (d.stats || []).map(function(s, i){
+    return '<div class="kpi' + (i === 1 ? ' accent' : '') + '">' +
+      '<div class="kl">' + esc(s.label) + '</div>' +
+      '<div class="kv">' + esc(s.value) + '<span class="ku">' + esc(s.unit) + '</span></div>' +
+      '<div class="kn">' + esc(s.note) + '</div></div>';
+  }).join('');
+  $('#content').innerHTML =
+    '<div class="verdict"><span class="tone ok">● 追踪</span>' +
+      '<div class="vmain"><div class="vproblem">' + esc(d.headline) + '</div>' +
+      '<div class="vhead">' + bold(d.sub) + '</div></div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
+      '<span class="sectitle">能追踪的有多少</span>' +
+      '<span class="secnote">这不是"功能没做"，是数据上限</span></div>' +
+      '<div class="kpis">' + stats + '</div>' +
+      '<div class="keynote">' + bold(d.day_note) + '</div>' +
+      (d.gap_note ? '<div class="keynote">' + bold(d.gap_note) + '</div>' : '') + '</div>' +
+    '<div class="sec" id="sec-list"><div class="sechead"><span class="secno">②</span>' +
+      '<span class="sectitle">' + LIST.length + ' 支跨批视频</span>' +
+      '<span class="secnote">点一行看它的两批对比（按变化从大到小排）</span></div>' +
+      '<div class="trlist"><div class="trrow head"><span>视频</span>' +
+        '<span class="thide">分区</span><span>批次</span><span>间隔</span>' +
+        '<span>一句话结论</span></div>' + rows + '</div>' +
+      '<div class="keynote">为什么这 ' + LIST.length + ' 支值得看：它们<b>连续两批都被市场选中</b>——' +
+        '这正是 07 设计里 MCN/运营 那条「榜单持续性预测」的候选集。</div></div>' +
+    '<div id="detail"></div>';
+  bind();
+}
+
+function bind(){
+  function open(i){
+    var r = LIST[i];
+    if (!r) return;
+    document.querySelectorAll('.trrow').forEach(function(el, k){ el.classList.toggle('on', k - 1 === i); });
+    $('#detail').innerHTML = '<div class="loading">正在取《' + esc(r.title) + '》的两批对比…</div>';
+    fetch('/api/v3/track/' + encodeURIComponent(r.bvid))
+      .then(function(res){ if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(function(j){
+        $('#detail').innerHTML = detailHTML(j.data);
+        $('#detail').scrollIntoView({behavior: 'smooth', block: 'start'});
+      })
+      .catch(function(e){
+        $('#detail').innerHTML = '<div class="sec"><div class="empty"><h2>这支的两批对比没取到</h2>' +
+          '<p>' + esc(e.message) + '</p></div></div>';
+      });
+  }
+  document.querySelectorAll('.trrow[data-i]').forEach(function(el){
+    el.addEventListener('click', function(){ open(+el.dataset.i); });
+    el.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(+el.dataset.i); }
+    });
+  });
+}
+
+function fail(msg){
+  $('#content').innerHTML = '<div class="empty"><h2>跨批数据没取到</h2>' +
+    '<p>' + esc(msg) + '</p>' +
+    '<div class="row"><button class="btn primary" id="rt">重试</button></div></div>';
+  var b = $('#rt');
+  if (b) b.onclick = load;
+}
+
+function load(){
+  $('#content').innerHTML = '<div class="loading">正在加载跨批数据…</div>';
+  fetch('/api/v3/track')
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){ draw(j.data); })
+    .catch(function(e){ fail('接口没有返回可用数据（' + e.message + '）。'); });
+}
+load();
+</script>
+</body>
+</html>

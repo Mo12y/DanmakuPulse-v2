@@ -7,10 +7,12 @@ import os
 from urllib.parse import parse_qs, quote
 
 import psycopg
+import ai_report
 import auth
 import diagnosis
 import collector
 import live_diag
+import perf_evidence
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
@@ -31,6 +33,7 @@ FP_FEATS = ['dm_per_min', 'wdm_per_min', 'rhythm_entropy', 'burst_cv', 'w_burst_
 @app.on_event('startup')
 def _startup():
     auth.ensure_tables()
+    ai_report.ensure_tables()
     print('[app] 用户表就绪' if True else '', flush=True)
 
 
@@ -738,6 +741,108 @@ def api_v3_tables(resp: Response):
 def api_v3_partition_compare(resp: Response, top: int = Query(6, ge=2, le=12)):
     '''分区画像页的「分区间对比」：N 个大区的中位曲线 + 关键指标。'''
     return ok(resp, diagnosis.partition_compare_data(top), cache=False)
+
+@app.get('/api/v3/spark')
+def api_v3_spark(resp: Response):
+    '''「为什么用 Spark」（模型与验证组 · 证据）——**受众是答辩组**。
+
+    题目第一个词是「基于 Spark」，而它上一版在界面里完全空转：没有任何一处能回答
+    「分布式到底证明了什么」。这里把 12 条实测墙钟摆出来（放大 8 倍 / 2 路并行 /
+    倾斜两阶段），并把诚实边界（单 worker × 2 核、par=4 不可得、合成放大）写在页面上。
+    数据只读自 serve/v3data/perf.json，不重跑实验。
+    '''
+    return ok(resp, perf_evidence.view(), cache=False)
+
+
+@app.get('/api/v3/track')
+def api_v3_track(resp: Response):
+    '''跨批追踪（追踪组 · 任务；受众 UP 主 + MCN/运营）。
+
+    直接列出全库那 85 支"连续两批都在榜"的视频 —— 如果只把它挂在"我的收藏"里，
+    约 89% 的收藏会显示"暂无追踪数据"，用户看不到这个功能能用在哪。
+    '''
+    return ok(resp, diagnosis.track_list(), cache=False)
+
+
+@app.get('/api/v3/track/{bvid}')
+def api_v3_track_one(bvid: str, resp: Response):
+    '''单支视频的两批对比（曲线叠加 + 逐维 delta）。没有跨批数据就明确 404，不静默换成别的视频。'''
+    d = diagnosis.track_detail(bvid)
+    if not d:
+        raise HTTPException(404, f'{bvid} 没有跨批数据——全库 803 支里只有 85 支出现在两个批次')
+    return ok(resp, d, meta={'n': 1}, cache=False)
+
+
+@app.get('/api/v3/compare')
+def api_v3_compare(resp: Response, a: str = Query(..., min_length=6, max_length=16),
+                   b: str = Query(..., min_length=6, max_length=16)):
+    '''两视频对比（诊断组 · 任务；受众 UP 主）——对标竞品、看出差在哪一维。
+
+    ⚠️ "谁更强"只在**两支都有同一个结果变量**时给出；否则如实写"只能比节奏形状"。
+    结果变量覆盖很低（实测 halflife_d 28.2% / hk_halflife 18.7% / span_days 15.2% /
+    half_decay_days 14.1%），配对后更低（≈单支率²）⇒ 多数配对算不出强弱。
+    '''
+    d = diagnosis.compare_view(a.strip(), b.strip())
+    if not d:
+        raise HTTPException(404, '两支都要在节奏诊断快照里（快照覆盖 803 支视频）')
+    return ok(resp, d, cache=False)
+
+
+# ── AI 报告解读（付费闸；闸与提示词约束详见 serve/ai_report.py）──
+
+@app.get('/api/v3/ai/state')
+def api_ai_state(resp: Response):
+    '''AI 解读的开关与**已用量**（三条闸的现值）——页面要能显示已用量。
+
+    给所有登录用户（不含任何密钥）；**开启/关闭**是另一个路径，走管理员前缀门禁。
+    '''
+    return ok(resp, ai_report.usage(), cache=False)
+
+
+@app.post('/api/v3/ai/config')
+async def api_ai_config_set(request: Request, resp: Response):
+    '''管理员开/关 AI 解读（默认关闭）。门禁在 auth.ADMIN_PREFIXES。'''
+    d = await request.json()
+    if 'enabled' not in d:
+        raise HTTPException(400, '需要 {"enabled": true/false}')
+    if d['enabled'] and not ai_report.configured():
+        raise HTTPException(409, '未配置 LLM_API_KEY：先把密钥放 compose/.env.llm（不进 git），再开启。')
+    return ok(resp, {'enabled': ai_report.set_enabled(bool(d['enabled']))}, cache=False)
+
+
+@app.post('/api/v3/ai/report')
+async def api_ai_report(request: Request, resp: Response):
+    '''对一支视频生成（或读缓存）AI 报告解读。
+
+    三道闸 + 缓存：单日 ≤200 次 / 累计 ≤¥10 / 单次 max_tokens ≤600；
+    同 (bvid, 快照) 只解读一次；超限**自动停**；输出过禁用词校验，命中即拒绝展示并记日志。
+    '''
+    d = await request.json()
+    bvid = (d.get('bvid') or '').strip()
+    if not bvid:
+        raise HTTPException(400, 'bvid 不能为空')
+    snap = diagnosis._load()
+    snap_id = (snap.get('meta') or {}).get('generated_at') or 'unknown'
+    card = diagnosis.diagnose(bvid, str(d['batch_date']) if d.get('batch_date') else None, snap=snap)
+    if not card:
+        raise HTTPException(404, f'{bvid} 不在节奏诊断快照里')
+    try:
+        payload, status = ai_report.generate(
+            bvid, snap_id, (card.get('video') or {}).get('batch_date'), card)
+    except PermissionError as e:
+        raise HTTPException(409, str(e))
+    except OverflowError as e:
+        raise HTTPException(429, str(e))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+    payload['cached'] = (status == 'cached')
+    payload['note'] = ('本节由模型基于**上面的结构化诊断数据**生成（不添加数据之外的数字）；'
+                       '提示词要求建议用"可参考 / 可尝试"、禁用因果断言；'
+                       '输出还要过一遍禁用词校验——命中就拒绝展示并记日志。')
+    return ok(resp, payload, meta={'n': 1, 'ai': ai_report.usage()}, cache=False)
+
 
 @app.get('/api/v3/deviation')
 def api_v3_deviation(resp: Response):

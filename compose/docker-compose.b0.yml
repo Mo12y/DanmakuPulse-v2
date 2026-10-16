@@ -147,6 +147,12 @@ services:
       ADS_PG_DSN: "host=postgres port=5432 dbname=ads user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}"
       # 会话签名密钥：必须显式给定，否则容器重启后随机生成 -> 所有人被登出
       ADS_SESSION_SECRET: "${ADS_SESSION_SECRET}"
+    env_file:
+      # AI 报告解读的 LLM 密钥：**不进 git**（.gitignore 已忽略 compose/.env.llm）。
+      # required: false ⇒ 文件不存在时 compose 不报错，功能显示"未配置"而不是起不来。
+      # ⚠️ 不要写进 compose/.env —— 那个文件**是被 git 跟踪的**（实测确认）。
+      - path: .env.llm
+        required: false
     volumes:
       # 采集控制台：脚本只读挂进来，产物与日志读写
       - ../../danmaku/collect:/collect:ro

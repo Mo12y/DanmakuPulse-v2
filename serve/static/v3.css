@@ -284,6 +284,18 @@ a:hover { text-decoration: underline; }
 /* 页内工具条（与侧栏无关，是内容区自己的操作行） */
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
 
+/* ── 页面副标题：一句话说清「这一页解决什么」+ 受众 ──
+   本轮判据：每个模块必须能一句话回答「它帮谁，做成了哪件事」；答不出就重做或不做。
+   把这句话**直接写在页面上**（而不是只写在计划书里），并用
+   tests/test_v3_page_purpose.py 钉住 —— 缺了就红，所以它不是纸面合规。 */
+.pagesub {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.7;
+  margin: 0 0 14px; padding: 9px 13px;
+  border-left: 3px solid var(--accent-line); background: var(--surface-soft);
+  border-radius: 0 8px 8px 0;
+}
+.pagesub b { color: var(--text); font-weight: 600; }
+
 /* ── KPI 瓦片（定位区：大数字 + 标签 + 单位）───────────────── */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .kpi {

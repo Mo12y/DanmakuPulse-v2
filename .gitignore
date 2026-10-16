@@ -10,3 +10,7 @@ __pycache__/
 .DS_Store
 # 自签证书与私钥（make tls-cert 生成）
 compose/assets/tls/
+# LLM 密钥（AI 报告解读）：**不进 git**
+# ⚠️ compose/.env 是被 git 跟踪的，所以密钥单独放这个文件，由 fastapi 服务的
+#    env_file（required: false）注入；见 compose/docker-compose.b0.yml 的 fastapi 段。
+compose/.env.llm

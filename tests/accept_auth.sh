@@ -161,6 +161,18 @@ has "普通用户 diagnosis 的 data 里确实没有 tech 字段" "no-tech" \
   "$(curl -s -b $JS "$H/api/video/$EG_BVID/diagnosis" | python3 -c 'import json,sys; print("has-tech" if "tech" in json.load(sys.stdin)["data"] else "no-tech")')"
 rm -f $JS
 
+echo
+echo "=== ⑪ AI 报告解读：默认关闭 + 无密钥时拒绝调用（付费闸回归）==="
+# 这一节验的是**门禁**而不是功能：AI 解读是唯一会计费的模块，
+# 所以必须证明"没密钥 / 没开启 ⇒ 一次调用都发不出去"（不是靠前端自觉）。
+chk "未登录 GET /api/v3/ai/state" 401 "$(curl -s -o /dev/null -w '%{http_code}' $H/api/v3/ai/state)"
+chk "admin GET /api/v3/ai/state" 200 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' $H/api/v3/ai/state)"
+has "state 下发三条闸的值" "day_limit" "$(curl -s -b $J1 $H/api/v3/ai/state)"
+has "默认关闭（enabled=false）" '"enabled":false' "$(curl -s -b $J1 $H/api/v3/ai/state)"
+chk "user POST /api/v3/ai/config（开关）" 403 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' $H/api/v3/ai/config)"
+chk "admin 无密钥时开启被拒（409）" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' $H/api/v3/ai/config)"
+chk "无配置时 POST /api/v3/ai/report 被拒（不产生费用）" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "{\"bvid\":\"$EG_BVID\"}" $H/api/v3/ai/report)"
+
 rm -f $J1 $J2 $J3
 echo
 echo "========== 合计 PASS=$pass FAIL=$fail =========="
