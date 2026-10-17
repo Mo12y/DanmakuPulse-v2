@@ -45,7 +45,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
-      <p class="pagesub"><b>批量视频节奏筛查</b><span class="aud">面向 MCN / 运营</span></p>
+      <p class="pagesub"><b>批量视频节奏筛查</b></p>
       <div class="card" id="content"><div class="loading">正在加载…</div></div>
     </div>
   </div>
@@ -184,8 +184,7 @@ function bind(){
 
 function page(idsIn){
   $('#content').innerHTML =
-    /* 受众依据：docs/05-新系统重构/02_系统设计方案.md:18 与 07_最终设计方案.md:16 的目标用户表（溯源信息，不渲染到界面）*/
-'<div class="aud">' + bold('**适用对象：MCN / 运营 / 品牌方**。一次筛查一批账号，横向扫出谁该细看。单个 UP 主通常一周一支，无需此项。') + '</div>' +
+
     '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
       '<span class="sectitle">粘贴 bvid</span>' +
       '<span class="secnote">一行一个；也可粘 B 站链接。单次最多 ' + MAX_IDS + ' 支</span></div>' +

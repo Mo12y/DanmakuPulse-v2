@@ -177,7 +177,7 @@
   #chart{height:300px}
 }
 
-/* ── AI 报告解读（诊断能力产品化的**交付形态**：卡片给人看，报告给人转述）──
+/* ── AI 报告解读（基于这张诊断卡给出可执行建议）──
    闸与提示词约束都在后端（serve/ai_report.py）；界面只显示状态与**已用量**。 */
 .aicard{margin-top:var(--card-gap);border:1px solid var(--border);border-radius:var(--radius);
   background:var(--card);box-shadow:var(--shadow);padding:20px 22px}
@@ -201,7 +201,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
-      <p class="pagesub"><b>视频节奏同类定位与改进参考</b><span class="aud">面向 UP 主</span></p>
+      <p class="pagesub"><b>视频节奏同类定位</b></p>
 
   <div class="toolbar">
     <input id="search" placeholder="输入 BV 号诊断任意视频（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
@@ -210,7 +210,7 @@
     <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
     <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
     <button class="btn" id="printBtn" title="按 A4 打印或导出 PDF（工具栏与技术层不印）">打印 / 导出 PDF</button>
-    <button class="btn" id="aiBtn" title="把这张卡的结构化诊断数据交给模型，产出一段可转述的完整报告解读">✦ AI 解读</button>
+    <button class="btn" id="aiBtn" title="基于这张诊断卡给出可执行建议">✦ AI 解读</button>
   </div>
 
   <div id="livebadge" hidden></div>
@@ -221,7 +221,7 @@
     <div id="content"><div class="loading">正在加载诊断快照…</div></div>
   </div>
 
-  <!-- AI 报告解读面板：放在卡外 —— 卡片给人看、报告给人转述，两者不互相挤占 -->
+  <!-- AI 报告解读面板：放在诊断卡之外，避免与卡片内容互相挤占 -->
   <div id="aipanel" hidden></div>
 </div>
 
@@ -575,22 +575,21 @@ function verdictHTML(d){
   const head = esc(v.headline).replace(/【([^】]{2,14})】/g, function(m, lab){
     return byLabel[lab] != null ? jump(byLabel[lab], '【' + lab + '】') : m;
   });
+  const meta = [vi.up_name, vi.tname,
+    (vi.duration_text ? '时长 ' + vi.duration_text : ''),
+    (vi.play_text ? '播放 ' + vi.play_text : '')].filter(Boolean).join(' · ');
   return '<div class="verdict" id="sec-verdict">' +
-    '<span class="tone ' + t[1] + '">' + (v.tone === 'ok' ? '●' : '▲') + ' ' + t[0] + '</span>' +
-    '<div class="vmain">' +
-      '<div class="vproblem">' + problem + '</div>' +
-      '<div class="vhead">' + head + '</div>' +
-      (ci >= 0 ? '<div class="jumphint">↑ 点上面加下划线的词，直接跳到曲线上的对应段和那一段的真实弹幕</div>' : '') +
-      (v.detail ? '<div class="vdetail">' + esc(v.detail) + '</div>' : '') +
-      '<div class="video">' +
-        '<span>' + esc(vi.title || vi.bvid) + '</span>' +
-        '<span>' + esc(vi.up_name || '') + '</span>' +
-        '<span>' + esc(vi.tname || '') + '</span>' +
-        (vi.duration_text ? '<span>时长 ' + vi.duration_text + '</span>' : '') +
-        (vi.play_text ? '<span>播放 ' + vi.play_text + '</span>' : '') +
-        '<a href="' + vi.url + '" target="_blank" rel="noopener">去 B站看这支视频 ↗</a>' +
-      '</div>' +
-    '</div></div>';
+    // 第一信息 = 这是哪支视频。BV 号对人是乱码，标题才是（2026-10-16 定的）
+    '<div class="vtitle">' + esc(vi.title || vi.bvid) + '</div>' +
+    '<div class="vmeta">' + esc(meta) +
+      (vi.url ? '　<a href="' + vi.url + '" target="_blank" rel="noopener">B站 ↗</a>' : '') + '</div>' +
+    '<div class="vbody">' +
+      '<span class="tone ' + t[1] + '">' + (v.tone === 'ok' ? '●' : '▲') + ' ' + t[0] + '</span>' +
+      '<div class="vmain">' +
+        '<div class="vproblem">' + problem + '</div>' +
+        '<div class="vhead">' + head + '</div>' +
+        (v.detail ? '<div class="vdetail">' + esc(v.detail) + '</div>' : '') +
+      '</div></div></div>';
 }
 
 /* ② 定位 */
@@ -992,7 +991,7 @@ function initNarrative(){
 /* 技术层的敏感性滑块：拖一下看结论稳不稳（只在这里，主卡没有） */
 
 /* ══════════════════════════════════════════════════════════════
-   AI 报告解读 —— 把诊断能力产品化到**可交付形态**：卡片给人看，报告给人转述。
+   AI 报告解读 —— 基于这张诊断卡给出可执行建议。
    · 定位口径（答辩别说"别人都有所以我们也做"，也别说"全新的创新点"）：
      就是上面那一句而已。
    · 它**不是**"去 AI 味"的对象 —— 去 AI 味只指设计层（措辞/视觉），不指"不许有 AI 功能"。
@@ -1022,54 +1021,24 @@ function aiShell(inner, ai){
   p.hidden = false;
   p.innerHTML = '<div class="aicard"><div class="aihead">' +
     '<span class="aititle">✦ AI 报告解读</span>' +
-    '<span class="aistate">卡片给人看，报告给人转述 —— 输入只有这张卡的结构化诊断数据</span>' +
     '</div>' + inner + '<div class="aigate">' + aiUsageLine(ai) + '</div></div>';
 }
 
-function copyAI(){
-  var t = AITEXT || '';
-  function done(){ V3.toast('已复制全文，可直接转述'); }
-  function fallback(){
-    try {
-      var ta = document.createElement('textarea');
-      ta.value = t;
-      ta.setAttribute('readonly', 'readonly');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-      done();
-    } catch (e) { V3.toast('复制失败，请手动选中文字'); }
-  }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(t).then(done).catch(fallback);
-  } else { fallback(); }
-}
 
 function aiOK(d, ai){
   var sug = d.suggestions || [];
-  AITEXT = d.report + (sug.length ? ('\n\n可执行建议：\n' + sug.map(function(x, i){
-    return (i + 1) + '. ' + x; }).join('\n')) : '');
-  var sugHTML = sug.length ? '<div class="aiadv"><b>可执行建议</b><ol>' +
-    sug.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>' : '';
-  aiShell(
-    (d.cached ? '<div class="aistate">这次命中了缓存：同一支视频、同一快照只解读一次，不重复计费。</div>' : '') +
-    '<div class="airep">' + esc(d.report) + '</div>' + sugHTML +
-    '<div class="aibar"><button class="btn" id="aiCopy">复制全文（方便转述）</button>' +
-      (d.cost_cny != null ? '<span class="aistate">本次约 ¥' + Number(d.cost_cny).toFixed(4) + '</span>' : '') +
-    '</div>' +
-    '<div class="aistate" style="margin-top:8px">' + esc(d.note || '') + '</div>', ai);
-  var cb = document.getElementById('aiCopy');
-  if (cb) cb.onclick = copyAI;
+  // 建议是正文（用户要的是「然后我该动哪儿」），解读降为附注。
+  var sugHTML = sug.length ? ('<div class="aiadv"><b>可以动的地方</b><ol>' +
+    sug.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>') :
+    '<div class="aiadv"><b>可以动的地方</b><div style="margin-top:6px">这次没有给出可执行建议。</div></div>';
+  aiShell(sugHTML + (d.report ? '<div class="airep">' + esc(d.report) + '</div>' : ''), ai);
+  focusSection('aipanel');
 }
 
 function aiBlocked(msg, ai){
   aiShell('<div class="aiadv"><b>这次没有给出解读</b>' +
-    '<div style="margin-top:6px">' + esc(msg) + '</div>' +
-    '<div class="aistate" style="margin-top:8px">这不是"这支视频没问题"，也不是"诊断失败"——' +
-    '是这一模块当前不可用。管理员可在「后台管理 · 采集控制台」开启或关闭它。</div></div>', ai);
+    '<div style="margin-top:6px">' + esc(msg) + '</div></div>', ai);
+  focusSection('aipanel');
 }
 
 function refreshAIState(cb){
