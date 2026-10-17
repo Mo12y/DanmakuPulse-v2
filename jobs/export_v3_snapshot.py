@@ -228,11 +228,26 @@ meta = {
 
 import os
 os.makedirs(OUT, exist_ok=True)
-for name, obj in (('videos', videos), ('curves', curves), ('baselines', baselines),
-                  ('events', dict(events)), ('meta', meta)):
-    with open(f'{OUT}/{name}.json', 'w', encoding='utf-8') as f:
+
+# ── 快照写入：先全部写进暂存目录，再逐个原子替换 ──────────────────────
+# 为什么不能直接 open(OUT/xxx.json, 'w')：那是**原地截断重写**，
+#   ① 写到一半失败 -> 前端读到新旧混合的快照（videos 是新的、curves 是旧的）；
+#   ② 前端恰好在写的时候读 -> 读到**截断的 JSON**，json.load 直接抛异常。
+# 改成「暂存 + os.replace」后：中途失败旧快照一个字节都不动；替换是原子的。
+# meta.json **最后替换**，它天然是这次导出的提交标记。
+FILES = (('videos', videos), ('curves', curves), ('baselines', baselines),
+         ('events', dict(events)), ('meta', meta))
+STAGING = os.path.join(OUT, '.staging')
+os.makedirs(STAGING, exist_ok=True)
+for name, obj in FILES:
+    with open(os.path.join(STAGING, name + '.json'), 'w', encoding='utf-8') as f:
         json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
-    print('写出', name, os.path.getsize(f'{OUT}/{name}.json'), 'bytes')
+for name, _ in FILES:
+    src = os.path.join(STAGING, name + '.json')
+    dst = os.path.join(OUT, name + '.json')
+    os.replace(src, dst)                      # 同文件系统内原子替换
+    print('写出', name, os.path.getsize(dst), 'bytes')
+os.rmdir(STAGING)
 print('无曲线行数', sum(1 for v in videos if not v['has_curve']))
 print('分区覆盖', sum(v['n_curve'] for v in baselines.values()))
 spark.stop()
