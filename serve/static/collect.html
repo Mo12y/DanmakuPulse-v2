@@ -41,6 +41,12 @@
 .clog{margin:0;max-height:300px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);
   border-radius:6px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:11.5px;line-height:1.6;color:var(--text-secondary);white-space:pre-wrap}
+/* AI 计费闸的可调输入 */
+.gateset{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:10px;
+  padding-top:10px;border-top:1px dashed var(--border-subtle)}
+.gateset label{font-size:12.5px;color:var(--text-secondary);display:flex;align-items:center;gap:5px}
+.gateset input{width:70px}
+.gateset .st{font-size:11.5px;color:var(--text-tertiary)}
 @media (max-width:900px){ .brow{grid-template-columns:1fr 1fr} .brow.head{display:none} .bhide{display:none} }
 /* AI 报告解读（付费闸）：默认关闭，管理员在这里开 —— 受三道闸约束 */
 .aitog{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);padding:14px 16px}
@@ -165,6 +171,17 @@ function aiHTML(a){
         '</b></span>' +
       '<span>单次输出上限 <b>' + a.max_tokens + '</b> token</span>' +
       (a.model ? '<span>模型 <b>' + esc(a.model) + '</b></span>' : '') + '</div>' +
+    '<div class="gateset">' +
+      '<label>单日上限 <input id="aiDay" type="number" min="1" max="' + a.day_limit_max +
+        '" value="' + a.day_limit + '"> 次</label>' +
+      '<label>金额上限 ¥<input id="aiBudget" type="number" min="0.5" max="' + a.budget_cny_max +
+        '" step="0.5" value="' + Number(a.budget_cny).toFixed(2) + '"></label>' +
+      '<label>单次 token <input id="aiTok" type="number" min="100" max="' + a.max_tokens_max +
+        '" step="50" value="' + a.max_tokens + '"></label>' +
+      '<button class="btn" id="aiSave">保存闸值</button>' +
+      '<span class="st" id="aiHint">硬天花板 ' + a.day_limit_max + ' 次 / ¥' +
+        Number(a.budget_cny_max).toFixed(2) + ' / ' + a.max_tokens_max + ' token —— 只能收紧</span>' +
+    '</div>' +
     '<div class="st" style="margin-top:8px">密钥来源：' + esc(a.key_source) +
       '。超限会<b>自动停</b>（开关置回关闭）—— 监控盯的是<b>累计花费</b>，不是进度。' +
       '同一支视频、同一快照只解读一次（命中缓存不重复计费）；输出还要过一遍禁用词校验，' +
@@ -184,6 +201,20 @@ function wireAI(a){
         if (o.s !== 200) { alert('切换失败：' + ((o.j && o.j.detail) || o.s)); }
         refreshAI();
       });
+  };
+  var sv = document.getElementById('aiSave');
+  if (sv) sv.onclick = function(){
+    sv.disabled = true;
+    var body = 'day_limit=' + encodeURIComponent(document.getElementById('aiDay').value) +
+      '&budget_cny=' + encodeURIComponent(document.getElementById('aiBudget').value) +
+      '&max_tokens=' + encodeURIComponent(document.getElementById('aiTok').value);
+    fetch('/api/v3/ai/limits', { method: 'POST', body: body })
+      .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
+      .then(function(o){
+        if (o.s !== 200) { alert('闸值没保存：' + ((o.j && o.j.detail) || o.s)); sv.disabled = false; return; }
+        refreshAI();
+      })
+      .catch(function(){ sv.disabled = false; });
   };
 }
 

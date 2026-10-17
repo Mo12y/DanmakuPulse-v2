@@ -34,9 +34,16 @@ except ImportError:            # 容器 .py 依赖见 serve/requirements.txt（�
     requests = None
 
 # ── 三条闸（改这里就是改闸，别在别处再定义一份）──
-DAY_LIMIT = 200                     # ① 单日最多调用次数
-BUDGET_CNY = 10.0                   # ② 累计花费上限（元）
-MAX_TOKENS = 600                    # ③ 单次输出 token 上限
+# ── 三条闸的**默认值**（用户 2026-10-16 拍板：100 次/日、¥10 上限、单次 600 token）──
+# 实际生效值存在 ai_config 表里，**管理员可在「后台管理 · 采集控制台」调**（见 _limits()）。
+DAY_LIMIT = 100                     # ① 单日调用上限默认值
+BUDGET_CNY = 10.0                   # ② 累计花费上限默认值（元）
+MAX_TOKENS = 600                    # ③ 单次输出 token 上限默认值
+# 硬天花板：管理员在界面上只能**收紧**，不能越过 —— 否则「硬上限」就是摆设。
+# 要突破只能改这里 + 重新部署，改动留在 git 里可追溯。
+DAY_LIMIT_MAX = 200
+BUDGET_CNY_MAX = 10.0
+MAX_TOKENS_MAX = 600
 DEFAULT_ENABLED = False             # 默认关闭：管理员显式开启后才可用
 EST_COST_CNY = 0.003                # 单次成本量级（估计值；有 usage 时按实际 token 算）
 
@@ -49,10 +56,17 @@ DDL = '''
 CREATE TABLE IF NOT EXISTS ai_config (
   id         int PRIMARY KEY,
   enabled    boolean NOT NULL DEFAULT false,
+  day_limit  int NOT NULL DEFAULT 100,
+  budget_cny numeric(10,2) NOT NULL DEFAULT 10.00,
+  max_tokens int NOT NULL DEFAULT 600,
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ai_config_single CHECK (id = 1)
 );
 INSERT INTO ai_config (id, enabled) VALUES (1, false) ON CONFLICT (id) DO NOTHING;
+-- 老库补列（表已存在时 CREATE IF NOT EXISTS 不会加列）
+ALTER TABLE ai_config ADD COLUMN IF NOT EXISTS day_limit  int NOT NULL DEFAULT 100;
+ALTER TABLE ai_config ADD COLUMN IF NOT EXISTS budget_cny numeric(10,2) NOT NULL DEFAULT 10.00;
+ALTER TABLE ai_config ADD COLUMN IF NOT EXISTS max_tokens int NOT NULL DEFAULT 600;
 CREATE TABLE IF NOT EXISTS ai_call (
   id         bigserial PRIMARY KEY,
   ts         timestamptz NOT NULL DEFAULT now(),
@@ -153,6 +167,45 @@ def set_enabled_off(reason):
        ('自动停：' + reason,), fetch=False)
 
 
+def _limits():
+    """读管理员设定的三个闸；读不到就退回默认，并且**一律夹到硬天花板内**。
+
+    为什么要夹：界面上的输入框是给管理员调松紧用的，不是用来突破硬上限的 ——
+    硬上限一旦能在界面上改，它就不是硬上限（项目曾因无闸失控 ¥30）。
+    """
+    d, b, m = DAY_LIMIT, BUDGET_CNY, MAX_TOKENS
+    r = _q1('SELECT day_limit, budget_cny, max_tokens FROM ai_config WHERE id = 1')
+    if r:
+        if r.get('day_limit'):
+            d = int(r['day_limit'])
+        if r.get('budget_cny') is not None:
+            b = float(r['budget_cny'])
+        if r.get('max_tokens'):
+            m = int(r['max_tokens'])
+    return (max(1, min(d, DAY_LIMIT_MAX)),
+            max(0.5, min(b, BUDGET_CNY_MAX)),
+            max(100, min(m, MAX_TOKENS_MAX)))
+
+
+def set_limits(day_limit=None, budget_cny=None, max_tokens=None):
+    """管理员调整闸值。越界直接拒绝（不静默夹值），并把改动记进 ai_call 日志。"""
+    cur = _limits()
+    d = cur[0] if day_limit is None else int(day_limit)
+    b = cur[1] if budget_cny is None else float(budget_cny)
+    m = cur[2] if max_tokens is None else int(max_tokens)
+    if not (1 <= d <= DAY_LIMIT_MAX):
+        raise ValueError('单日次数需在 1..%d 之间' % DAY_LIMIT_MAX)
+    if not (0.5 <= b <= BUDGET_CNY_MAX):
+        raise ValueError('金额上限需在 0.5..%.0f 元之间' % BUDGET_CNY_MAX)
+    if not (100 <= m <= MAX_TOKENS_MAX):
+        raise ValueError('单次 token 需在 100..%d 之间' % MAX_TOKENS_MAX)
+    _q('UPDATE ai_config SET day_limit = %s, budget_cny = %s, max_tokens = %s, updated_at = now() '
+       'WHERE id = 1', (d, b, m), fetch=False)
+    _q('INSERT INTO ai_call (ok, reason, cost_cny, cached) VALUES (false, %s, 0, false)',
+       ('管理员调整闸：%d 次 / ¥%.2f / %d token' % (d, b, m),), fetch=False)
+    return _limits()
+
+
 def _used_today():
     r = _q1("SELECT COUNT(*) AS n FROM ai_call WHERE ok AND NOT cached AND ts::date = CURRENT_DATE")
     return int(r['n']) if r else 0
@@ -170,10 +223,14 @@ def usage():
         'configured': bool(key),
         'model': model if key else None,
         'used_today': _used_today(),
-        'day_limit': DAY_LIMIT,
+        'day_limit': _limits()[0],
         'spent_cny': _spent(),
-        'budget_cny': BUDGET_CNY,
-        'max_tokens': MAX_TOKENS,
+        'budget_cny': _limits()[1],
+        'max_tokens': _limits()[2],
+        # 硬天花板：界面上的输入框不能越过它
+        'day_limit_max': DAY_LIMIT_MAX,
+        'budget_cny_max': BUDGET_CNY_MAX,
+        'max_tokens_max': MAX_TOKENS_MAX,
         'default_enabled': DEFAULT_ENABLED,
         'key_source': 'compose/.env.llm（.gitignore 已忽略，不进 git）',
     }
@@ -182,11 +239,12 @@ def usage():
 def limits_tripped(autostop=True):
     '''返回被触发的闸的原因；没触发返回 None。触发时**自动停**。'''
     n, s = _used_today(), _spent()
+    day_limit, budget = _limits()[0], _limits()[1]
     reason = None
-    if n >= DAY_LIMIT:
-        reason = '单日调用已达上限 %d 次' % DAY_LIMIT
-    elif s >= BUDGET_CNY:
-        reason = '累计花费已达上限 ¥%.2f（当前 ¥%.4f）' % (BUDGET_CNY, s)
+    if n >= day_limit:
+        reason = '单日调用已达上限 %d 次' % day_limit
+    elif s >= budget:
+        reason = '累计花费已达上限 ¥%.2f（当前 ¥%.4f）' % (budget, s)
     if reason and autostop and is_enabled():
         set_enabled_off(reason)
     return reason
@@ -251,7 +309,7 @@ def _call_llm(messages):
     r = requests.post(
         base + '/chat/completions',
         headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
-        json={'model': model, 'messages': messages, 'max_tokens': MAX_TOKENS, 'temperature': 0.3},
+        json={'model': model, 'messages': messages, 'max_tokens': _limits()[2], 'temperature': 0.3},
         timeout=45)
     if r.status_code != 200:
         raise RuntimeError('上游返回 %s：%s' % (r.status_code, (r.text or '')[:200]))

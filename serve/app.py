@@ -799,6 +799,21 @@ def api_ai_state(resp: Response):
     return ok(resp, ai_report.usage(), cache=False)
 
 
+@app.post('/api/v3/ai/limits')
+async def api_ai_limits(request: Request, resp: Response):
+    '''管理员调整计费闸（单日次数 / 金额上限 / 单次 token）。
+
+    只能**收紧**：越界直接 400，不静默夹值 —— 硬天花板定义在 ai_report 里，界面改不了。
+    每次调整都写一条 ai_call 日志，可追溯。门禁在 auth.ADMIN_PREFIXES。
+    '''
+    raw = (await request.body()).decode('utf-8', 'ignore')
+    f = {k: v[0] for k, v in parse_qs(raw, keep_blank_values=True).items()}
+    try:
+        d, b, m = ai_report.set_limits(f.get('day_limit'), f.get('budget_cny'), f.get('max_tokens'))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return ok(resp, {'day_limit': d, 'budget_cny': b, 'max_tokens': m}, cache=False)
+
 @app.post('/api/v3/ai/config')
 async def api_ai_config_set(request: Request, resp: Response):
     '''管理员开/关 AI 解读（默认关闭）。门禁在 auth.ADMIN_PREFIXES。'''

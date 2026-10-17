@@ -39,7 +39,8 @@ ROLES = ('admin', 'user')
 ADMIN_PREFIXES = ('/users', '/api/users',
                    '/api/v3/collect', '/api/v3/tables',
                    '/api/collect',              # 采集启停：只给管理员
-                   '/api/v3/ai/config')         # AI 解读**开关**：只给管理员
+                   '/api/v3/ai/config',          # AI 解读**开关**：只给管理员
+                   '/api/v3/ai/limits')         # **计费闸**调整：同样只给管理员
 # ⚠️ 只把「开关」放进来：AI 解读的**状态与用量**（/api/v3/ai/state）与
 #    生成（/api/v3/ai/report）必须让普通用户也能用 —— 否则页面上没法显示"已用量"。
 #    /api/* 整体仍需登录（见 app._gate 中间件）。
