@@ -147,7 +147,7 @@ function whoHTML(d){
     inner = '<div class="big">这两支没有后续表现数据，只能比节奏形状</div>' +
       '<div>' + esc(d.who_note) + '</div>' +
       '<div class="secnote">「结果变量」指上榜跨度 / 热度半衰期这类**后续表现**；' +
-        '本系统只在这些数据真的存在时才拿它判强弱。</div>';
+        '只在这些数据真的存在时才判强弱。</div>';
   }
   var cov = (d.outcome_coverage || []).map(function(c){
     return '<div class="covr"><span>' + esc(c.label) + ' <span class="cnote">' + esc(c.key) + '</span></span>' +

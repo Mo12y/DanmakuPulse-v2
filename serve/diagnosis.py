@@ -967,7 +967,7 @@ def overview(snap):
     n_batch = len({v['batch_date'] for v in snap['videos']})
     big = [p for p in parts if not p['low_support']]
     return {
-        'headline': ('本系统收录 %d 支视频、%d 个批次、%d 个分区；样本最足的是【%s】（%d 支）'
+        'headline': ('收录 %d 支视频、%d 个批次、%d 个分区；样本最足的是【%s】（%d 支）'
                      % (n_bv, n_batch, len(parts), parts[0]['tname'] if parts else '—',
                         parts[0]['n_videos'] if parts else 0)),
         'sub': ('每个视频都只跟"自己分区里的其它视频"比，不跟全站比——'
