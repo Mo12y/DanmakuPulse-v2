@@ -1076,7 +1076,7 @@ function runAI(){
   if (b) b.onclick = runAI;
   refreshAIState(function(ai){
     if (ai && b) {
-      b.title = '把这张诊断卡交给模型解读（默认关闭；已用 ' + ai.used_today + '/' + ai.day_limit + ' 次）';
+      void ai;   // 用量只在管理员页显示，用户侧不露（2026-10-16 用户要求）
     }
   });
 })();

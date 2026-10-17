@@ -41,6 +41,9 @@
   .vs{display:none}
   #chart{height:260px}
 }
+/* ECharts 需要容器有明确高度，否则画不出来
+   （本次审计发现：分区间对比图一直静默空着）*/
+#cmpchart{height:280px;width:100%}
 </style>
 </head>
 <body>
