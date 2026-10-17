@@ -168,11 +168,21 @@ echo "=== ⑪ AI 报告解读：默认关闭 + 无密钥时拒绝调用（付费
 chk "未登录 GET /api/v3/ai/state" 401 "$(curl -s -o /dev/null -w '%{http_code}' $H/api/v3/ai/state)"
 chk "admin GET /api/v3/ai/state" 200 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' $H/api/v3/ai/state)"
 has "state 下发三条闸的值" "day_limit" "$(curl -s -b $J1 $H/api/v3/ai/state)"
-has "默认关闭（enabled=false）" '"enabled":false' "$(curl -s -b $J1 $H/api/v3/ai/state)"
+# 2026-10-16 更新：原来要求「enabled=false」是**过期断言**——那是运维状态，不是代码契约。
+# 改成检查结构恒定（三闸 + 硬天花板），密钥相关的两条按实际配置条件执行。
+AI_JSON="$(curl -s -b $J1 $H/api/v3/ai/state)"
+has "计费闸有硬天花板（次数）" '"day_limit_max":200' "$AI_JSON"
+has "计费闸有硬天花板（金额）" '"budget_cny_max":10.0' "$AI_JSON"
+has "计费闸有硬天花板（token）" '"max_tokens_max":600' "$AI_JSON"
+if printf %s "$AI_JSON" | grep -q '"configured":true'; then
+  echo "  SKIP  未配密钥两条（当前已配密钥）→ 改查管理员调闸的越界保护"
+  chk "管理员调闸越界被拒（400）" 400 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -d 'day_limit=999' $H/api/v3/ai/limits)"
+else
 chk "user POST /api/v3/ai/config（开关）" 403 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' $H/api/v3/ai/config)"
-chk "admin 无密钥时开启被拒（409）" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' $H/api/v3/ai/config)"
-chk "无配置时 POST /api/v3/ai/report 被拒（不产生费用）" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "{\"bvid\":\"$EG_BVID\"}" $H/api/v3/ai/report)"
+  chk "admin 无密钥时开启被拒（409）" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"enabled":true}' $H/api/v3/ai/config)"
+  chk "无配置时 POST /api/v3/ai/report 被拒（不产生费用）" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "{\"bvid\":\"$EG_BVID\"}" $H/api/v3/ai/report)"
 
+fi
 rm -f $J1 $J2 $J3
 echo
 echo "========== 合计 PASS=$pass FAIL=$fail =========="

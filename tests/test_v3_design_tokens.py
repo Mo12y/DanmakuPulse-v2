@@ -295,3 +295,27 @@ def test_all_inline_scripts_compile_as_js():
                 # 其余（ReferenceError/TypeError）= 编译通过、开始执行了，正常
     assert not bad, ('这些页面的内联 JS 编译不过 —— 整段脚本会失败、页面只表现为停在「正在加载」：'
                      + chr(10) + chr(10).join(bad))
+
+
+
+def test_static_js_files_compile():
+    """独立的 .js 文件也要能编译通过。
+
+    2026-10-16 实测踩过：删 v3nav.js 里一个导航条目时，正则把这一组的 ] }, 一起删了，
+    **整个 GROUPS 数组语法坏掉 -> 侧栏完全不渲染**（页面其它部分正常，所以只看内容看不出来）。
+    而 test_all_inline_scripts_compile_as_js 只扫 .html 的内联脚本，**扫不到独立 .js** ——
+    这就是盲区。补上这条。
+    """
+    import quickjs
+    bad = []
+    for name in sorted(os.listdir(os.path.join(ROOT, 'serve', 'static'))):
+        if not name.endswith('.js'):
+            continue
+        src = io.open(os.path.join(ROOT, 'serve', 'static', name), encoding='utf-8').read()
+        try:
+            quickjs.Context().eval(src)
+        except Exception as e:
+            msg = str(e).split(chr(10))[0]
+            if msg.startswith('SyntaxError'):
+                bad.append('%s: %s' % (name, msg[:110]))
+    assert not bad, ('这些 .js 文件编译不过（不会报错，只会让页面静默少一块）：' + chr(10) + chr(10).join(bad))

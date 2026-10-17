@@ -17,23 +17,23 @@
 (function () {
   var THEME_KEY = 'v3-theme';
   var GROUPS = [
-    { title: '诊断 · 任务', core: true, items: [
-      ['diagnosis.html', '视频诊断卡'],
-      ['compare.html', '两视频对比'],
+    { title: '诊断', core: true, items: [
+      ['diagnosis.html', '视频诊断'],
+      ['compare.html', '双视频对比'],
       ['batch.html', '批量体检']] },
-    { title: '追踪 · 任务', items: [['track.html', '跨批追踪']] },
-    { title: '市场 · 框架', items: [
+    { title: '追踪', items: [['track.html', '跨批追踪']] },
+    { title: '市场', items: [
       ['overview.html', '市场总览'],
       ['partition.html', '分区画像']] },
-    { title: '模型与验证 · 证据', items: [
-      ['deviation.html', '偏离检测', 'ML'],
-      ['spark.html', '为什么用 Spark']] },
-    /* 后台管理：导师夸过的模块，单独成组放最后（管理员专有） */
-    { title: '后台管理 · 系统', admin: true, items: [
+    { title: '模型与验证', items: [
+      ['deviation.html', '偏离检测', 'ML']] },
+    /* 后台管理：仅管理员可见 */
+    { title: '管理', admin: true, items: [
       ['collect.html', '采集控制台'],
       ['data.html', '数据管理'],
       ['users.html', '用户管理']] }
   ];
+
   var V3 = window.V3 = window.V3 || {};
   V3.me = null;
 

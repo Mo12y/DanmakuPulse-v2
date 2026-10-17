@@ -195,8 +195,12 @@ a:hover { text-decoration: underline; }
 .linkish { color: var(--accent-ink); cursor: pointer; font-weight: 600; }
 
 /* ── 结论条（三页统一：一句话人话在最上面）────────────────── */
-.verdict { display: flex; gap: 20px; align-items: flex-start; padding: 24px;
-  border-bottom: 1px solid var(--border-subtle); }
+.verdict { padding: 24px; border-bottom: 1px solid var(--border-subtle); }
+/* 诊断卡首部：第一信息必须是「这是哪支视频」——BV 号对人是乱码，标题才是 */
+.vtitle { font-size: 21px; font-weight: 700; line-height: 1.4; letter-spacing: -0.01em; margin-bottom: 7px; }
+.vmeta { font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 18px; line-height: 1.6; }
+.vmeta a { color: var(--text-tertiary); text-decoration: underline; text-underline-offset: 2px; }
+.vbody { display: flex; gap: 20px; align-items: flex-start; }
 .tone { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
   padding: 4px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .tone.warn { background: var(--warn-soft); color: var(--warn-ink); }
@@ -205,7 +209,6 @@ a:hover { text-decoration: underline; }
 .vproblem { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; margin-bottom: 8px; }
 .vhead { font-size: 15px; line-height: 1.75; color: var(--text); }
 .vdetail { font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
-.video { font-size: 12px; color: var(--text-tertiary); margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
 
 /* ── 空状态（§7 三态之「空」）───────────────────────────── */
 .empty { padding: 56px 24px; text-align: center; }
@@ -258,8 +261,10 @@ a:hover { text-decoration: underline; }
 }
 .side-group { margin-bottom: 18px; }
 .side-group-title {
-  font-size: 11px; color: var(--text-tertiary); letter-spacing: 0.08em;
-  padding: 0 8px; margin-bottom: 6px; font-weight: 600;
+  /* 分类名与模块名必须一眼可分：分类用强调色 + 字距，模块名保持常规文字色 */
+  color: var(--accent-ink); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .12em;
+  padding: 0 10px; margin: 16px 0 6px; opacity: .85;
 }
 .side-group-title.core { color: var(--accent-ink); }
 .sidebar a {
@@ -355,3 +360,12 @@ a:hover { text-decoration: underline; }
   a[href]::after { content: ""; }              /* 不把 URL 印出来 */
   .reveal { opacity: 1 !important; transform: none !important; }
 }
+
+/* ── AI 解读卡：建议是正文（用户要的是「然后我该动哪儿」），解读降为附注 ── */
+.aiadv { font-size: 14px; line-height: 1.85; }
+.aiadv b { display: block; font-size: 12px; color: var(--text-tertiary); font-weight: 600;
+  margin-bottom: 9px; letter-spacing: .03em; }
+.aiadv ol { margin: 0; padding-left: 20px; }
+.aiadv li { margin-bottom: 11px; }
+.airep { font-size: 12.5px; color: var(--text-secondary); margin-top: 16px; padding-top: 12px;
+  border-top: 1px solid var(--border-subtle); line-height: 1.85; }

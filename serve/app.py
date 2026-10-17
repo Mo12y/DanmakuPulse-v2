@@ -12,7 +12,6 @@ import auth
 import diagnosis
 import collector
 import live_diag
-import perf_evidence
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
@@ -742,18 +741,6 @@ def api_v3_partition_compare(resp: Response, top: int = Query(6, ge=2, le=12)):
     '''分区画像页的「分区间对比」：N 个大区的中位曲线 + 关键指标。'''
     return ok(resp, diagnosis.partition_compare_data(top), cache=False)
 
-@app.get('/api/v3/spark')
-def api_v3_spark(resp: Response):
-    '''「为什么用 Spark」（模型与验证组 · 证据）——**受众是答辩组**。
-
-    题目第一个词是「基于 Spark」，而它上一版在界面里完全空转：没有任何一处能回答
-    「分布式到底证明了什么」。这里把 12 条实测墙钟摆出来（放大 8 倍 / 2 路并行 /
-    倾斜两阶段），并把诚实边界（单 worker × 2 核、par=4 不可得、合成放大）写在页面上。
-    数据只读自 serve/v3data/perf.json，不重跑实验。
-    '''
-    return ok(resp, perf_evidence.view(), cache=False)
-
-
 @app.get('/api/v3/track')
 def api_v3_track(resp: Response):
     '''跨批追踪（追踪组 · 任务；受众 UP 主 + MCN/运营）。
@@ -853,9 +840,6 @@ async def api_ai_report(request: Request, resp: Response):
     except RuntimeError as e:
         raise HTTPException(502, str(e))
     payload['cached'] = (status == 'cached')
-    payload['note'] = ('本节由模型基于**上面的结构化诊断数据**生成（不添加数据之外的数字）；'
-                       '提示词要求建议用"可参考 / 可尝试"、禁用因果断言；'
-                       '输出还要过一遍禁用词校验——命中就拒绝展示并记日志。')
     return ok(resp, payload, meta={'n': 1, 'ai': ai_report.usage()}, cache=False)
 
 
