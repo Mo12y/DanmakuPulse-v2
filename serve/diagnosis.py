@@ -1131,7 +1131,7 @@ def sensitivity_payload(snap, rec):
                            for t, e, v, c, p in THETA_SCAN],
                   'note': '出处 docs/05-新系统重构/22_theta敏感性扫描.md §1（原样搬运，未重算）'},
         'z': {'rows': z_sensitivity(snap),
-              'note': '偏离候选闸门；本页偏离卡就是按这个阈值筛的（32 号 P4 惯例 z>3.5）'},
+              'note': '偏离候选闸门；偏离卡就是按这个阈值筛的（32 号 P4 惯例 z>3.5）'},
         'knn': {'rows': knn_sensitivity(snap, rec),
                 'note': '第 K 近的相似度；相似对标只展示 3 支，K 再大就不像了'},
         'batch': batch_check(snap, rec),
@@ -1231,8 +1231,6 @@ def deviation_view(snap=None):
     return {
         'headline': '样本 >= 20 支的分区里，%d 支视频中有 %d 支（%.1f%%）在某一维上明显偏离同类'
                     % (n_all, n_out, 100.0 * n_out / n_all),
-        'sub': ('「偏离」不等于「差」：这页只回答「它在哪个维度上跟同类不一样」，'
-                '好不好由 32 号 P3 的控龄关联决定（量维有方向，形状维标中性）。'),
         'scope_note': ('只统计样本 >= %d 支的分区（%d/%d 个）—— 小分区算不出稳定的中位与 MAD，'
                        'z 会被放大到不可解释（实测未过滤时榜首 z=185 来自 n=8 的分区）。'
                        % (MIN_N, len(parts), n_part_all)),
@@ -1504,7 +1502,7 @@ def track_list(snap=None):
              'note': '%d/%d 支是这一对批次' % (tp['n'], n2) if tp else ''},
         ],
         'day_note': '所有跨批视频都只有**两个时间点**（0 支出现在 3 个及以上批次）—— '
-                    '所以这一页给的是**两批之间的逐维差**，不是时间序列趋势线。',
+                    '所以给的是**两批之间的逐维差**，不是时间序列趋势线。',
         'gap_pairs': gap_pairs,
         'gap_note': gap_note,
         'items': items,

@@ -56,7 +56,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
-      <p class="pagesub"><b>这一页解决什么 · 给管理员：</b>管理采集 —— 真的启停采集脚本，并看清批次的覆盖率与已知问题</p>
+      <p class="pagesub"><b>采集作业控制与批次台账</b><span class="aud">面向管理员</span></p>
       <div class="card" id="content"><div class="loading">正在加载采集状态…</div></div>
     </div>
   </div>
@@ -151,7 +151,7 @@ function wireCtl(st){
 }
 
 /* ── AI 报告解读的付费闸（默认关闭；这里只开/关，真正的闸在后端 serve/ai_report.py）──
-   为什么闸放在这一页：它属于「后台管理」，而且它是**会计费**的功能 ——
+   闸归后台管理的原因：它属于「后台管理」，而且它是**会计费**的功能 ——
    开关必须在管理员手里，并且页面要一直显示"累计花了多少"。 */
 function aiHTML(a){
   return '<div class="aitog"><div class="row">' +

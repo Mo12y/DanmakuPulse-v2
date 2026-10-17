@@ -12,7 +12,7 @@
 <script src="v3nav.js"></script>
 <link rel="stylesheet" href="v3.css">
 <style>
-/* 本页专有（共用外壳见 v3.css） */
+/* 页面专有样式（共用外壳见 v3.css） */
 #shot{padding:0}
 .poshero{font-size:17px;font-weight:700;margin-bottom:4px}
 .possub{font-size:13px;color:var(--text-secondary);margin-bottom:16px}
@@ -178,7 +178,7 @@
 }
 
 /* ── AI 报告解读（诊断能力产品化的**交付形态**：卡片给人看，报告给人转述）──
-   闸与提示词约束都在后端（serve/ai_report.py）；本页只显示状态与**已用量**。 */
+   闸与提示词约束都在后端（serve/ai_report.py）；界面只显示状态与**已用量**。 */
 .aicard{margin-top:var(--card-gap);border:1px solid var(--border);border-radius:var(--radius);
   background:var(--card);box-shadow:var(--shadow);padding:20px 22px}
 .aihead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
@@ -201,7 +201,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
-      <p class="pagesub"><b>这一页解决什么 · 给 UP 主：</b>把一支视频的节奏跟同类比一遍，看出它哪儿不一样、该照谁改</p>
+      <p class="pagesub"><b>视频节奏同类定位与改进参考</b><span class="aud">面向 UP 主</span></p>
 
   <div class="toolbar">
     <input id="search" placeholder="输入 BV 号诊断任意视频（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
@@ -996,7 +996,7 @@ function initNarrative(){
    · 定位口径（答辩别说"别人都有所以我们也做"，也别说"全新的创新点"）：
      就是上面那一句而已。
    · 它**不是**"去 AI 味"的对象 —— 去 AI 味只指设计层（措辞/视觉），不指"不许有 AI 功能"。
-   · 三道闸与提示词约束都在后端（serve/ai_report.py）；本页只显示状态与**已用量**，
+   · 三道闸与提示词约束都在后端（serve/ai_report.py）；界面只显示状态与**已用量**，
      并在被拒绝时**如实说明原因**（不把"没开"说成"诊断失败"）。
    ══════════════════════════════════════════════════════════════ */
 var AISTATE = null;

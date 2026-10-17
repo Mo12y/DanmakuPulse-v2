@@ -114,7 +114,7 @@ def view():
         'snapshot_at': p.get('snapshot_at'),
         'n_records': p.get('n_records'),
         'headline': '「基于 Spark」不是挂名：放大 8 倍数据、2 路并行、倾斜对照，共 %d 条墙钟实测' % len(recs),
-        'sub': '集群只有 1 台虚拟机上的 1 个 Spark worker、2 个核 —— 所以这页回答的不是'
+        'sub': '集群只有 1 台虚拟机上的 1 个 Spark worker、2 个核 —— 答案不是'
                '「集群有多大」，而是「数据变大、并行变多时，时间怎么变」。',
         'scaling': scaling,
         'wall_x_par1': wall_x_par1,
