@@ -163,7 +163,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
     }
     frame();
   }
-  window.addEventListener('resize', start);
+  if (!window.__v3resizeBound) { window.__v3resizeBound = 1;
+    window.addEventListener('resize', start);
+  }
   start();
 })();
 </script>

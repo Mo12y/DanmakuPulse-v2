@@ -265,7 +265,9 @@ function drawBatchChart(d){
         lineStyle: { width: 2, color: C.accent }, itemStyle: { color: C.accent } },
     ]
   });
-  window.addEventListener('resize', function(){ if (BCHART) BCHART.resize(); });
+  if (!window.__v3resizeBound) { window.__v3resizeBound = 1;
+    window.addEventListener('resize', function(){ if (BCHART) BCHART.resize(); });
+  }
 }
 function draw(d){
   $('#content').innerHTML =

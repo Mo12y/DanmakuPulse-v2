@@ -207,7 +207,9 @@ function drawCompare(c){
         itemStyle: { color: pool[i % pool.length] } };
     })
   });
-  window.addEventListener('resize', function(){ if (CMPCHART) CMPCHART.resize(); });
+  if (!window.__v3resizeBound) { window.__v3resizeBound = 1;
+    window.addEventListener('resize', function(){ if (CMPCHART) CMPCHART.resize(); });
+  }
   document.getElementById('cmpcap').innerHTML = esc(c.sub);
   document.getElementById('cmptable').innerHTML =
     '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px">' +
@@ -283,7 +285,9 @@ function drawChart(){
     x100(kEnd) + ' 倍。' +
     ' 跟全市场比：开头 ' + cmpPct(openP, openG) + '、中段 ' + cmpPct(midP, midG) +
     '、收尾 ' + cmpPct(endP, endG) + '。';
-  window.addEventListener('resize', function(){ if (CHART) CHART.resize(); });
+  if (!window.__v3resizeBound) { window.__v3resizeBound = 1;
+    window.addEventListener('resize', function(){ if (CHART) CHART.resize(); });
+  }
 }
 </script>
     </div>
