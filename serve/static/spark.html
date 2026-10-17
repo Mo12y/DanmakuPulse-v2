@@ -8,7 +8,7 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="v3.css">
 <style>
-/* 本页专有（共用外壳见 v3.css） */
+/* 页面专有样式（共用外壳见 v3.css） */
 .tlist{border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .trow{display:grid;grid-template-columns:110px 112px 104px 104px 92px;gap:10px;align-items:baseline;
   padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border-subtle)}
@@ -35,7 +35,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
-      <p class="pagesub"><b>这一页解决什么 · 给答辩组：</b>回答「为什么用 Spark」——把 12 条实测墙钟摆出来，证明分布式不是挂名</p>
+      <p class="pagesub"><b>分布式计算实测证据</b><span class="aud">面向答辩组</span></p>
       <div class="card" id="content"><div class="loading">正在加载性能实测…</div></div>
     </div>
   </div>
@@ -166,7 +166,7 @@ function limitsHTML(d){
   return '<div class="sec"><div class="sechead"><span class="secno">⑤</span>' +
       '<span class="sectitle">诚实边界（先读这段，再看数字）</span></div>' +
     '<ul class="lim">' + (d.limits || []).map(function(x){ return '<li>' + bold(x) + '</li>'; }).join('') +
-      '<li>本页所有数字来自 <b>' + esc(d.suite) + '</b>；不重跑、不挑好看的。</li></ul>' +
+      '<li>所有数字来自 <b>' + esc(d.suite) + '</b>；不重跑、不挑好看的。</li></ul>' +
     '<div class="sechead" style="margin-top:18px"><span class="secno">⑥</span>' +
       '<span class="sectitle">逐条实测轨迹</span>' +
       '<span class="secnote">' + esc(d.records_note) + '</span></div>' +

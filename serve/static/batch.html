@@ -8,7 +8,7 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="v3.css">
 <style>
-/* 本页专有（共用外壳见 v3.css） */
+/* 页面专有样式（共用外壳见 v3.css） */
 #ids{width:100%;min-height:92px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   font-size:12.5px;line-height:1.7;resize:vertical}
 .brow{display:grid;grid-template-columns:1fr 108px 1fr 96px 82px;gap:10px;align-items:baseline;
@@ -45,7 +45,7 @@
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <div class="main">
     <div class="wrap">
-      <p class="pagesub"><b>这一页解决什么 · 给 MCN/运营：</b>一次查一批号，谁该细看、谁没问题，一张表扫出来</p>
+      <p class="pagesub"><b>批量视频节奏筛查</b><span class="aud">面向 MCN / 运营</span></p>
       <div class="card" id="content"><div class="loading">正在加载…</div></div>
     </div>
   </div>
@@ -184,9 +184,8 @@ function bind(){
 
 function page(idsIn){
   $('#content').innerHTML =
-    '<div class="aud">' + bold('**这一页给 MCN / 运营 / 品牌方**：一次查一批号，横向扫一遍谁该细看。' +
-      '单个 UP 主一周发一支，用不上这个 —— 需要一次看多个号时才用它。' +
-      '（出处：docs/05-新系统重构/02_系统设计方案.md 的目标用户表与 07_最终设计方案.md 的 MCN 行）') + '</div>' +
+    /* 受众依据：docs/05-新系统重构/02_系统设计方案.md:18 与 07_最终设计方案.md:16 的目标用户表（溯源信息，不渲染到界面）*/
+'<div class="aud">' + bold('**适用对象：MCN / 运营 / 品牌方**。一次筛查一批账号，横向扫出谁该细看。单个 UP 主通常一周一支，无需此项。') + '</div>' +
     '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
       '<span class="sectitle">粘贴 bvid</span>' +
       '<span class="secnote">一行一个；也可粘 B 站链接。单次最多 ' + MAX_IDS + ' 支</span></div>' +
