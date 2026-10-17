@@ -156,7 +156,7 @@ function whoHTML(d){
   }).join('');
   var ps = d.pair_stat || {};
   var fmt = function(v){ return v == null ? '—' : Number(v).toLocaleString(); };
-  return '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
+  return '<div class="sec"><div class="sechead"><span class="secno">④</span>' +
       '<span class="sectitle">谁更强</span>' +
       '<span class="secnote">只看后续表现数据，不看形状</span></div>' +
     '<div class="kpis" style="margin-bottom:12px">' +
@@ -183,7 +183,7 @@ function draw(d){
         sideCard('第二支', d.b, 'var(--accent)') + '</div></div>' +
     '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
       '<span class="sectitle">节奏曲线并排</span></div>' + overlay(d) + '</div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">②</span>' +
+    '<div class="sec"><div class="sechead"><span class="secno">③</span>' +
       '<span class="sectitle">逐维对比：差在哪</span>' +
       '<span class="secnote">"差在哪"= 第二支相对第一支</span></div>' + rowsHTML(d) + '</div>' +
     whoHTML(d);
