@@ -47,6 +47,9 @@
 .gateset label{font-size:12.5px;color:var(--text-secondary);display:flex;align-items:center;gap:5px}
 .gateset input{width:70px}
 .gateset .st{font-size:11.5px;color:var(--text-tertiary)}
+/* ECharts 需要容器有明确高度，否则画不出来（本次实测：图静默不显示）*/
+#batchchart{height:260px;width:100%}
+
 @media (max-width:900px){ .brow{grid-template-columns:1fr 1fr} .brow.head{display:none} .bhide{display:none} }
 /* AI 报告解读（付费闸）：默认关闭，管理员在这里开 —— 受三道闸约束 */
 .aitog{border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-soft);padding:14px 16px}
@@ -67,6 +70,7 @@
     </div>
   </div>
 </div>
+<script src="vendor/echarts.min.js"></script>
 <script src="v3chart.js"></script>
 <script src="v3nav.js"></script>
 <script>
@@ -227,6 +231,42 @@ function refreshAI(){
     .catch(function(e){ box.innerHTML = '<div class="clog">AI 解读状态取不到：' + esc(e.message) + '</div>'; });
 }
 
+var BCHART = null;
+/* 批次趋势：条形看每批视频数，折线看弹幕量。用状态色编码数据是被禁的，所以统一走主色/强调色。 */
+function drawBatchChart(d){
+  var el = document.getElementById('batchchart');
+  if (!el || !window.echarts) return;
+  if (BCHART) { BCHART.dispose(); BCHART = null; }
+  var bs = d.batches.slice().reverse();   // 时间正序
+  BCHART = echarts.init(el, null, { renderer: 'canvas' });
+  var C = dmChart();
+  BCHART.setOption({
+    backgroundColor: 'transparent',
+    grid: { left: 54, right: 58, top: 28, bottom: 40 },
+    legend: { top: 0, textStyle: { color: C.textTertiary, fontSize: 12 } },
+    tooltip: { trigger: 'axis', backgroundColor: C.tipBg, borderColor: C.tipBorder,
+      textStyle: { color: C.text, fontSize: 12 } },
+    xAxis: { type: 'category', data: bs.map(function(b){ return b.batch_date; }),
+      axisLine: { lineStyle: { color: C.split } },
+      axisLabel: { color: C.textTertiary, fontSize: 11 } },
+    yAxis: [
+      { type: 'value', name: '视频', axisLine: { show: false },
+        splitLine: { lineStyle: { color: C.split } },
+        axisLabel: { color: C.textTertiary, fontSize: 11 } },
+      { type: 'value', name: '弹幕', axisLine: { show: false }, splitLine: { show: false },
+        axisLabel: { color: C.textTertiary, fontSize: 11,
+          formatter: function(v){ return v >= 10000 ? (v / 10000).toFixed(0) + '万' : v; } } },
+    ],
+    series: [
+      { name: '视频数', type: 'bar', data: bs.map(function(b){ return b.n_videos; }),
+        itemStyle: { color: C.primary, borderRadius: [3, 3, 0, 0] }, barMaxWidth: 34 },
+      { name: '弹幕量', type: 'line', yAxisIndex: 1, smooth: 0,
+        data: bs.map(function(b){ return b.n_danmaku; }),
+        lineStyle: { width: 2, color: C.accent }, itemStyle: { color: C.accent } },
+    ]
+  });
+  window.addEventListener('resize', function(){ if (BCHART) BCHART.resize(); });
+}
 function draw(d){
   $('#content').innerHTML =
     '<div class="verdict"><span class="tone ok">⚙ 后台</span>' +
@@ -239,22 +279,26 @@ function draw(d){
           '<div class="kv">' + esc(s.value) + '<span class="ku">' + esc(s.unit) + '</span></div>' +
           '<div class="kn">' + esc(s.note) + '</div></div>';
       }).join('') + '</div></div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">②</span><span class="sectitle">批次明细</span>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span><span class="sectitle">采集量趋势</span>' +
+      '<span class="secnote">按榜单快照日期，看每批采到的视频数与弹幕量</span></div>' +
+      '<div id="batchchart"></div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">③</span><span class="sectitle">批次明细</span>' +
       '<span class="secnote">按榜单快照日期分批</span></div>' + batches(d) + '</div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">③</span><span class="sectitle">怎么接着采</span>' +
+    '<div class="sec"><div class="sechead"><span class="secno">④</span><span class="sectitle">怎么接着采</span>' +
       '<span class="secnote">在宿主机项目根目录执行</span></div>' +
       d.commands.map(function(c){
         return '<div class="cmd"><div class="cl">' + esc(c.label) + '</div><code>' + esc(c.cmd) + '</code>' +
           '<div class="cn">' + esc(c.note) + '</div></div>';
       }).join('') + '</div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">④</span><span class="sectitle">采集控制</span>' +
+    '<div class="sec"><div class="sechead"><span class="secno">⑤</span><span class="sectitle">采集控制</span>' +
       '<span class="secnote">真的会跑起来：后端执行 collect/bili.py hotlist</span></div>' +
       '<div id="ctlbox"><div class="clog">正在读采集状态…</div></div></div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">⑤</span><span class="sectitle">AI 报告解读（付费闸）</span>' +
+    '<div class="sec"><div class="sechead"><span class="secno">⑥</span><span class="sectitle">AI 报告解读（付费闸）</span>' +
       '<span class="secnote">默认关闭；开启后每调用一次都受三道闸约束</span></div>' +
       '<div id="aiwrap"><div class="clog">正在读 AI 解读状态…</div></div></div>';
   refresh();          // 控件是真的：进页面就把状态拉起来；跑着时每 3 秒刷
   refreshAI();        // AI 开关与已用量
+  drawBatchChart(d);
 }
 function fail(m){
   var cb = document.getElementById('ctlbox');

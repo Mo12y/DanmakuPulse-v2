@@ -175,7 +175,16 @@ function whoHTML(d){
 }
 
 function draw(d){
-  $('#content').innerHTML =
+  // Tier 1（首屏核心）：比的是哪两支 + 差最多在哪。按 Grafana 布局参考，
+  // Size/Position/Color 三者要一致指向同一件事 —— 这里用大字 + 最顶 + 常规色，
+  // 三要素都指「一句话结论」，不跟下面的章节抢。
+  var tier1 = '<div class="verdict"><div class="vmain">' +
+    '<div class="vtitle">' + esc(d.a.title || d.a.bvid) +
+      ' <span style="color:var(--text-tertiary);font-weight:400">对比</span> ' +
+      esc(d.b.title || d.b.bvid) + '</div>' +
+    (d.gap_hint ? '<div class="vhead">' + esc(d.gap_hint) + '</div>' : '') +
+    '</div></div>';
+  $('#content').innerHTML = tier1 +
     '<div class="sec"><div class="sechead"><span class="secno">①</span>' +
       '<span class="sectitle">两支是什么</span>' +
       '<span class="secnote">' + esc(d.scope_note) + '</span></div>' +
