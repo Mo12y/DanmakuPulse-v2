@@ -44,11 +44,17 @@ function human(b){
 var V3 = ['v3_video_danmaku', 'users', 'favorites'];
 function draw(d){
   $('#content').innerHTML =
-    '<div class="verdict"><span class="tone ok">⚙ 后台</span>' +
-      '<div class="vmain"><div class="vproblem">' + esc(d.headline) + '</div>' +
-      '<div class="vdetail">' + esc(d.sub) + '</div></div></div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">①</span><span class="sectitle">表清单</span>' +
-      '<span class="secnote">粉底 = v3 在用的表</span></div>' +
+    '<div class="verdict"><div class="vmain">' +
+      '<div class="vtitle">' + esc(d.headline) + '</div></div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">①</span><span class="sectitle">总览</span></div>' +
+      '<div class="kpis">' + d.stats.map(function(s, i){
+        return '<div class="kpi' + (i === 0 ? ' accent' : '') + '">' +
+          '<div class="kl">' + esc(s.label) + '</div>' +
+          '<div class="kv">' + esc(s.value) +
+            (s.unit ? '<span class="ku">' + esc(s.unit) + '</span>' : '') + '</div></div>';
+      }).join('') + '</div></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">②</span><span class="sectitle">表清单</span>' +
+      '<span class="secnote">粉底 = v3 在用</span></div>' +
       '<div class="tlist"><div class="trow head"><span>表名</span><span class="tnum">行数</span>' +
         '<span class="tnum thide">占用</span><span class="thide">用途</span></div>' +
       d.tables.map(function(t){
@@ -60,16 +66,15 @@ function draw(d){
           '<span class="tuse thide"><b class="tlab">' + esc(t.label) + '</b> —— ' + esc(t.use) + '</span>' +
         '</div>';
       }).join('') + '</div></div>' +
-    '<div class="sec"><div class="sechead"><span class="secno">②</span><span class="sectitle">v3 快照元信息</span></div>' +
+    '<div class="sec"><div class="sechead"><span class="secno">③</span><span class="sectitle">快照</span></div>' +
       '<div class="kpis">' +
         [['视频-批次', d.snapshot.n_videos, '条'], ['曲线', d.snapshot.n_curve, '条'],
          ['分区', d.snapshot.n_partitions, '个'], ['检出事件', d.snapshot.n_events, '个']]
           .map(function(x){ return '<div class="kpi"><div class="kl">' + x[0] + '</div>' +
             '<div class="kv">' + x[1] + '<span class="ku">' + x[2] + '</span></div></div>'; }).join('') +
       '</div>' +
-      '<div class="secnote" style="margin-top:10px">快照生成于 ' +
-        esc((d.snapshot.generated_at || '').replace('T', ' ')) + '　｜　来源表：' +
-        esc((d.snapshot.source_tables || []).join(' / ')) + '</div></div>';
+      '<div class="secnote" style="margin-top:10px">生成于 ' +
+        esc((d.snapshot.generated_at || '').replace('T', ' ')) + '</div></div>';
 }
 function fail(m){
   $('#content').innerHTML = '<div class="empty"><h2>表清单没取到</h2><p>' + esc(m) + '</p>' +

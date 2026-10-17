@@ -727,13 +727,29 @@ def api_v3_tables(resp: Response):
                     'label': doc[0] if doc else '（未登记）',
                     'use': doc[1] if doc else '这张表还没有用途说明，改 serve/app.py 的 TABLE_DOC 补上'})
     n_v3 = sum(1 for r in out if r['name'].startswith('v3_') or r['name'] in ('users', 'favorites'))
+    tot_rows = sum(r['rows'] for r in out)
+    tot_bytes = sum(r['bytes'] for r in out)
+    # 大屏化：后台是运维视角，这里用 KPI + 分层，而不是一句解释一段散文。
     return ok(resp, {
-        'headline': 'PostgreSQL 里共 %d 张表，其中 %d 张是 v3 在用的' % (len(out), n_v3),
-        'sub': 'ads_* 是上一版（v2）的 PG 层；v3 只读 v3_video_danmaku 与账号表，'
-               'ads_* 保留供溯源，不再被前端依赖。',
+        'headline': '数据表 %d 张 · 总行数 %s · 占用 %s' % (
+            len(out), format(tot_rows, ','), _human_bytes(tot_bytes)),
+        'stats': [
+            {'label': '表', 'value': len(out), 'unit': '张'},
+            {'label': '总行数', 'value': format(tot_rows, ','), 'unit': '行'},
+            {'label': '占用', 'value': _human_bytes(tot_bytes), 'unit': ''},
+            {'label': 'v3 在用', 'value': n_v3, 'unit': '张'},
+        ],
         'tables': out,
         'snapshot': diagnosis._load()['meta'],
     }, cache=False)
+
+
+def _human_bytes(b):
+    if b > 1048576:
+        return '%.1f MB' % (b / 1048576.0)
+    if b > 1024:
+        return '%.0f KB' % (b / 1024.0)
+    return '%d B' % b
 
 
 @app.get('/api/v3/partition_compare')

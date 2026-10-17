@@ -282,7 +282,7 @@ function liveFail(bvid, msg){
       '<h2>这支视频诊断不了</h2>' +
       '<p><b>' + esc(bvid) + '</b><br>' + esc(msg) + '</p>' +
       '<p style="font-size:13px;color:var(--text-secondary)">在线诊断需要现场采集弹幕；' +
-      '采不到就没有节奏可算。<b>本系统不会拿别的视频冒充它。</b></p>' +
+      '采不到就没有节奏可算。<b>不会拿别的视频冒充它。</b></p>' +
       '<div class="row">' +
         '<button class="btn primary" id="lfRetry">重试一次</button>' +
         '<button class="btn" id="lfRand">随机一支</button>' +
@@ -355,7 +355,7 @@ function notFound(bvid){
     '<div class="empty">' +
       '<h2>没找到这个视频</h2>' +
       '<p><b>' + esc(bvid) + '</b> 不在节奏诊断快照里。<br>' +
-      '本系统只覆盖已采集并跑完节奏分析的视频（当前 803 支），不是所有 B 站视频都在里面。</p>' +
+      '只覆盖已采集并跑完节奏分析的视频（当前 803 支），不是所有 B 站视频都在里面。</p>' +
       '<div class="row">' +
         '<button class="btn primary" id="nfTry">换一支试试</button>' +
         '<button class="btn" id="nfRand">随机一支</button>' +
