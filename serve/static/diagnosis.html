@@ -734,7 +734,9 @@ function drawChart(){
   CHART.on('click', p => {
     if (p.componentType === 'markPoint' && p.data && p.data.peakIdx != null) showPeak(p.data.peakIdx);
   });
-  window.addEventListener('resize', () => CHART && CHART.resize());
+  if (!window.__v3resizeBound) { window.__v3resizeBound = 1;
+    window.addEventListener('resize', () => CHART && CHART.resize());
+  }
 }
 
 /* 诚实边界条：放在主视图可见处（不藏技术层）。
