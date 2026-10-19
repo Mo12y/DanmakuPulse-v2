@@ -784,7 +784,7 @@ def _verdict(rec, position, deviations, benchmarks, partition_ok):
     }
 
 
-def diagnose(bvid, batch_date=None, snap=None):
+def diagnose(bvid, batch_date=None, snap=None, include_sensitivity=True):
     # snap 可选：在线诊断（serve/live_diag.py）把算好的库外视频注入一份影子快照后复用本函数，
     # 这样参照系 / 稳健 z / 百分位 / kNN / 结论 / 行动全部走库内同一套口径，不另写一份。
     snap = snap if snap is not None else _load()
@@ -837,7 +837,9 @@ def diagnose(bvid, batch_date=None, snap=None):
             'percentiles': pct_map,
             'outcome_raw': rec.get('outcome'),
             'similarity_metric': 'cosine on partition-z shape vector (32 号 P1 口径)',
-            'sensitivity': sensitivity_payload(snap, rec),
+            # include_sensitivity=False is used by batch_check only.
+            # Otherwise sensitivity -> batch_check -> diagnose recurses forever (85 multi-batch bvids, 2026-10-19).
+            'sensitivity': sensitivity_payload(snap, rec) if include_sensitivity else None,
             'dict_map': [{'tech': v.get('tech'), 'label': v['label'],
                           'direction': v['direction'], 'display': bool(v.get('display'))}
                          for v in DICT.values()],
@@ -1107,7 +1109,8 @@ def batch_check(snap, rec):
         return None
     out = []
     for v in sorted(rows, key=lambda x: x['batch_date']):
-        d = diagnose(bv, v['batch_date'])
+        # reuse the same snap and skip sensitivity; otherwise batch_check <-> diagnose recurses
+        d = diagnose(bv, v['batch_date'], snap=snap, include_sensitivity=False)
         if not d:
             continue
         top = d['deviations'][0] if d['deviations'] else None

@@ -229,3 +229,16 @@ def test_unknown_video_404():
 def test_legacy_highlights_route_kept():
     # 旧端点仍是 batch_date 必填（新路由不得把它挤掉/改签名）
     get('/api/highlights/' + LONG_BVID, 422)
+
+
+def test_diagnosis_multibatch_no_500():
+    """跨批视频（同一 bvid 出现在 ≥2 个批次）的诊断卡不能 500。
+
+    2026-10-19 实测：diagnosis.diagnose() → sensitivity_payload → batch_check →
+    diagnose() 未复用 snap 且未跳过 sensitivity，导致 85 支跨批视频无限递归 500。
+    修复后本用例守住「库内任意视频都能打开诊断卡」。
+    """
+    body = get('/api/video/BV1fopY6QEmP/diagnosis')
+    d = body['data']
+    _keys(d, 'video', 'verdict', 'position', 'curve', 'deviations')
+    assert d['video']['bvid'] == 'BV1fopY6QEmP'
