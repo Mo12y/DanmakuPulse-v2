@@ -1,7 +1,7 @@
 """精彩时刻聚合载荷（PLAN_HIGHLIGHTS §2.6）。
 
 把 4 张新 ads 表组装成一份前端载荷：
-  ads_resonance_peaks        共振峰（秒级定位 + 情绪标签 + 对标）
+  ads_resonance_peaks        共振峰（秒级定位 + 对标）
   ads_critique_segments      质疑段（宁缺毋滥，未检出就是未检出）
   ads_video_feedback_profile 从众 / 中性 / 批判占比 + 分区对标
   ads_dict_critique          质疑词表版本
@@ -21,16 +21,14 @@ DSN = os.environ.get('ADS_PG_DSN', '')
 
 LONG_SEC = 1800            # >1800s 出切片建议，否则出高光定位（前端 is_long 同口径）
 BENCH_MIN = 20             # 分区基准最小样本：不足退回全库基准，partition_ok=false
-EMOTION_LABEL = {'moving': '感人', 'funny': '好笑', 'hype': '燃',
-                 'angry': '愤怒', 'neutral': '中性'}
-EMOTION_NOTE = '词典规则判定，仅供参考'
 
-# 诚实边界（PLAN_HIGHLIGHTS §4 前四条，主视图常驻小字，不折叠）
+# 诚实边界（主视图常驻小字，不折叠）
 CAVEATS = [
     '只测情绪共振与质疑，不测内容质量 —— 量大不等于内容好。',
-    '情绪类型为词典规则判定，标注「参考」，不宣称准确。',
+    '不判定情绪：弹幕情绪词语义随内容语境漂移，系统只标「哪里起了反应 / 观众在刷什么」，不猜「这是什么情绪」。',
     '批判层可能很薄：未检出就是未检出，不放宽阈值凑数。',
     '「该切 / 该看」指情绪共振最强处，不等于内容最好处。',
+    '复读近似 = 文本完全相等（变体可能漏检）；弹幕只反映观众反应，不解释内容含义。',
 ]
 
 _FB_COLS = ('bvid, batch_date, n_danmaku, n_herd, n_neutral, n_critique, '
@@ -38,7 +36,7 @@ _FB_COLS = ('bvid, batch_date, n_danmaku, n_herd, n_neutral, n_critique, '
             'max_peak_score, duration, tname, partition_n, resonance_pctl, '
             'resonance_z, engine_version')
 _PEAK_COLS = ('peak_id, start_sec, end_sec, peak_sec, peak_score, n_repeat, '
-              'n_rep_texts, top_danmaku, top_counts, emotion_type, emotion_label, '
+              'n_rep_texts, top_danmaku, top_counts, '
               'pos_ratio, neg_ratio, neu_ratio, in_opening, pctl, partition_n')
 _CRIT_COLS = ('seg_id, start_sec, end_sec, critique_score, n_critique, '
               'top_danmaku, top_counts, neg_ratio')
@@ -87,7 +85,6 @@ def _pairs(texts, counts):
 
 
 def _peak(row):
-    etype = row.get('emotion_type') or 'neutral'
     return {
         'peak_id': _i(row.get('peak_id')),
         'start_sec': _i(row.get('start_sec')),
@@ -96,9 +93,6 @@ def _peak(row):
         'score': _i(row.get('peak_score')),
         'n_repeat': _i(row.get('n_repeat')),
         'n_rep_texts': _i(row.get('n_rep_texts')),
-        'emotion': {'type': etype,
-                    'label': row.get('emotion_label') or EMOTION_LABEL.get(etype, '中性'),
-                    'note': EMOTION_NOTE},
         'top_danmaku': _pairs(row.get('top_danmaku'), row.get('top_counts')),
         'sentiment': {'pos': _f(row.get('pos_ratio')),
                       'neg': _f(row.get('neg_ratio')),
@@ -257,15 +251,15 @@ def card(bvid, batch_date=None):
     slices = [{'rank': i,
                'start_sec': p['start_sec'], 'end_sec': p['end_sec'],
                'peak_sec': p['peak_sec'],
-               'emotion': p['emotion']['type'], 'label': p['emotion']['label'],
                'score': p['score'], 'pctl': p['pctl'],
                'opening_only': p['in_opening'],
                'top_danmaku': p['top_danmaku']} for i, p in enumerate(picked, 1)]
     positions = [{'rank': i, 'sec': p['peak_sec'],
                   'start_sec': p['start_sec'], 'end_sec': p['end_sec'],
-                  'emotion': p['emotion']['type'], 'label': p['emotion']['label'],
                   'score': p['score'], 'pctl': p['pctl'],
-                  'opening_only': p['in_opening']}
+                  'opening_only': p['in_opening'],
+                  # 卡片上直接给原始弹幕，让弹幕自己说话（不判定情绪，2026-10-19 用户拍板）
+                  'top_danmaku': p['top_danmaku']}
                  for i, p in enumerate(picked, 1)]
 
     data = {

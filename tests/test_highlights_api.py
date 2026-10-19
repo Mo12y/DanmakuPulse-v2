@@ -113,17 +113,18 @@ def _check_shape(d):
     _keys(d, 'bvid', 'batch_date', 'title', 'tname', 'duration', 'n_danmaku', 'is_long',
           'peaks', 'critique', 'feedback', 'benchmark', 'slice_suggestions',
           'highlight_positions', 'caveats')
-    assert isinstance(d['caveats'], list) and len(d['caveats']) == 4, \
-        f'caveats 应为 4 条：{d["caveats"]}'
+    assert isinstance(d['caveats'], list) and len(d['caveats']) == 5, \
+        f'caveats 应为 5 条：{d["caveats"]}'
+    assert any('不判定情绪' in c for c in d['caveats']), \
+        f'caveats 应包含「不判定情绪」边界：{d["caveats"]}'
     assert all(isinstance(c, str) and c.strip() for c in d['caveats'])
     assert d['is_long'] == (d['duration'] > 1800)
 
     for p in d['peaks']:
         _keys(p, 'peak_id', 'start_sec', 'end_sec', 'peak_sec', 'score', 'n_repeat',
-              'n_rep_texts', 'emotion', 'top_danmaku', 'sentiment', 'in_opening',
+              'n_rep_texts', 'top_danmaku', 'sentiment', 'in_opening',
               'pctl', 'partition_n')
-        _keys(p['emotion'], 'type', 'label', 'note')
-        assert p['emotion']['type'] in ('moving', 'funny', 'hype', 'angry', 'neutral')
+        assert 'emotion' not in p, f'不判定细粒度情绪，peak 不应有 emotion：{p}'
         _keys(p['sentiment'], 'pos', 'neg', 'neu')
         for t in p['top_danmaku']:
             _keys(t, 'text', 'n')
@@ -181,8 +182,10 @@ def test_long_video_slice_branch():
     flags = [s['opening_only'] for s in d['slice_suggestions']]
     assert flags == sorted(flags), f'opening_only 应 False 在前：{flags}'
     for s in d['slice_suggestions']:
-        _keys(s, 'rank', 'start_sec', 'end_sec', 'peak_sec', 'emotion', 'label',
+        _keys(s, 'rank', 'start_sec', 'end_sec', 'peak_sec',
               'score', 'pctl', 'opening_only', 'top_danmaku')
+        assert 'emotion' not in s and 'label' not in s, f'切片不应有情绪字段：{s}'
+        assert isinstance(s['top_danmaku'], list) and len(s['top_danmaku']) >= 1
         assert isinstance(s['opening_only'], bool)
 
 
@@ -199,8 +202,10 @@ def test_short_video_position_branch():
     assert 1 <= len(d['highlight_positions']) <= 3, '短视频高光定位 top3'
     assert d['slice_suggestions'] == [], '短视频不出切片建议'
     for s in d['highlight_positions']:
-        _keys(s, 'rank', 'sec', 'start_sec', 'end_sec', 'emotion', 'label', 'score',
-              'pctl', 'opening_only')
+        _keys(s, 'rank', 'sec', 'start_sec', 'end_sec', 'score',
+              'pctl', 'opening_only', 'top_danmaku')
+        assert 'emotion' not in s and 'label' not in s, f'高光不应有情绪字段：{s}'
+        assert isinstance(s['top_danmaku'], list) and len(s['top_danmaku']) >= 1
         assert isinstance(s['opening_only'], bool)
         assert 0 <= s['sec'] <= d['duration']
     flags = [s['opening_only'] for s in d['highlight_positions']]
@@ -242,3 +247,26 @@ def test_diagnosis_multibatch_no_500():
     d = body['data']
     _keys(d, 'video', 'verdict', 'position', 'curve', 'deviations')
     assert d['video']['bvid'] == 'BV1fopY6QEmP'
+
+
+@needs_data
+def test_no_emotion_labels_anywhere():
+    """不判定细粒度情绪（2026-10-19 用户拍板）：载荷里不得再出现 emotion 字段。
+
+    背景：情绪词含义随视频内容语境漂移（「吓哭了」在职业赛可能是惊叹、在恐怖游戏是害怕），
+    无画面上下文不可判定，系统只给「哪里起反应 / 观众在刷什么 / 是否质疑」，情绪判断交还给人。
+    """
+    b = get(f'/api/video/{LONG_BVID}/highlights')
+    d = b['data']
+
+    def walk(x, path='data'):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                assert k not in ('emotion', 'emotion_type', 'emotion_label'), \
+                    f'不应再有情绪字段 {path}.{k}'
+                walk(v, path + '.' + k)
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk(v, path + '[%d]' % i)
+
+    walk(d)

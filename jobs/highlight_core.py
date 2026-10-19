@@ -10,14 +10,13 @@ highlight_core.py — 精彩时刻检测纯函数库（PLAN_HIGHLIGHTS §2.1–2
 算法口径（唯一依据 = PLAN_HIGHLIGHTS.md §2.1–2.5，词典/阈值规则，不训练模型）：
   1. 复读桶统计 → 平台峰检测：局部极大（平台取中点、端点不算）+ s(b)>=3 + n_rep_texts(b)>=1
   2. 峰 → 段：以峰为中心按 25% 回落定界；相邻峰「谷值 ÷ 较小峰 > 0.5」合并为同一爆发区
-  3. 情绪类型：词典规则（感人/好笑/燃/愤怒/中性，命中即停），仅供参照
-  4. 批判弹幕：confirmed 词子串命中 + len(text_norm)>=8 + sent_score<0；候选桶 n_crit>=2、
+  3. 批判弹幕：confirmed 词子串命中 + len(text_norm)>=8 + sent_score<0；候选桶 n_crit>=2、
      间隔<=2 桶合并、段 Σ n_crit>=3 才保留（宁缺毋滥）
-  5. 从众/中立/批判分类、视频反馈画像、百分位/稳健 z、切片/高光选取
+  4. 从众/中立/批判分类、视频反馈画像、百分位/稳健 z、切片/高光选取
 
 诚实边界（写进报告 JSON 与页面，不许删）：
   * 复读近似 = text_norm 完全相等（不做编辑距离/语义相似）；「哈哈哈」与「哈哈哈哈哈」不合并
-  * 情绪类型是词典规则判定，标注「参考」，不宣称准确
+  * 不判定情绪：弹幕情绪词语义随内容语境漂移，系统只标「哪里起了反应 / 观众在刷什么」，不猜「这是什么情绪」
   * 批判层可能很薄：未检出就写未检出，不为凑数放宽阈值（破例规则仅在检出率<5% 时允许并写入报告）
 """
 import bisect
@@ -45,14 +44,6 @@ CRITIQUE_SEG_MIN = 3               # 批判段：段 Σ n_crit >= 3
 CRITIQUE_TOP_N = 3                 # 批判段最多取分数前 3 段
 CRITIQUE_TOP_DANMAKU = 3           # 批判段代表弹幕最多 3 条
 CRITIQUE_RELAXED = {'cand_min': 1, 'merge_gap': 2, 'min_sum': 2}  # §2.4 破例（检出率<5% 才启用）
-
-# 情绪规则（PLAN §2.3；顺序=命中即停：感人→好笑→燃→愤怒→中性默认）
-EMOTION_RULES = [
-    ('moving', '感人', re.compile('泪|哭|破防|感动|意难平|心疼|呜呜|泪目|绷不住泪')),
-    ('funny', '好笑', re.compile('哈{2,}|笑死|笑不活|笑麻|绷不住|233|草|乐死|乐|神金|什么鬼|太草了')),
-    ('hype', '燃', re.compile('燃|帅|牛|强|高能|名场面|超神|卧槽|我操|炸|起飞|封神|6{3,}|awsl|燃爆')),
-    ('angry', '愤怒', re.compile('怒|气死|退钱|恶心|凭什么|翻车|烂|垃圾|尬|拉胯|硬吹|洗地|离谱')),
-]
 
 # 从众语气词表（PLAN §2.5；弱表达 → 从众侧）
 HERD_TONE_RE = re.compile('哈|233|666|好耶|草|泪目|前排|打卡|来了|啊啊|呜呜|哇|卧槽|牛|第一|空降|\\?|？')
@@ -219,23 +210,7 @@ def segment_top_danmaku(start_bucket, end_bucket, bucket_top_texts, bucket_top_n
     return [t for t, _ in items], [int(n) for _, n in items]
 
 
-# ══════════════════════ 三、情绪类型（§2.3，参考级） ══════════════════════
-
-def classify_emotion(top_text, pos_ratio=None, neg_ratio=None):
-    """段情绪类型（词典规则，命中即停）。返回 (emotion_type, emotion_label)。
-
-    顺序：感人 → 好笑 → 燃 → 愤怒 → 中性默认；中性时若 neg_ratio>0.5 → 愤怒（弱证据，仍标参考）。
-    """
-    text = top_text or ''
-    for typ, label, rx in EMOTION_RULES:
-        if rx.search(text):
-            return typ, label
-    if neg_ratio is not None and float(neg_ratio) > 0.5:
-        return 'angry', '愤怒'
-    return 'neutral', '中性'
-
-
-# ══════════════════════ 四、情感曲线覆盖（§2.2-8） ══════════════════════
+# ══════════════════════ 三、情感曲线覆盖（§2.2-8） ══════════════════════
 
 def curve_ratios(curve, start_sec, end_sec, duration):
     """段覆盖的 1% 桶情感占比均值：返回 (pos_ratio, neg_ratio, neu_ratio)。
@@ -268,7 +243,7 @@ def curve_ratios(curve, start_sec, end_sec, duration):
     return tuple((acc[i] / cnt[i]) if cnt[i] else None for i in range(3))
 
 
-# ══════════════════════ 五、批判弹幕与批判段（§2.1/§2.4） ══════════════════════
+# ══════════════════════ 四、批判弹幕与批判段（§2.1/§2.4） ══════════════════════
 
 def load_critique_dict(path):
     """读质疑词词典 config/dicts/critique_words.tsv（UTF-8；列 word/weight/source/confirmed）。
@@ -416,7 +391,7 @@ def critique_top_danmaku(rows, top_n=CRITIQUE_TOP_DANMAKU):
     return [t for t, _ in top], [int(v['n']) for _, v in top]
 
 
-# ══════════════════════ 六、从众/中立/批判分类与视频画像（§2.5） ══════════════════════
+# ══════════════════════ 五、从众/中立/批判分类与视频画像（§2.5） ══════════════════════
 
 def classify_feedback_text(text_norm, n, is_critique):
     """文本级三分类（权重=该文本条数 n）：critique 优先 → herd（复读/短/语气词）→ neutral。"""
@@ -448,7 +423,7 @@ def resonance_summary(peaks):
             'max_peak_score': int(max(scores)) if scores else 0}
 
 
-# ══════════════════════ 七、分位/稳健 z（§2.2-9 / §2.5） ══════════════════════
+# ══════════════════════ 六、分位/稳健 z（§2.2-9 / §2.5） ══════════════════════
 
 def percentile_rank(value, sorted_values):
     """百分位（0–100，保留 2 位）= 100 × (#基准值 <= value) / N。空基准 → None。"""
@@ -483,7 +458,7 @@ def robust_z(value, med, mad):
     return (float(value) - float(med)) / (1.4826 * float(mad))
 
 
-# ══════════════════════ 八、切片/高光选取（§2.6；Lead 2026-10-19 产品政策） ══════════════════════
+# ══════════════════════ 七、切片/高光选取（§2.6；Lead 2026-10-19 产品政策） ══════════════════════
 
 def _peak_score_of(p):
     return float(p.get('score', p.get('peak_score', 0.0)) or 0.0)
@@ -514,7 +489,7 @@ def _pick_peaks(peaks, top_n, prefer_non_opening):
 def select_slices(peaks, top_n=3, prefer_non_opening=True):
     """长视频切片建议：top_n 段（优先非片头，不足回落片头并标 opening_only）。
 
-    返回 [{rank,start_sec,end_sec,peak_sec,emotion,label,score,pctl,top_danmaku,opening_only}]
+    返回 [{rank,start_sec,end_sec,peak_sec,score,pctl,top_danmaku,opening_only}]
     """
     picked, _ = _pick_peaks(peaks, top_n, prefer_non_opening)
     out = []
@@ -523,8 +498,6 @@ def select_slices(peaks, top_n=3, prefer_non_opening=True):
                     'start_sec': int(p.get('start_sec', 0)),
                     'end_sec': int(p.get('end_sec', 0)),
                     'peak_sec': float(p.get('peak_sec', bucket_midpoint_sec(0))),
-                    'emotion': p.get('emotion_type', 'neutral'),
-                    'label': p.get('emotion_label', '中性'),
                     'score': p.get('score', p.get('peak_score')),
                     'pctl': p.get('pctl'),
                     'top_danmaku': list(p.get('top_danmaku') or []),
@@ -535,7 +508,7 @@ def select_slices(peaks, top_n=3, prefer_non_opening=True):
 def select_highlights(peaks, top_n=3, prefer_non_opening=True):
     """短视频高光定位：top_n 个时刻（sec=峰桶中点；优先非片头，不足回落片头并标 opening_only）。
 
-    返回 [{rank,sec,start_sec,end_sec,emotion,label,score,pctl,opening_only}]
+    返回 [{rank,sec,start_sec,end_sec,score,pctl,opening_only}]
     """
     picked, _ = _pick_peaks(peaks, top_n, prefer_non_opening)
     out = []
@@ -544,8 +517,6 @@ def select_highlights(peaks, top_n=3, prefer_non_opening=True):
                     'sec': float(p.get('peak_sec', bucket_midpoint_sec(0))),
                     'start_sec': int(p.get('start_sec', 0)),
                     'end_sec': int(p.get('end_sec', 0)),
-                    'emotion': p.get('emotion_type', 'neutral'),
-                    'label': p.get('emotion_label', '中性'),
                     'score': p.get('score', p.get('peak_score')),
                     'pctl': p.get('pctl'),
                     'opening_only': bool(p.get('in_opening'))})

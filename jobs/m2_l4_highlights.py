@@ -8,7 +8,7 @@ m2_l4_highlights.py — 精彩时刻检测 DWS 构建（PLAN_HIGHLIGHTS §2.1–
   dim_video                每 bvid 的 tname/duration/title
   config/dicts/critique_words.tsv  质疑词词典（Lead 定稿；78/80 词，source=seed|expand）
 输出（/warehouse，4 张新表 + 报告）：
-  dws_resonance_peaks         共振峰/段（含片头标记、情绪参考、分位）
+  dws_resonance_peaks         共振峰/段（含片头标记、分位）
   dws_critique_segments       批判段（严格阈值；检出率<5% 时按 §2.4 破例放宽并写报告）
   dws_video_feedback_profile  视频反馈画像（从众/中立/批判三分类 + 共振汇总 + 分区对标）
   dict_critique               质疑词词典表（word/is_critique/weight/source/confirmed）
@@ -127,7 +127,6 @@ def per_video(row, bcast_scores):
         texts, counts = H.segment_top_danmaku(seg['start_bucket'], seg['end_bucket'],
                                               top_text, top_n)
         pos, neg, neu = H.curve_ratios(cp, start_sec, end_sec, duration)
-        etype, elabel = H.classify_emotion(texts[0] if texts else '', pos, neg)
         n_rep = sum(n_repeat[b] for b in range(seg['start_bucket'], seg['end_bucket'] + 1))
         n_rt = max(n_rep_texts[b] for b in range(seg['start_bucket'], seg['end_bucket'] + 1))
         psec = H.bucket_midpoint_sec(seg['peak_bucket'])
@@ -136,11 +135,10 @@ def per_video(row, bcast_scores):
                           'score': int(seg['peak_score']),
                           'peak_score': int(seg['peak_score']),   # resonance_summary 口径
                           'pctl': None, 'in_opening': in_opening,
-                          'emotion_type': etype, 'emotion_label': elabel,
                           'top_danmaku': texts})
         out.append(('peak', bvid, bd, len(peak_rows) - 1, start_sec, end_sec, psec,
                     int(seg['peak_score']), int(n_rep), int(n_rt), texts, counts,
-                    etype, elabel, pos, neg, neu, in_opening, tname))
+                    pos, neg, neu, in_opening, tname))
 
     # ── 视频反馈画像（用于分区对标；pctl/z 由 driver 按去重 bvid 基准补）──
     res = H.resonance_summary(peak_rows)
@@ -292,7 +290,6 @@ def main():
         T.StructField('n_repeat', T.IntegerType()), T.StructField('n_rep_texts', T.IntegerType()),
         T.StructField('top_danmaku', T.ArrayType(T.StringType())),
         T.StructField('top_counts', T.ArrayType(T.IntegerType())),
-        T.StructField('emotion_type', T.StringType()), T.StructField('emotion_label', T.StringType()),
         T.StructField('pos_ratio', T.DoubleType()), T.StructField('neg_ratio', T.DoubleType()),
         T.StructField('neu_ratio', T.DoubleType()), T.StructField('in_opening', T.BooleanType()),
         T.StructField('tname', T.StringType()),
@@ -400,7 +397,7 @@ def main():
              .withColumn('partition_n', F.col('_b.partition_n'))
              .select('bvid', 'batch_date', 'peak_id', 'start_sec', 'end_sec', 'peak_sec',
                      'peak_score', 'n_repeat', 'n_rep_texts', 'top_danmaku', 'top_counts',
-                     'emotion_type', 'emotion_label', 'pos_ratio', 'neg_ratio', 'neu_ratio',
+                     'pos_ratio', 'neg_ratio', 'neu_ratio',
                      'in_opening', 'pctl', 'partition_n', 'engine_version'))
 
     # ── 7) 批判段阈值决策（§2.4 破例规则：全库检出率 <5% 才放宽，报告写清）──
@@ -499,7 +496,7 @@ def main():
         'elapsed_sec': round(time.time() - t0, 2),
         'caveats': [
             '只测「情绪共振」与「质疑」，不测内容质量——量大 ≠ 内容好',
-            '情绪类型是词典规则分类，标注「参考」，不宣称准确',
+            '不判定情绪：弹幕情绪词语义随内容语境漂移，只标「哪里起了反应/观众在刷什么」，不猜「这是什么情绪」',
             '批判层可能很薄：未检出 = 未检出，不放宽阈值凑数',
             '复读近似 = text_norm 完全相等（不做编辑距离/语义相似），可能漏检变体',
             '弹幕只反映观众反应，不解释内容含义；共振段 ≠ 名场面真值',
