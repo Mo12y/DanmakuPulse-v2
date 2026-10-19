@@ -10,7 +10,7 @@ ads_highlights.py — 精彩时刻 ADS 导出（PLAN_HIGHLIGHTS §2.0）：4 张
 口径：
   - batch_date：Hive 里 string → PG integer（与 ads_video_highlights 一致）；
   - 数组列 top_danmaku / top_counts 原样写出，PG 侧为 text[] / integer[]；
-  - engine_version / 情绪标签等派生列不在本作业里重算，一律沿用 DWS 产物；
+  - engine_version 等派生列不在本作业里重算，一律沿用 DWS 产物；
   - 写库方式与 ads_build.py 相同：Spark JDBC overwrite 全量重建（可重复跑）。
 连接参数同 ads_build.py：PG_USER / PG_PASSWORD 环境变量 + postgresql-42.7.4.jar（Makefile 传入）。
 """
@@ -25,7 +25,7 @@ ENGINE_VERSION = 'hl-v1'
 
 PEAK_COLS = ['bvid', 'batch_date', 'peak_id', 'start_sec', 'end_sec', 'peak_sec',
              'peak_score', 'n_repeat', 'n_rep_texts', 'top_danmaku', 'top_counts',
-             'emotion_type', 'emotion_label', 'pos_ratio', 'neg_ratio', 'neu_ratio',
+             'pos_ratio', 'neg_ratio', 'neu_ratio',
              'in_opening', 'pctl', 'partition_n', 'engine_version']
 CRIT_COLS = ['bvid', 'batch_date', 'seg_id', 'start_sec', 'end_sec', 'critique_score',
              'n_critique', 'top_danmaku', 'top_counts', 'neg_ratio', 'engine_version']

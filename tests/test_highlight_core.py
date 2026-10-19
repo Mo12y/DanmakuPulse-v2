@@ -2,7 +2,7 @@
 """test_highlight_core.py — 精彩时刻检测纯函数单测（PLAN_HIGHLIGHTS §2.2–2.6）
 
 运行：cd ~/projects/danmaku-v2 && ~/danmaku-venv/bin/python -m pytest tests/test_highlight_core.py -q
-全部为纯函数级测试（不启动 Spark）：合成数据覆盖峰检测、25% 段定界与合并、情绪规则、
+全部为纯函数级测试（不启动 Spark）：合成数据覆盖峰检测、25% 段定界与合并、
 批判判定/分段、从众-中立-批判分类、比例、分位/稳健 z、切片/高光选取，以及边界案例
 （无复读 / 无批判 / 超长视频 / 短视频 / 空序列）。
 """
@@ -125,24 +125,7 @@ def test_clip_segment_secs():
     assert H.clip_segment_secs(5040, 5045, 25205) == (25200, 25205)   # 超长视频封顶
 
 
-# ═══════════════════════ 3. 情绪类型（规则顺序） ═══════════════════════
-
-@pytest.mark.parametrize('text,pos,neg,expect', [
-    ('泪目', None, None, ('moving', '感人')),
-    ('绷不住泪了', None, None, ('moving', '感人')),      # 感人优先于好笑（含「绷不住」）
-    ('哈哈哈哈', None, None, ('funny', '好笑')),
-    ('笑死我了', None, None, ('funny', '好笑')),
-    ('卧槽这波太燃了', None, None, ('hype', '燃')),
-    ('退钱', None, None, ('angry', '愤怒')),
-    ('好看', None, None, ('neutral', '中性')),
-    ('好看', None, 0.6, ('angry', '愤怒')),              # 中性默认 + neg>0.5 弱证据
-    ('哈哈哈哈', None, 0.9, ('funny', '好笑')),          # 规则命中即停，不被 neg 覆盖
-])
-def test_classify_emotion(text, pos, neg, expect):
-    assert H.classify_emotion(text, pos, neg) == expect
-
-
-# ═══════════════════════ 4. 批判弹幕判定 / 权重 / 分段 ═══════════════════════
+# ═══════════════════════ 3. 批判弹幕判定 / 权重 / 分段 ═══════════════════════
 
 def test_is_critique_danmaku():
     long_text = '逻辑不通剧本太烂了'
@@ -212,7 +195,7 @@ def test_critique_top_danmaku_ranking():
     assert H.critique_top_danmaku([]) == ([], [])
 
 
-# ═══════════════════════ 5. 从众/中立/批判三分类 ═══════════════════════
+# ═══════════════════════ 4. 从众/中立/批判三分类 ═══════════════════════
 
 def test_classify_feedback_text():
     assert H.classify_feedback_text('跟风复读', 3, False) == 'herd'        # n>=2 复读
@@ -234,7 +217,7 @@ def test_resonance_summary():
         {'n_peaks': 2, 'resonance_total': 10, 'max_peak_score': 7}
 
 
-# ═══════════════════════ 6. 情感曲线覆盖 ═══════════════════════
+# ═══════════════════════ 5. 情感曲线覆盖 ═══════════════════════
 
 def _curve():
     return [{'bucket': b, 'pos_ratio': 0.01 * b, 'neg_ratio': 0.10,
@@ -260,7 +243,7 @@ def test_curve_ratios_missing_returns_none():
     assert H.curve_ratios(_curve(), 0, 10, 0) == (None, None, None)
 
 
-# ═══════════════════════ 7. 分位 / 稳健 z ═══════════════════════
+# ═══════════════════════ 6. 分位 / 稳健 z ═══════════════════════
 
 def test_percentile_rank():
     vals = [1.0, 2.0, 2.0, 3.0]
@@ -284,13 +267,12 @@ def test_median_mad_robust_z():
     assert abs(H.robust_z(5, 3, 1) - 2 / 1.4826) < 1e-12
 
 
-# ═══════════════════════ 8. 切片 / 高光选取（Lead 2026-10-19 产品政策） ═══════════════════════
+# ═══════════════════════ 7. 切片 / 高光选取（Lead 2026-10-19 产品政策） ═══════════════════════
 
-def _peak(start, score, opening, peak_sec=None, label='燃'):
+def _peak(start, score, opening, peak_sec=None):
     return {'start_sec': start, 'end_sec': start + 10,
             'peak_sec': float(peak_sec if peak_sec is not None else start + 5),
             'score': score, 'pctl': 80.0, 'in_opening': opening,
-            'emotion_type': 'hype', 'emotion_label': label,
             'top_danmaku': ['弹幕%d' % start]}
 
 
@@ -301,7 +283,8 @@ def test_select_slices_prefers_non_opening():
     assert [p['rank'] for p in out] == [1, 2, 3]
     assert [p['start_sec'] for p in out] == [200, 100, 300]     # 分数降序
     assert all(p['opening_only'] is False for p in out)
-    assert out[0]['label'] == '燃' and out[0]['top_danmaku'] == ['弹幕200']
+    assert out[0]['top_danmaku'] == ['弹幕200']
+    assert 'emotion' not in out[0] and 'label' not in out[0]
 
 
 def test_select_slices_falls_back_to_opening():
@@ -326,7 +309,15 @@ def test_select_highlights_short_video():
     assert [p['opening_only'] for p in out] == [False, False, True]
 
 
-# ═══════════════════════ 9. 词典解析 ═══════════════════════
+def test_select_outputs_have_no_emotion_labels():
+    """2026-10-19 用户拍板：不判定细粒度情绪——切片/高光输出不得再出现情绪字段。"""
+    peaks = [_peak(100, 30, False)]
+    for out in (H.select_slices(peaks, 3), H.select_highlights(peaks, 3)):
+        assert len(out) == 1
+        assert 'emotion' not in out[0] and 'label' not in out[0]
+
+
+# ═══════════════════════ 8. 词典解析 ═══════════════════════
 
 def test_load_critique_dict_and_confirmed_words(tmp_path):
     p = tmp_path / 'critique_words.tsv'
@@ -368,7 +359,7 @@ def test_repo_critique_dict_contract():
     assert H.DICT_VERSION.startswith('critique')
 
 
-# ═══════════════════════ 10. 边界案例 ═══════════════════════
+# ═══════════════════════ 9. 边界案例 ═══════════════════════
 
 def test_edge_no_repetition():
     """无复读：全 0 序列无峰、无段；无批判桶无段。"""

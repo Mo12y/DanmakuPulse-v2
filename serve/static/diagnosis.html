@@ -251,6 +251,9 @@
 .hlst{font-weight:600;font-size:14px}
 .hlsm{color:var(--text-secondary);font-size:12.5px}
 .hlstime{color:var(--text-tertiary);font-size:12px;font-variant-numeric:tabular-nums;margin-left:auto}
+.hlrep{flex:1 1 100%;font-size:12px;color:var(--text-secondary);line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hlrep b{color:var(--text);font-weight:600}
 .hlpanelnote{font-size:12px;color:var(--text-tertiary);margin-top:9px}
 .hlsen{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary)}
 .hlsen b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -661,9 +664,6 @@ function hlRatioText(v){
   var p = ratioToPct(v);
   return p == null ? '—' : Math.round(p) + '%';
 }
-function hlLabelOf(x){
-  return (x && x.label) || (x && x.emotion && x.emotion.label) || '共振';
-}
 function isLongHL(){
   if (HL && typeof HL.is_long === 'boolean') return HL.is_long;
   return hlDur() > 1800;
@@ -747,9 +747,8 @@ function graphHTML(d){
 function hlJumpsHTML(){
   var out = [];
   ((HL && HL.peaks) || []).forEach(function(p, i){
-    var emo = p.emotion && p.emotion.label;
     out.push('<button class="hljump" data-peakhl="' + i + '" title="点开看这一刻的弹幕">共振峰 ' +
-      roundSec(p.start_sec) + '–' + roundSec(p.end_sec) + ' 秒' + (emo ? ' · ' + esc(emo) : '') +
+      roundSec(p.start_sec) + '–' + roundSec(p.end_sec) + ' 秒' +
       (p.pctl != null ? ' · 强于 ' + Math.round(p.pctl) + '%' : '') +
       (p.in_opening ? ' · 片头打卡噪声' : '') + '</button>');
   });
@@ -801,6 +800,23 @@ function feedbackHTML(){
 }
 
 /* ③ 切片建议（长视频）/ 高光定位（短视频） */
+/* 卡片上的原始弹幕：不判定情绪，让弹幕自己说话（2026-10-19 用户拍板） */
+function hlRepInline(list, maxN){
+  list = list || [];
+  if (!list.length) return '';
+  maxN = maxN || 2;
+  var parts = [];
+  for (var i = 0; i < list.length && parts.length < maxN; i++) {
+    var it = list[i];
+    var text = (typeof it === 'string') ? it : ((it && it.text != null) ? it.text : '');
+    if (!text) continue;
+    var n = (typeof it === 'string') ? null : (it && it.n);
+    parts.push('<b>' + esc(text) + '</b>' + (n != null ? '×' + fmtN(n) : ''));
+  }
+  if (!parts.length) return '';
+  return '<span class="hlrep">观众集中刷：' + parts.join(' ｜ ') + '</span>';
+}
+
 function outHTML(){ return isLongHL() ? sliceHTML() : highlightHTML(); }
 
 function sliceHTML(){
@@ -812,14 +828,14 @@ function sliceHTML(){
       '<div class="hlempty">没有达到阈值、值得单独切出的片段。未检出就是未检出，不硬凑。</div></div>';
   }
   var items = list.slice(0, 3).map(function(s, i){
-    var emo = hlLabelOf(s);
-    var pctl = (s.pctl != null) ? '，比同类强 ' + Math.round(s.pctl) + '%' : '';
+    var pctl = (s.pctl != null) ? '比同类强 ' + Math.round(s.pctl) + '%' : '';
     var openTag = s.opening_only ? ' · 片头打卡段，仅供参考' : '';
     return '<button class="hlslice" data-slice="' + i + '">' +
       '<span class="hlsn">' + (s.rank || (i + 1)) + '</span>' +
       '<span class="hlst">第 ' + roundSec(s.start_sec) + ' 秒–' + roundSec(s.end_sec) + ' 秒</span>' +
-      '<span class="hlsm">（' + esc(emo) + pctl + '）' + openTag + '</span>' +
+      '<span class="hlsm">' + (pctl ? '（' + pctl + '）' : '') + openTag + '</span>' +
       '<span class="hlstime">' + mmss(s.start_sec) + '–' + mmss(s.end_sec) + '</span>' +
+      hlRepInline(s.top_danmaku) +
     '</button>';
   }).join('');
   return '<div class="sec" id="sec-hlout">' + head +
@@ -836,16 +852,16 @@ function highlightHTML(){
       '<div class="hlempty">没有检出值得单独标出的高光位置。未检出就是未检出，不硬凑。</div></div>';
   }
   var items = list.slice(0, 3).map(function(s, i){
-    var emo = hlLabelOf(s);
     var t0 = (s.start_sec != null) ? s.start_sec : s.sec;
     var t1 = (s.end_sec != null) ? s.end_sec : s.sec;
     return '<button class="hlslice hlhigh" data-high="' + i + '">' +
       '<span class="hlsn">' + (s.rank || (i + 1)) + '</span>' +
       '<span class="hlst">第 ' + roundSec(t0) + ' 秒–' + roundSec(t1) + ' 秒</span>' +
-      '<span class="hlsm">（情绪：' + esc(emo) + '）' +
-        (s.pctl != null ? ' · 强于 ' + Math.round(s.pctl) + '%' : '') +
+      '<span class="hlsm">' +
+        (s.pctl != null ? '强于 ' + Math.round(s.pctl) + '%' : '') +
         (s.opening_only ? ' · 片头打卡段，仅供参考' : '') + '</span>' +
       '<span class="hlstime">' + mmss(t0) + '–' + mmss(t1) + '</span>' +
+      hlRepInline(s.top_danmaku) +
     '</button>';
   }).join('');
   return '<div class="sec" id="sec-hlout">' + head +
@@ -887,18 +903,19 @@ function hlBenchHTML(){
   '</div>';
 }
 
-/* ── 诚实边界：常驻主视图，不折叠（4 条；后端 caveats 优先，缺位时用本地兜底） ── */
+/* ── 诚实边界：常驻主视图，不折叠（5 条；后端 caveats 优先，缺位时用本地兜底） ── */
 var HL_CAVEATS = [
   '只测「情绪共振」与「质疑」，不测「内容质量」——量大 ≠ 内容好。',
-  '情绪类型是词典规则分类，页面标「参考」，不宣称准确。',
+  '不判定情绪：弹幕情绪词语义随内容语境漂移，系统只标「哪里起了反应 / 观众在刷什么」，不猜「这是什么情绪」。',
   '批判层可能很薄：未检出 = 未检出，不放宽阈值凑数。',
-  '「该切 / 该看」= 情绪共振最强处，不是内容最好处。'
+  '「该切 / 该看」= 情绪共振最强处，不是内容最好处。',
+  '复读近似 = 文本完全相等（变体可能漏检）；弹幕只反映观众反应，不解释内容含义。'
 ];
 function hlCaveatList(){
   var fb = HL_CAVEATS.slice();
   if (HL && Object.prototype.toString.call(HL.caveats) === '[object Array]' && HL.caveats.length) {
     var out = [];
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       if (i < HL.caveats.length && HL.caveats[i]) out.push(String(HL.caveats[i]));
       else out.push(fb[i]);
     }
@@ -1006,8 +1023,10 @@ function drawHLChart(){
           if (peakData[k].value[0] === i) {
             var p = peaks[peakData[k].peakIdx];
             html += '<div style="margin-top:7px;padding-top:7px;border-top:1px solid ' + C.tipBorder + '">' +
-              '共振峰：' + esc((p.emotion && p.emotion.label) || '') +
+              '共振峰' +
               (p.n_repeat != null ? '　复读 ' + p.n_repeat + ' 条' : '') +
+              (p.top_danmaku && p.top_danmaku.length
+                ? '<br>观众刷：<b>' + esc(p.top_danmaku[0].text) + '</b>×' + fmtN(p.top_danmaku[0].n) : '') +
               (p.in_opening ? '<br>片头打卡噪声（片头 60 秒内，可能是打卡弹幕）' : '') + '</div>';
             break;
           }
@@ -1076,7 +1095,6 @@ function openPeak(i){
   markHL('peak', i);
   var box = $('#hlpanel'); if (!box) return;
   var meta = [];
-  if (p.emotion && p.emotion.label) meta.push('情绪：' + p.emotion.label + '（词典规则，仅参考）');
   if (p.pctl != null) meta.push('强度超过同分区 ' + Math.round(p.pctl) + '% 的峰（峰级百分位）');
   if (p.partition_n != null) meta.push('同分区参比峰 ' + p.partition_n + ' 个');
   if (p.in_opening) meta.push('片头打卡噪声（位于片头 60 秒内，可能是打卡弹幕）');
@@ -1092,7 +1110,7 @@ function openPeak(i){
         '<div><div class="reso-sub">复读最多</div>' + hlTopHTML(p.top_danmaku) + '</div>' +
         '<div><div class="reso-sub">情感占比（参考）</div>' + hlSentHTML(p.sentiment) + '</div>' +
       '</div></div>' +
-    '<div class="hlpanelnote">弹幕原文未做筛选或改写；情绪类型是词典规则判定，仅供参考。</div>' +
+    '<div class="hlpanelnote">弹幕原文未做筛选或改写；情感占比为情感词典打分，仅参考，不判定具体情绪。</div>' +
   '</div>';
   document.querySelectorAll('.hljump').forEach(function(el){ el.classList.remove('on'); });
   var on = document.querySelector('.hljump[data-peakhl="' + i + '"]');
@@ -1140,8 +1158,7 @@ function openSlice(i){
   if (s.score != null) note.push('得分 ' + s.score);
   if (s.opening_only) note.push('片头打卡段，仅供参考');
   showHLRange('slicePanel',
-    '切片 ' + (s.rank || (i + 1)) + ' · 第 ' + roundSec(s.start_sec) + '–' + roundSec(s.end_sec) +
-      ' 秒（情绪：' + hlLabelOf(s) + '）',
+    '切片 ' + (s.rank || (i + 1)) + ' · 第 ' + roundSec(s.start_sec) + '–' + roundSec(s.end_sec) + ' 秒',
     note.join(' ｜ '), s.start_sec, s.end_sec, s.top_danmaku);
   selectHLCard('.hlslice[data-slice="' + i + '"]');
 }
@@ -1154,7 +1171,7 @@ function openHighlight(i){
   var note = (s.pctl != null) ? ('共振强度超过同分区 ' + Math.round(s.pctl) + '% 的峰') : '';
   if (s.opening_only) note += (note ? ' ｜ ' : '') + '片头打卡段，仅供参考';
   showHLRange('slicePanel',
-    '高光 · 第 ' + roundSec(t0) + '–' + roundSec(t1) + ' 秒（情绪：' + hlLabelOf(s) + '）',
+    '高光 · 第 ' + roundSec(t0) + '–' + roundSec(t1) + ' 秒',
     note, t0, t1, s.top_danmaku);
   selectHLCard('.hlhigh[data-high="' + i + '"]');
 }
