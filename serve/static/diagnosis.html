@@ -136,6 +136,7 @@
 /* 行动建议可点 */
 .act{cursor:pointer;border-radius:8px;transition: background-color .12s ease, border-color .12s ease}
 .act:hover{background:var(--accent-soft)}
+.act.dim{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);border-radius:8px}
 .actmore{font-size:12px;color: var(--accent-ink);font-weight:700;margin-top:5px}
 /* 空状态 */
 .empty{padding:56px 24px;text-align:center}
@@ -194,14 +195,101 @@
   margin-top:12px;line-height:1.8}
 .aigate b{color:var(--text);font-variant-numeric:tabular-nums}
 .aibar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+
+/* ══════════════════════════════════════════════════════════════
+   精彩时刻检测（2026-10-19 转向）：主视图五块 + 旧诊断折叠层
+   只用既有 token（v3.css）；不新增 token、不新增页面。
+   ══════════════════════════════════════════════════════════════ */
+.hlhead{padding:22px 24px 14px;border-bottom:1px solid var(--border-subtle)}
+.hlhead .vtitle{margin-bottom:6px}
+.hlhead .vmeta{margin-bottom:10px}
+.hlbadges{display:flex;gap:6px;flex-wrap:wrap}
+.hlnotice{font-size:12.5px;color:var(--text-secondary);background:var(--surface-soft);
+  border:1px solid var(--border-subtle);border-radius:8px;padding:9px 13px;margin-bottom:12px;line-height:1.8}
+.hlempty{font-size:13px;color:var(--text-secondary);padding:12px 0 4px;line-height:1.9}
+.hllegend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);
+  margin-bottom:8px;align-items:center}
+.hllegend i{display:inline-block;vertical-align:middle;margin-right:6px}
+.hllegend .swl{width:20px;height:0;border-top:3px solid var(--primary)}
+.hllegend .swt{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-bottom:10px solid var(--accent)}
+.hllegend .swb{width:16px;height:10px;border-radius:3px;background:var(--primary-tint);
+  border:1px solid var(--primary-line)}
+#hlchart{height:230px;width:100%}
+.hljumps{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;max-height:120px;overflow:auto}
+.hljump{border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:12px;
+  cursor:pointer;background:var(--card);color:var(--text-secondary);font-family:inherit;
+  transition:border-color .15s ease,color .15s ease,background-color .15s ease}
+.hljump:hover,.hljump.on{border-color:var(--accent-ink);color:var(--accent-ink);background:var(--accent-soft)}
+.hljump.crit:hover,.hljump.crit.on{border-color:var(--primary-strong);color:var(--primary-strong);
+  background:var(--primary-soft)}
+#hlpanel{margin-top:4px}
+/* ② 从众 / 中性 / 批判 占比条 */
+.ratio{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--surface-soft);
+  border:1px solid var(--border-subtle)}
+.ratio i{display:block;height:100%}
+.ratio .herd{background:var(--chart-axis)}
+.ratio .neutral{background:var(--text-tertiary);opacity:.4}
+.ratio .crit{background:var(--accent)}
+.ratioline{font-size:14.5px;font-weight:600;margin:12px 0 6px;line-height:1.7}
+.ratioline b{color:var(--accent-ink)}
+.ratiolegend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-top:6px}
+.ratiolegend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;
+  vertical-align:middle}
+.ratiolegend .sw.herd{background:var(--chart-axis)}
+.ratiolegend .sw.neutral{background:var(--text-tertiary);opacity:.4}
+.ratiolegend .sw.crit{background:var(--accent)}
+/* ③ 切片建议 / 高光定位 */
+.hlslices{display:grid;gap:8px}
+.hlslice{display:flex;gap:10px;align-items:center;flex-wrap:wrap;text-align:left;
+  background:var(--surface-soft);border:1px solid var(--border-subtle);border-radius:10px;
+  padding:11px 14px;font-family:inherit;color:var(--text);cursor:pointer;font-size:13.5px;
+  transition:border-color .15s ease,background-color .15s ease}
+.hlslice:hover,.hlslice.on{border-color:var(--accent-line);background:var(--accent-tint)}
+.hlsn{flex:0 0 24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
+  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.hlst{font-weight:600;font-size:14px}
+.hlsm{color:var(--text-secondary);font-size:12.5px}
+.hlstime{color:var(--text-tertiary);font-size:12px;font-variant-numeric:tabular-nums;margin-left:auto}
+.hlpanelnote{font-size:12px;color:var(--text-tertiary);margin-top:9px}
+.hlsen{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary)}
+.hlsen b{color:var(--text);font-variant-numeric:tabular-nums}
+/* ④ 共振强度对标 */
+.hlpbar{position:relative;height:10px;border-radius:6px;background:var(--surface-soft);
+  border:1px solid var(--border-subtle);margin:16px 0 6px}
+.hlpbar i{position:absolute;top:-4px;width:3px;height:18px;border-radius:2px;background:var(--accent)}
+.hlpbar b{position:absolute;left:50%;top:-3px;width:1px;height:16px;background:var(--text-tertiary)}
+.hlpaxis{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-tertiary)}
+/* 诚实边界（常驻主视图，不折叠） */
+.hlhonestwrap{padding:0 24px 22px}
+.hlhonestwrap .honest{margin-top:16px}
+/* 仅供读屏的 h1（视觉上不占位；页面主标题是功能名，不是装饰） */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* 旧诊断卡折叠层：默认收起，展开后原有交互照旧 */
+.oldcard{border-top:1px solid var(--border)}
+.oldcard>summary{cursor:pointer;padding:16px 24px;font-size:13.5px;font-weight:600;
+  color:var(--text-secondary);background:var(--surface-soft);
+  border-bottom:1px solid var(--border-subtle);
+  transition:color .15s ease,background-color .15s ease}
+.oldcard>summary:hover{color:var(--text);background:var(--surface-hover)}
+.oldcard[open]>summary{color:var(--text)}
+.oldcard .oldbody>.verdict{padding-top:20px}
+@media (max-width:720px){
+  .hlhead{padding:16px}
+  .hlhonestwrap{padding:0 16px 16px}
+  .hlstime{display:none}
+  #hlchart{height:200px}
+}
 </style>
 </head>
 <body>
 <div class="layout">
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
-  <div class="main">
+  <main class="main">
     <div class="wrap">
-      <p class="pagesub"><b>视频节奏同类定位</b></p>
+      <h1 class="sr-only">精彩时刻检测 · 视频节奏诊断</h1>
+      <p class="pagesub"><b>精彩时刻检测</b> · 弹幕共振峰与质疑段的秒级定位，长视频出切片、短视频出高光</p>
 
   <div class="toolbar">
     <input id="search" placeholder="输入 BV 号诊断任意视频（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
@@ -268,6 +356,8 @@ function loadLive(bvid){
       history.replaceState(null, '', '?' + u.toString());
       LIVE = o.j.meta;
       DIGEST = null;
+      HL = null; HLMETA = null;
+      HLERR = {status: 404, live: true, detail: '库外在线采集的视频不在精彩时刻检测快照里（检测按采集批次计算）'};
       api('/api/danmaku_digest?bvid=' + encodeURIComponent(bvid)).then(function(x){ DIGEST = x; }).catch(function(){});
       render();
       setLiveBadge(o.j.meta);
@@ -313,6 +403,9 @@ const TONE = { warn:['需要调整','warn'], ok:['节奏健康','ok'] };
 const DMCOLOR = { good:'var(--success)', bad:'var(--danger-ink)', neutral:'var(--text-secondary)' };
 
 let IDX = [], CUR = null, CHART = null, FOCUS = null, BENCH = null, PEAK = null, DIGEST = null;
+/* 精彩时刻检测载荷（新端点 /api/video/{bvid}/highlights）。
+   用 var 声明：验收/调试时可在控制台注入 mock 再 render()，不必改文件。 */
+var HL = null, HLERR = null, HLMETA = null, HCHART = null;
 
 /* ── 启动 ── */
 const EXAMPLE = {bvid: 'BV1PJpE6QEx6', why: '电子竞技区，开场吸引力只有同类的 42%——正好用来演示"点结论 → 看这一段观众在刷什么"'};
@@ -441,7 +534,11 @@ function loadRandom(){
 }
 $('#randBtn').onclick = loadRandom;
 // 主题由统一顶栏（v3nav.js）管；切完通知本页重画图表
-V3.onTheme = () => { if (CHART) { CHART.dispose(); CHART = null; drawChart(); } };
+V3.onTheme = () => {
+  if (HCHART) { HCHART.dispose(); HCHART = null; }
+  if (HL) drawHLChart();
+  if (CHART) { CHART.dispose(); CHART = null; drawChart(); }
+};
 
 // 收藏（登录后才有意义；接口 401 时按钮自己隐藏）
 function refreshFav(){
@@ -475,19 +572,58 @@ $('#shotBtn').onclick = async () => {
   btn.textContent = '存为图片'; btn.disabled = false;
 };
 
-/* ── 加载一支视频 ── */
+/* 原始响应（要状态码与 meta）：诊断侧沿用 api() 会丢 meta；精彩时刻要靠状态码决定空态文案 */
+function apiFull(p){
+  return fetch(p, {cache: 'no-store', credentials: 'same-origin'}).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(j){
+      return {ok: r.ok, status: r.status, j: j};
+    });
+  });
+}
+
+/* ── 加载一支视频 ──
+   同时取两张卡：① /diagnosis 既有节奏诊断（收进折叠层）② /highlights 精彩时刻（新）。
+   两者独立失败：诊断取不到才报错；精彩时刻取不到只在主视图显示明确空态，整页照常可用。 */
 async function load(bvid){
-  $('#content').innerHTML = '<div class="loading">正在算这张诊断卡…</div>';
+  $('#content').innerHTML = '<div class="loading">正在算精彩时刻与节奏诊断…</div>';
   FOCUS = null; BENCH = null; PEAK = null;
+  HL = null; HLERR = null; HLMETA = null;
+  LIVE = null; setLiveBadge(null);
+  const rail0 = document.getElementById('rail'); if (rail0) rail0.hidden = true;
   resetAI();
-  let d;
+  let dp, hp;
   try {
-    d = await api('/api/video/' + bvid + '/diagnosis');
+    const rs = await Promise.allSettled([
+      apiFull('/api/video/' + encodeURIComponent(bvid) + '/diagnosis'),
+      apiFull('/api/video/' + encodeURIComponent(bvid) + '/highlights')
+    ]);
+    dp = rs[0]; hp = rs[1];
   } catch (e) {
-    if (e && e.status === 404) notFound(bvid); else failState((e && e.message) || String(e), bvid);
+    failState((e && e.message) || String(e), bvid);
     return;
   }
-  CUR = d;
+  if (dp.status === 'rejected') {
+    failState((dp.reason && dp.reason.message) || '网络错误', bvid);
+    return;
+  }
+  const rd = dp.value;
+  if (!rd.ok) {
+    if (rd.status === 404) notFound(bvid);
+    else failState((rd.j && (rd.j.detail || rd.j.error)) || ('HTTP ' + rd.status), bvid);
+    return;
+  }
+  CUR = rd.j.data;
+  if (hp.status === 'fulfilled') {
+    const rh = hp.value;
+    if (rh.ok && rh.j && rh.j.code === 0 && rh.j.data) {
+      HL = rh.j.data;
+      HLMETA = rh.j.meta || null;
+    } else {
+      HLERR = {status: rh.status, detail: (rh.j && (rh.j.detail || rh.j.error)) || ('HTTP ' + rh.status)};
+    }
+  } else {
+    HLERR = {status: 0, detail: (hp.reason && hp.reason.message) || '网络错误'};
+  }
   // 悬停要即时：弹幕摘要一次取回（≤101 行），不在 hover 里发请求
   DIGEST = null;
   api('/api/danmaku_digest?bvid=' + encodeURIComponent(bvid)).then(x => { DIGEST = x; }).catch(() => {});
@@ -498,17 +634,603 @@ async function load(bvid){
   render();
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+   精彩时刻检测（2026-10-19 转向）—— 主视图五块
+   数据：/api/video/{bvid}/highlights（新端点）；/diagnosis 只提供密度曲线与旧诊断卡。
+   ⚠️ 图表配色一律走 dmChart()（canvas 不认 CSS 变量）；页面 HTML/CSS 只用 var(--token)。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 小工具 ── */
+function hlDur(){
+  if (HL && HL.duration) return HL.duration;
+  if (CUR && CUR.video && CUR.video.duration) return CUR.video.duration;
+  if (CUR && CUR.curve && CUR.curve.duration) return CUR.curve.duration;
+  return 0;
+}
+function numOr(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
+function fmtN(n){ return (n == null || isNaN(n)) ? '—' : String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function pctOfSec(sec, dur){ if (!dur || sec == null) return 0; return Math.max(0, Math.min(100, sec / dur * 100)); }
+function roundSec(s){ return s == null ? 0 : Math.round(s); }
+function ratioToPct(v){
+  var n = numOr(v);
+  if (n == null) return null;
+  return n <= 1.0001 ? n * 100 : n;
+}
+function hlRatioText(v){
+  var p = ratioToPct(v);
+  return p == null ? '—' : Math.round(p) + '%';
+}
+function hlLabelOf(x){
+  return (x && x.label) || (x && x.emotion && x.emotion.label) || '共振';
+}
+function isLongHL(){
+  if (HL && typeof HL.is_long === 'boolean') return HL.is_long;
+  return hlDur() > 1800;
+}
+
+/* 地址栏状态：?peak=N 共振峰 / ?seg=N 质疑段 / ?slice=N 切片 / ?high=N 高光 */
+function markHL(k, v){
+  var u = new URLSearchParams(location.search);
+  ['peak', 'seg', 'slice', 'high'].forEach(function(x){ u.delete(x); });
+  if (k) u.set(k, v);
+  history.replaceState(null, '', '?' + u.toString());
+}
+/* 旧诊断曲线图在折叠层里：展开后才画（收起时容器宽高为 0） */
+function openOldcard(){
+  var old = document.getElementById('oldcard');
+  if (!old) return;
+  if (!old.open) old.open = true;
+  drawChart();
+}
+
+/* ── 主视图头部：这是哪支视频（BV 号对人是乱码，标题才是） ── */
+function hlHeadHTML(d){
+  var v = (d && d.video) || {};
+  var meta = [v.up_name, v.tname,
+    v.duration_text ? '时长 ' + v.duration_text : '',
+    v.n_danmaku ? '弹幕 ' + fmtN(v.n_danmaku) + ' 条' : '',
+    v.play_text ? '播放 ' + v.play_text : ''].filter(Boolean).join(' · ');
+  var badges = '';
+  if (HL) {
+    badges += '<span class="pill lv">' + (isLongHL() ? '长视频 · 给切片位置' : '短视频 · 给高光位置') + '</span>';
+    if (HL.batch_date) badges += '<span class="pill lv">批次 ' + esc(HL.batch_date) + '</span>';
+    var np = (HL.peaks || []).length;
+    badges += '<span class="pill lv">共振峰 ' + np + ' 个</span>';
+    var ns = (HL.critique && HL.critique.segments) ? HL.critique.segments.length : 0;
+    badges += '<span class="pill lv">质疑段 ' + ns + ' 段</span>';
+  }
+  return '<div class="hlhead">' +
+    '<div class="vtitle">' + esc(v.title || v.bvid || '') + '</div>' +
+    '<div class="vmeta">' + esc(meta) +
+      (v.url ? '　<a href="' + esc(v.url) + '" target="_blank" rel="noopener">B站 ↗</a>' : '') + '</div>' +
+    (badges ? '<div class="hlbadges">' + badges + '</div>' : '') +
+  '</div>';
+}
+
+/* ── 五块主视图 ── */
+function hlViewHTML(d){
+  return graphHTML(d) + feedbackHTML() + outHTML() + hlBenchHTML() + honestHLHTML();
+}
+
+/* ① 精彩时刻图谱：密度曲线 + 共振峰红三角 + 质疑段蓝色区带 */
+function graphHTML(d){
+  var c = (d && d.curve) || null;
+  var hasCurve = !!(c && c.you && c.you.length);
+  var peaks = (HL && HL.peaks) || [];
+  var crit = (HL && HL.critique) || {};
+  // detected=false 时绝不画蓝色带（未检出就如实写未检出）
+  var crits = (crit.detected === false) ? [] : (crit.segments || []);
+  var notice = '';
+  if (!peaks.length) notice += '<div class="hlnotice">未检出共振峰：这段弹幕的复读聚集没有达到检测阈值（5 秒内复读量——同一文本多出来的条数之和——≥3，且至少一种文本在 5 秒内被刷 ≥3 次）。</div>';
+  var openingN = peaks.filter(function(p){ return p.in_opening; }).length;
+  if (openingN) notice += '<div class="hlnotice">有 ' + openingN + ' 个共振峰落在片头 60 秒内，标为<b>片头打卡噪声</b>——照画，但别当精彩时刻读。</div>';
+  if (!crits.length) {
+    notice += '<div class="hlnotice">未检出质疑段：未检出就是未检出，不放宽阈值凑数。</div>';
+  }
+  var legend = '<div class="hllegend">' +
+    '<span><i class="swl"></i>弹幕密度（101 个 1% 时段）</span>' +
+    '<span><i class="swt"></i>共振峰（红三角，可点）</span>' +
+    (crits.length ? '<span><i class="swb"></i>质疑段（蓝色区带）</span>' : '') +
+  '</div>';
+  return '<div class="sec" id="sec-hlgraph">' +
+    '<div class="sechead"><span class="secno">①</span><span class="sectitle">精彩时刻图谱</span>' +
+      '<span class="secnote">横轴 = 播放进度 0–100% ｜ 点红三角或下方标签，看那一刻观众在刷什么</span></div>' +
+    legend + notice +
+    (hasCurve ? '<div id="hlchart"></div>' :
+      '<div class="hlempty">这支视频没有密度曲线数据，图谱只列可点的共振峰与质疑段标签。</div>') +
+    '<div class="hljumps" id="hljumps">' + hlJumpsHTML() + '</div>' +
+    '<div id="hlpanel"></div>' +
+  '</div>';
+}
+
+function hlJumpsHTML(){
+  var out = [];
+  ((HL && HL.peaks) || []).forEach(function(p, i){
+    var emo = p.emotion && p.emotion.label;
+    out.push('<button class="hljump" data-peakhl="' + i + '" title="点开看这一刻的弹幕">共振峰 ' +
+      roundSec(p.start_sec) + '–' + roundSec(p.end_sec) + ' 秒' + (emo ? ' · ' + esc(emo) : '') +
+      (p.pctl != null ? ' · 强于 ' + Math.round(p.pctl) + '%' : '') +
+      (p.in_opening ? ' · 片头打卡噪声' : '') + '</button>');
+  });
+  ((HL && HL.critique && HL.critique.segments) || []).forEach(function(s, i){
+    out.push('<button class="hljump crit" data-seghl="' + i + '" title="点开看质疑弹幕">质疑段 ' +
+      roundSec(s.start_sec) + '–' + roundSec(s.end_sec) + ' 秒' +
+      (s.n != null ? ' · ' + s.n + ' 条' : '') + '</button>');
+  });
+  return out.join('');
+}
+
+/* ② 从众复读 / 中性 / 认真批判 占比条 */
+function feedbackHTML(){
+  var f = (HL && HL.feedback) || {};
+  var head = '<div class="sechead"><span class="secno">②</span><span class="sectitle">弹幕构成：从众复读 / 中性 / 认真批判</span>' +
+    '<span class="secnote">一条横向堆叠条 = 全片弹幕的三种角色</span></div>';
+  var n = numOr(f.n_danmaku);
+  var ch = numOr(f.n_herd), cn = numOr(f.n_neutral), cc = numOr(f.n_critique);
+  var rh = null, rn = null, rc = null;
+  var sumC = (ch || 0) + (cn || 0) + (cc || 0);
+  if (n != null && n > 0 && sumC > 0) {
+    rh = (ch || 0) / n * 100; rn = (cn || 0) / n * 100; rc = (cc || 0) / n * 100;
+  } else {
+    rh = ratioToPct(f.herd); rn = ratioToPct(f.neutral); rc = ratioToPct(f.critique);
+  }
+  var s = (rh || 0) + (rn || 0) + (rc || 0);
+  if (s <= 0) {
+    return '<div class="sec" id="sec-hlfeedback">' + head +
+      '<div class="hlempty">这支视频没有弹幕构成数据（检测尚未覆盖或全片无弹幕）。</div></div>';
+  }
+  var wH = (rh || 0) / s * 100, wN = (rn || 0) / s * 100, wC = (rc || 0) / s * 100;
+  var sentence = '本视频弹幕：从众复读 ' + Math.round(rh) + '% ｜ 中性 ' + Math.round(rn) +
+    '% ｜ 认真批判 ' + Math.round(rc) + '%';
+  return '<div class="sec" id="sec-hlfeedback">' + head +
+    '<div class="ratio" role="img" aria-label="' + esc(sentence) + '">' +
+      '<i class="herd" style="width:' + wH.toFixed(2) + '%"></i>' +
+      '<i class="neutral" style="width:' + wN.toFixed(2) + '%"></i>' +
+      '<i class="crit" style="width:' + wC.toFixed(2) + '%"></i>' +
+    '</div>' +
+    '<div class="ratioline">' + esc(sentence) + '</div>' +
+    '<div class="ratiolegend">' +
+      '<span><i class="sw herd"></i>从众复读 ' + fmtN(ch) + ' 条</span>' +
+      '<span><i class="sw neutral"></i>中性 ' + fmtN(cn) + ' 条</span>' +
+      '<span><i class="sw crit"></i>认真批判 ' + fmtN(cc) + ' 条</span>' +
+      (n != null ? '<span>共 ' + fmtN(n) + ' 条弹幕</span>' : '') +
+    '</div>' +
+    '<div class="hlnotice" style="margin:12px 0 0">从众复读 = 同一文本 5 秒内被刷 ≥2 次，或文本 ≤4 字，或命中「哈 / 666 / 前排 / 打卡 / 空降」这类语气词；认真批判 = 命中质疑词、长度 ≥8 且情感分为负。分类是规则判定，只看弹幕文字，不看内容。</div>' +
+  '</div>';
+}
+
+/* ③ 切片建议（长视频）/ 高光定位（短视频） */
+function outHTML(){ return isLongHL() ? sliceHTML() : highlightHTML(); }
+
+function sliceHTML(){
+  var list = (HL && HL.slice_suggestions) || [];
+  var head = '<div class="sechead"><span class="secno">③</span><span class="sectitle">切片建议</span>' +
+    '<span class="secnote">长视频 · 按共振强度取前 3，点开看代表弹幕</span></div>';
+  if (!list.length) {
+    return '<div class="sec" id="sec-hlout">' + head +
+      '<div class="hlempty">没有达到阈值、值得单独切出的片段。未检出就是未检出，不硬凑。</div></div>';
+  }
+  var items = list.slice(0, 3).map(function(s, i){
+    var emo = hlLabelOf(s);
+    var pctl = (s.pctl != null) ? '，比同类强 ' + Math.round(s.pctl) + '%' : '';
+    var openTag = s.opening_only ? ' · 片头打卡段，仅供参考' : '';
+    return '<button class="hlslice" data-slice="' + i + '">' +
+      '<span class="hlsn">' + (s.rank || (i + 1)) + '</span>' +
+      '<span class="hlst">第 ' + roundSec(s.start_sec) + ' 秒–' + roundSec(s.end_sec) + ' 秒</span>' +
+      '<span class="hlsm">（' + esc(emo) + pctl + '）' + openTag + '</span>' +
+      '<span class="hlstime">' + mmss(s.start_sec) + '–' + mmss(s.end_sec) + '</span>' +
+    '</button>';
+  }).join('');
+  return '<div class="sec" id="sec-hlout">' + head +
+    '<div class="hlslices">' + items + '</div>' +
+    '<div id="slicePanel"></div></div>';
+}
+
+function highlightHTML(){
+  var list = (HL && HL.highlight_positions) || [];
+  var head = '<div class="sechead"><span class="secno">③</span><span class="sectitle">高光定位</span>' +
+    '<span class="secnote">短视频 · 共振最强的前 3 处，点开看代表弹幕</span></div>';
+  if (!list.length) {
+    return '<div class="sec" id="sec-hlout">' + head +
+      '<div class="hlempty">没有检出值得单独标出的高光位置。未检出就是未检出，不硬凑。</div></div>';
+  }
+  var items = list.slice(0, 3).map(function(s, i){
+    var emo = hlLabelOf(s);
+    var t0 = (s.start_sec != null) ? s.start_sec : s.sec;
+    var t1 = (s.end_sec != null) ? s.end_sec : s.sec;
+    return '<button class="hlslice hlhigh" data-high="' + i + '">' +
+      '<span class="hlsn">' + (s.rank || (i + 1)) + '</span>' +
+      '<span class="hlst">第 ' + roundSec(t0) + ' 秒–' + roundSec(t1) + ' 秒</span>' +
+      '<span class="hlsm">（情绪：' + esc(emo) + '）' +
+        (s.pctl != null ? ' · 强于 ' + Math.round(s.pctl) + '%' : '') +
+        (s.opening_only ? ' · 片头打卡段，仅供参考' : '') + '</span>' +
+      '<span class="hlstime">' + mmss(t0) + '–' + mmss(t1) + '</span>' +
+    '</button>';
+  }).join('');
+  return '<div class="sec" id="sec-hlout">' + head +
+    '<div class="hlslices">' + items + '</div>' +
+    '<div id="slicePanel"></div></div>';
+}
+
+/* ④ 共振强度对标：同分区百分位 */
+function hlBenchHTML(){
+  var b = (HL && HL.benchmark) || {};
+  var head = '<div class="sechead"><span class="secno">④</span><span class="sectitle">共振强度对标</span>' +
+    '<span class="secnote">和同分区其他视频比：共振强不强</span></div>';
+  var pctl = numOr(b.resonance_pctl);
+  if (pctl == null) {
+    return '<div class="sec" id="sec-hlbench">' + head +
+      '<div class="hlempty">这支视频没有可用的分区对标数据（分区样本不足或检测缺失）。</div></div>';
+  }
+  var pc = Math.max(0, Math.min(100, pctl));
+  var tname = b.tname || (CUR.video && CUR.video.tname) || '同分区';
+  var pn = numOr(b.partition_n);
+  var ok = b.partition_ok !== false;
+  var z = numOr(b.resonance_z);
+  return '<div class="sec" id="sec-hlbench">' + head +
+    '<div class="hlpbar" role="img" aria-label="共振强度百分位 ' + Math.round(pc) + '"><b></b><i style="left:' + pc.toFixed(1) + '%"></i></div>' +
+    '<div class="hlpaxis"><span>弱（0）</span><span>同分区中位</span><span>强（100）</span></div>' +
+    '<div class="ratioline" style="margin-top:10px">共振强度' +
+      (ok ? ('在「' + esc(tname) + '」' + (pn != null ? '的 ' + pn + ' 支视频' : '') + '中') : '在全库基准中') +
+      '排第 <b>' + Math.round(pc) + '</b> 百分位</div>' +
+    '<div class="kpis">' +
+      '<div class="kpi"><div class="kl">最强共振峰得分</div><div class="kv" style="font-size:22px">' +
+        fmtN(numOr(b.max_peak_score)) + '</div><div class="kn">所有共振峰里的最高分</div></div>' +
+      '<div class="kpi"><div class="kl">' + (ok ? '同分区中位' : '全库中位') + '</div><div class="kv" style="font-size:22px">' +
+        fmtN(numOr(b.partition_med)) + '</div><div class="kn">中位视频的最强峰得分</div></div>' +
+      (z != null ? '<div class="kpi"><div class="kl">稳健 z 值</div><div class="kv" style="font-size:22px">' +
+        z.toFixed(2) + '</div><div class="kn">相对分区中位的稳健偏离</div></div>' : '') +
+    '</div>' +
+    (ok ? '' : '<div class="hlnotice" style="margin:12px 0 0">分区样本不足 20 支' +
+      (pn != null ? '（当前 ' + pn + ' 支）' : '') + '，已退回全库基准；百分位只表示共振强度在参照组里的位置。</div>') +
+  '</div>';
+}
+
+/* ── 诚实边界：常驻主视图，不折叠（4 条；后端 caveats 优先，缺位时用本地兜底） ── */
+var HL_CAVEATS = [
+  '只测「情绪共振」与「质疑」，不测「内容质量」——量大 ≠ 内容好。',
+  '情绪类型是词典规则分类，页面标「参考」，不宣称准确。',
+  '批判层可能很薄：未检出 = 未检出，不放宽阈值凑数。',
+  '「该切 / 该看」= 情绪共振最强处，不是内容最好处。'
+];
+function hlCaveatList(){
+  var fb = HL_CAVEATS.slice();
+  if (HL && Object.prototype.toString.call(HL.caveats) === '[object Array]' && HL.caveats.length) {
+    var out = [];
+    for (var i = 0; i < 4; i++) {
+      if (i < HL.caveats.length && HL.caveats[i]) out.push(String(HL.caveats[i]));
+      else out.push(fb[i]);
+    }
+    return out;
+  }
+  return fb;
+}
+function honestHLHTML(){
+  var items = hlCaveatList();
+  return '<div class="hlhonestwrap" id="sec-hlhonest">' +
+    '<div class="honest"><b>诚实边界</b>' +
+      items.map(function(t){ return '<span>' + esc(t) + '</span>'; }).join('') +
+    '</div></div>';
+}
+
+/* ── 精彩时刻数据不可用时的明确空态（不许静默换成别的视频） ── */
+function hlEmptyHTML(d){
+  var e = HLERR || {};
+  var title, why, retry = '';
+  if (e.live) {
+    title = '在线采集的视频没有精彩时刻快照';
+    why = e.detail || '精彩时刻检测按采集批次统一计算，库外在线采集的视频不在快照里。';
+  } else if (e.status === 404) {
+    title = '精彩时刻检测没有覆盖这支视频';
+    why = e.detail || '检测快照只覆盖跑完精彩时刻作业的视频，不是所有视频都在里面。';
+  } else {
+    title = '精彩时刻检测数据这次没取到';
+    why = e.detail || ('HTTP ' + (e.status || '网络错误'));
+    retry = '<div class="row" style="margin-top:14px"><button class="btn primary" id="hlRetry">重新取一次</button></div>';
+  }
+  return '<div class="sec" id="sec-hlempty">' +
+    '<div class="empty" style="padding:34px 18px">' +
+      '<h2 style="font-size:19px">' + esc(title) + '</h2>' +
+      '<p style="margin-bottom:0">' + esc(why) + '</p>' + retry +
+    '</div>' +
+    '<div class="hlnotice" style="margin:0">下方「完整节奏诊断」仍可展开——那是既有的节奏诊断卡，不依赖精彩时刻检测。</div>' +
+  '</div>';
+}
+
+/* ── 旧诊断卡：原样收进折叠层（默认收起，不占主视图） ── */
+function oldcardHTML(d){
+  return '<details class="oldcard" id="oldcard">' +
+    '<summary>完整节奏诊断（市场定位 · 偏离 · 曲线对照 · 对标视频 · 建议）</summary>' +
+    '<div class="oldbody">' +
+      verdictHTML(d) + positionHTML(d) + chartHTML(d) + devHTML(d) + benchHTML(d) + actionHTML(d) +
+    '</div>' +
+  '</details>';
+}
+
+/* ── ① 图谱绘制 ── */
+function drawHLChart(){
+  var el = $('#hlchart'); if (!el || !CUR) return;
+  var c = CUR.curve || null;
+  var youRaw = (c && c.you) || [];
+  if (!youRaw.length) return;
+  if (HCHART) { HCHART.dispose(); HCHART = null; }
+  HCHART = echarts.init(el, null, {renderer: 'canvas'});
+  var C = dmChart();
+  var dur = hlDur();
+  var you = youRaw.map(function(v){ return +(v * 100).toFixed(3); });
+  var xs = you.map(function(_, i){ return i; });
+  var ymax = Math.max.apply(null, you.concat([1])) * 1.3;
+  var peaks = (HL && HL.peaks) || [];
+  var crit0 = (HL && HL.critique) || {};
+  var crits = (crit0.detected === false) ? [] : (crit0.segments || []);
+  var last = you.length - 1;
+  var peakData = [];
+  peaks.forEach(function(p, i){
+    var sec = (p.peak_sec != null) ? p.peak_sec : ((p.start_sec + p.end_sec) / 2);
+    var idx = Math.max(0, Math.min(last, Math.round(pctOfSec(sec, dur) / 100 * last)));
+    peakData.push({value: [idx, you[idx] || 0], peakIdx: i, name: '共振峰'});
+  });
+  var areas = crits.map(function(s){
+    var b0 = Math.max(0, Math.min(last, Math.round(pctOfSec(s.start_sec, dur) / 100 * last)));
+    var b1 = Math.max(b0, Math.min(last, Math.round(pctOfSec(s.end_sec, dur) / 100 * last)));
+    return [{xAxis: b0}, {xAxis: b1}];
+  });
+  var lineSeries = {
+    name: '弹幕密度', type: 'line', data: you, showSymbol: false, smooth: false, z: 4,
+    lineStyle: {width: 2.5, color: C.primary}, itemStyle: {color: C.primary},
+    areaStyle: {color: C.band}
+  };
+  if (areas.length) {
+    lineSeries.markArea = {silent: true,
+      itemStyle: {color: C.band, borderColor: C.primary, borderWidth: 1},
+      data: areas};
+  }
+  var series = [lineSeries];
+  if (peakData.length) {
+    series.push({name: '共振峰', type: 'scatter', data: peakData, symbol: 'triangle',
+      symbolSize: 13, z: 6, itemStyle: {color: C.accent}, label: {show: false}});
+  }
+  HCHART.setOption({
+    backgroundColor: 'transparent',
+    grid: {left: 50, right: 18, top: 18, bottom: 62},
+    tooltip: {trigger: 'axis', axisPointer: {type: 'line'},
+      backgroundColor: C.tipBg, borderColor: C.tipBorder,
+      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font},
+      formatter: function(ps){
+        if (!ps || !ps.length) return '';
+        var i = ps[0].dataIndex;
+        var html = '<b>播放进度 ' + i + '%' + (dur ? '（' + mmss(i / 100 * dur) + '）' : '') + '</b><br>' +
+          '弹幕密度：' + (you[i] != null ? you[i].toFixed(2) : '—') + '%（该 1% 时段占全片弹幕的比例）';
+        for (var k = 0; k < peakData.length; k++) {
+          if (peakData[k].value[0] === i) {
+            var p = peaks[peakData[k].peakIdx];
+            html += '<div style="margin-top:7px;padding-top:7px;border-top:1px solid ' + C.tipBorder + '">' +
+              '共振峰：' + esc((p.emotion && p.emotion.label) || '') +
+              (p.n_repeat != null ? '　复读 ' + p.n_repeat + ' 条' : '') +
+              (p.in_opening ? '<br>片头打卡噪声（片头 60 秒内，可能是打卡弹幕）' : '') + '</div>';
+            break;
+          }
+        }
+        for (var j = 0; j < crits.length; j++) {
+          var s = crits[j];
+          if (i >= Math.round(pctOfSec(s.start_sec, dur) / 100 * last) - 0.5 &&
+              i <= Math.round(pctOfSec(s.end_sec, dur) / 100 * last) + 0.5) {
+            html += '<div style="margin-top:5px;color:' + C.textTertiary + '">质疑段：第 ' +
+              roundSec(s.start_sec) + '–' + roundSec(s.end_sec) + ' 秒</div>';
+            break;
+          }
+        }
+        return html;
+      }},
+    xAxis: {type: 'category', data: xs, boundaryGap: false, name: '播放进度',
+      nameLocation: 'middle', nameGap: 44, nameTextStyle: {color: C.axis, fontSize: 12},
+      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
+      axisLabel: {color: C.axis, fontSize: 11, interval: 9,
+        formatter: function(v){ return v + '%' + (dur ? '\n' + mmss(v / 100 * dur) : ''); }}},
+    yAxis: {type: 'value', min: 0, max: ymax, name: '弹幕占比',
+      nameTextStyle: {color: C.axis, fontSize: 12},
+      axisLine: {show: false}, axisTick: {show: false},
+      axisLabel: {color: C.axis, fontSize: 11, formatter: function(v){ return v.toFixed(1) + '%'; }},
+      splitLine: {lineStyle: {color: C.split}}},
+    series: series
+  });
+  HCHART.on('click', function(p){
+    if (p.seriesName === '共振峰' && p.data && p.data.peakIdx != null) openPeak(p.data.peakIdx);
+  });
+  if (!window.__v3resizeBound) {
+    window.__v3resizeBound = 1;
+    window.addEventListener('resize', function(){ if (HCHART) HCHART.resize(); if (CHART) CHART.resize(); });
+  }
+}
+
+/* ── 弹幕列表与情感占比（面板复用） ── */
+function hlTopHTML(list){
+  list = list || [];
+  if (!list.length) return '<div class="reso-empty">这一段没有可展示的代表弹幕。</div>';
+  return list.map(function(it){
+    var text = (typeof it === 'string') ? it : ((it && it.text != null) ? it.text : '');
+    var n = (typeof it === 'string') ? null : (it && it.n);
+    return '<div class="reso-item"><span class="t">' + esc(text) + '</span>' +
+      (n != null ? '<span class="c">×' + fmtN(n) + '</span>' : '') + '</div>';
+  }).join('');
+}
+function hlSentHTML(sent){
+  if (!sent) return '<div class="reso-empty">没有情感占比数据。</div>';
+  var pos = numOr(sent.pos), neg = numOr(sent.neg), neu = numOr(sent.neu);
+  if (pos == null && neg == null && neu == null) return '<div class="reso-empty">没有情感占比数据。</div>';
+  var tot = (pos || 0) + (neg || 0) + (neu || 0);
+  function fmt(v){
+    if (v == null) return '—';
+    var p = (tot > 0.0001) ? (v / tot * 100) : (v <= 1 ? v * 100 : v);
+    return Math.round(p) + '%';
+  }
+  return '<div class="hlsen"><span>正向 <b>' + fmt(pos) + '</b></span>' +
+    '<span>中性 <b>' + fmt(neu) + '</b></span>' +
+    '<span>负向 <b>' + fmt(neg) + '</b></span></div>';
+}
+
+/* ── 点峰 / 点段 / 点切片卡片 → 面板 ── */
+function openPeak(i){
+  var p = ((HL && HL.peaks) || [])[i]; if (!p) return;
+  markHL('peak', i);
+  var box = $('#hlpanel'); if (!box) return;
+  var meta = [];
+  if (p.emotion && p.emotion.label) meta.push('情绪：' + p.emotion.label + '（词典规则，仅参考）');
+  if (p.pctl != null) meta.push('强度超过同分区 ' + Math.round(p.pctl) + '% 的峰（峰级百分位）');
+  if (p.partition_n != null) meta.push('同分区参比峰 ' + p.partition_n + ' 个');
+  if (p.in_opening) meta.push('片头打卡噪声（位于片头 60 秒内，可能是打卡弹幕）');
+  if (p.n_rep_texts != null) meta.push('复读文本 ' + p.n_rep_texts + ' 种');
+  var sec = (p.peak_sec != null) ? p.peak_sec : ((p.start_sec + p.end_sec) / 2);
+  box.innerHTML = '<div class="dmpanel">' +
+    '<h4>共振峰 · 第 ' + roundSec(p.start_sec) + '–' + roundSec(p.end_sec) + ' 秒（' +
+      mmss(p.start_sec) + '–' + mmss(p.end_sec) + '，播放进度第 ' + Math.round(pctOfSec(sec, hlDur())) + '%）</h4>' +
+    (meta.length ? '<div class="dmwhy">' + esc(meta.join(' ｜ ')) + '</div>' : '') +
+    '<div class="reso"><div class="reso-h">这一刻观众在刷什么' +
+      '<span class="n">' + (p.n_repeat != null ? '复读 ' + fmtN(p.n_repeat) + ' 条' : '') + '</span></div>' +
+      '<div class="reso-cols">' +
+        '<div><div class="reso-sub">复读最多</div>' + hlTopHTML(p.top_danmaku) + '</div>' +
+        '<div><div class="reso-sub">情感占比（参考）</div>' + hlSentHTML(p.sentiment) + '</div>' +
+      '</div></div>' +
+    '<div class="hlpanelnote">弹幕原文未做筛选或改写；情绪类型是词典规则判定，仅供参考。</div>' +
+  '</div>';
+  document.querySelectorAll('.hljump').forEach(function(el){ el.classList.remove('on'); });
+  var on = document.querySelector('.hljump[data-peakhl="' + i + '"]');
+  if (on) on.classList.add('on');
+  focusSection('hlpanel');
+}
+
+function openCritique(i){
+  var c = (HL && HL.critique) || {};
+  var s = (c.segments || [])[i]; if (!s) return;
+  markHL('seg', i);
+  var box = $('#hlpanel'); if (!box) return;
+  var meta = [];
+  if (s.n != null) meta.push('批判弹幕 ' + s.n + ' 条');
+  if (s.score != null) meta.push('批判权重得分 ' + s.score);
+  if (s.neg_ratio != null) meta.push('负向占比 ' + hlRatioText(s.neg_ratio));
+  box.innerHTML = '<div class="dmpanel">' +
+    '<h4>质疑段 · 第 ' + roundSec(s.start_sec) + '–' + roundSec(s.end_sec) + ' 秒（' +
+      mmss(s.start_sec) + '–' + mmss(s.end_sec) + '）</h4>' +
+    '<div class="dmwhy">' + esc('观众在这里认真质疑（命中质疑词 + 长度 ≥8 + 情感为负）。' +
+      (meta.length ? '　' + meta.join(' ｜ ') : '')) + '</div>' +
+    '<div class="reso"><div class="reso-h">这一段观众在质疑什么</div>' +
+      '<div class="reso-cols">' +
+        '<div><div class="reso-sub">代表质疑弹幕</div>' + hlTopHTML(s.top_danmaku) + '</div>' +
+        '<div><div class="reso-sub">怎么读</div><div class="reso-empty">段数少不代表视频没人质疑，只代表命中了检测规则；反讽、谐音可能漏检。</div></div>' +
+      '</div></div>' +
+    '<div class="hlpanelnote">质疑段按「质疑词 + 否定情感」规则检出，不代表内容质量结论。</div>' +
+  '</div>';
+  document.querySelectorAll('.hljump').forEach(function(el){ el.classList.remove('on'); });
+  var on = document.querySelector('.hljump[data-seghl="' + i + '"]');
+  if (on) on.classList.add('on');
+  focusSection('hlpanel');
+}
+
+function selectHLCard(sel){
+  document.querySelectorAll('.hlslice').forEach(function(el){ el.classList.remove('on'); });
+  var el = document.querySelector(sel); if (el) el.classList.add('on');
+}
+
+function openSlice(i){
+  var s = ((HL && HL.slice_suggestions) || [])[i]; if (!s) return;
+  markHL('slice', i);
+  var note = [];
+  if (s.pctl != null) note.push('共振强度超过同分区 ' + Math.round(s.pctl) + '% 的峰');
+  if (s.score != null) note.push('得分 ' + s.score);
+  if (s.opening_only) note.push('片头打卡段，仅供参考');
+  showHLRange('slicePanel',
+    '切片 ' + (s.rank || (i + 1)) + ' · 第 ' + roundSec(s.start_sec) + '–' + roundSec(s.end_sec) +
+      ' 秒（情绪：' + hlLabelOf(s) + '）',
+    note.join(' ｜ '), s.start_sec, s.end_sec, s.top_danmaku);
+  selectHLCard('.hlslice[data-slice="' + i + '"]');
+}
+
+function openHighlight(i){
+  var s = ((HL && HL.highlight_positions) || [])[i]; if (!s) return;
+  markHL('high', i);
+  var t0 = (s.start_sec != null) ? s.start_sec : s.sec;
+  var t1 = (s.end_sec != null) ? s.end_sec : s.sec;
+  var note = (s.pctl != null) ? ('共振强度超过同分区 ' + Math.round(s.pctl) + '% 的峰') : '';
+  if (s.opening_only) note += (note ? ' ｜ ' : '') + '片头打卡段，仅供参考';
+  showHLRange('slicePanel',
+    '高光 · 第 ' + roundSec(t0) + '–' + roundSec(t1) + ' 秒（情绪：' + hlLabelOf(s) + '）',
+    note, t0, t1, s.top_danmaku);
+  selectHLCard('.hlhigh[data-high="' + i + '"]');
+}
+
+/* 切片/高光面板：有代表弹幕就直接列；没有再按秒区间取真实弹幕补上 */
+function showHLRange(boxid, title, note, t0, t1, items){
+  var box = document.getElementById(boxid); if (!box) return;
+  var hasItems = !!(items && items.length);
+  box.innerHTML = '<div class="dmpanel">' +
+    '<h4>' + esc(title) + '</h4>' +
+    (note ? '<div class="dmwhy">' + esc(note) + '</div>' : '') +
+    '<div class="reso"><div class="reso-h">这一刻观众在刷什么' +
+      '<span class="n">第 ' + roundSec(t0) + '–' + roundSec(t1) + ' 秒</span></div>' +
+      '<div class="reso-cols">' +
+        '<div><div class="reso-sub">复读最多</div><div id="' + boxid + '-top">' +
+          (hasItems ? hlTopHTML(items) : '<div class="reso-empty">正在取这一段弹幕…</div>') + '</div></div>' +
+        '<div><div class="reso-sub">代表弹幕（按时间）</div><div id="' + boxid + '-samples">' +
+          '<div class="reso-empty">正在取这一段弹幕…</div></div></div>' +
+      '</div></div>' +
+    '<div class="hlpanelnote">弹幕原文未做筛选或改写；「代表弹幕」按时间顺序取这一段内的真实弹幕。</div>' +
+  '</div>';
+  focusSection(boxid);
+  api('/api/danmaku_at?bvid=' + encodeURIComponent(CUR.video.bvid) +
+      '&t0=' + Number(t0).toFixed(1) + '&t1=' + Number(t1).toFixed(1) + '&limit=60')
+    .then(function(d){
+      var top = document.getElementById(boxid + '-top');
+      if (top && !hasItems) {
+        top.innerHTML = hlTopHTML((d.top_repeat || []).map(function(r){ return {text: r.txt, n: r.n}; }));
+      }
+      var smp = document.getElementById(boxid + '-samples');
+      if (smp) {
+        var its = (d.items || []).slice(0, 8);
+        smp.innerHTML = its.length ? its.map(function(it){
+          return '<div class="reso-s"><span class="dt">' + mmss(it.t) + '</span>' + esc(it.txt) + '</div>';
+        }).join('') : '<div class="reso-empty">这一段时间里没有弹幕。</div>';
+      }
+    })
+    .catch(function(e){
+      var top = document.getElementById(boxid + '-top');
+      if (top && !hasItems) top.innerHTML = '<div class="reso-empty">取这一段弹幕失败：' + esc(e.message) + '</div>';
+      var smp = document.getElementById(boxid + '-samples');
+      if (smp) smp.innerHTML = '<div class="reso-empty">取这一段弹幕失败：' + esc(e.message) + '</div>';
+    });
+}
+
+/* ── 渲染主流程 ── */
 function render(){
   const d = CUR;
-  $('#content').innerHTML = verdictHTML(d) + positionHTML(d) + chartHTML(d) + devHTML(d) + benchHTML(d) + actionHTML(d);
+  $('#content').innerHTML = hlHeadHTML(d) +
+    (HL ? hlViewHTML(d) : hlEmptyHTML(d)) +
+    oldcardHTML(d);
   bind();
-  drawChart();
+  if (HL) drawHLChart();
 
   refreshFav();
   initNarrative();   // 必须在深链接分支之前 —— 否则 ?drill=/?bench= 进来时导轨不出现
-  // 深链接：?drill=N / ?bench=N / ?act=N 直接落到某个交互状态
-  // （用户能把"看这条证据"的链接发给别人；也让自动化截图能核验）
+
+  // 旧诊断曲线图在折叠层里：展开后才画（收起时容器宽高为 0，ECharts 只会得到空画布）
+  const old = $('#oldcard');
+  if (old) {
+    old.addEventListener('toggle', function(){
+      if (!old.open) return;
+      if (!CHART) drawChart(); else CHART.resize();
+    });
+  }
+
+  // 深链接：?peak / ?seg / ?slice / ?high 落到精彩时刻交互态；
+  // ?drill / ?bench / ?act / ?old 落到折叠层里的旧交互（自动展开折叠层）
   const usp = new URLSearchParams(location.search);
+  const oldDeep = usp.get('drill') != null || usp.get('bench') != null ||
+                  usp.get('act') != null || usp.get('old') != null;
+  if (oldDeep) openOldcard();
+  if (usp.get('peak') != null) { setTimeout(function(){ openPeak(+usp.get('peak')); }, 200); return; }
+  if (usp.get('seg') != null) { setTimeout(function(){ openCritique(+usp.get('seg')); }, 200); return; }
+  if (usp.get('slice') != null) { setTimeout(function(){ openSlice(+usp.get('slice')); }, 200); return; }
+  if (usp.get('high') != null) { setTimeout(function(){ openHighlight(+usp.get('high')); }, 200); return; }
   if (usp.get('drill') != null) { setTimeout(() => drillDeviation(+usp.get('drill'), true), 260); return; }
   if (usp.get('bench') != null) { selectBench(+usp.get('bench')); return; }
   if (usp.get('act') != null) { setTimeout(() => runAction(+usp.get('act')), 260); return; }
@@ -652,6 +1374,9 @@ function chartHTML(d){
 function drawChart(){
   const c = CUR.curve; if (!c) return;
   const el = $('#chart'); if (!el) return;
+  // 折叠层收起时 #chart 宽高为 0：先不画，展开时由 toggle 重画（否则 ECharts 只得到空画布）
+  const oldBox = document.getElementById('oldcard');
+  if (oldBox && !oldBox.open) return;
   if (CHART) { CHART.dispose(); CHART = null; }
   CHART = echarts.init(el, null, {renderer: 'canvas'});
   // canvas 不认 CSS 变量 —— 一律走 dpVar（DESIGN.md §1#1），fallback 由 token 测试核对
@@ -735,7 +1460,7 @@ function drawChart(){
     if (p.componentType === 'markPoint' && p.data && p.data.peakIdx != null) showPeak(p.data.peakIdx);
   });
   if (!window.__v3resizeBound) { window.__v3resizeBound = 1;
-    window.addEventListener('resize', () => CHART && CHART.resize());
+    window.addEventListener('resize', function(){ if (HCHART) HCHART.resize(); if (CHART) CHART.resize(); });
   }
 }
 
@@ -868,6 +1593,47 @@ function bind(){
     const i = (CUR.curve.peaks || []).findIndex(p => p.pct === pct);
     showPeak(i);
   });
+  // 精彩时刻：图下方标签（键盘可达）与切片/高光卡片，都走原生 button 点击
+  document.querySelectorAll('.hljump[data-peakhl]').forEach(el => el.onclick = () => openPeak(+el.dataset.peakhl));
+  document.querySelectorAll('.hljump[data-seghl]').forEach(el => el.onclick = () => openCritique(+el.dataset.seghl));
+  document.querySelectorAll('.hlslice[data-slice]').forEach(el => el.onclick = () => openSlice(+el.dataset.slice));
+  document.querySelectorAll('.hlhigh[data-high]').forEach(el => el.onclick = () => openHighlight(+el.dataset.high));
+  const hlRetry = $('#hlRetry');
+  if (hlRetry) hlRetry.onclick = () => { if (CUR) load(CUR.video.bvid); };
+}
+
+/* 行动卡（旧诊断里点任意一条 → 定位到该照谁 / 哪一段）。
+   ⚠️ 2026-10-19 修复：基线页面只绑定/深链了 runAction，但函数从未定义 ——
+   点行动卡会抛 ReferenceError（"点了不动"）。这里补上实现，交互按原设计恢复。 */
+function runAction(n){
+  const acts = (CUR && CUR.verdict && CUR.verdict.actions) || [];
+  const a = acts.filter(function(x){ return +x.n === +n; })[0];
+  if (!a) return;
+  markUrl('act', n);
+  openOldcard();
+  document.querySelectorAll('.act').forEach(function(y){
+    y.classList.toggle('dim', +y.dataset.act === +n);
+  });
+  let idx = -1;
+  if (a.ref && a.ref.bvid) {
+    idx = (CUR.benchmarks || []).findIndex(function(b){ return b.bvid === a.ref.bvid; });
+  }
+  if (idx >= 0) {          // 有对标对象：选中它，上图叠曲线 + 高亮它该照的段
+    selectBench(idx);
+    setTimeout(function(){ focusSection('sec-bench'); }, 120);
+    return;
+  }
+  if (a.seg) {             // 没有对标对象：高亮这条建议对应的观察窗口
+    FOCUS = a.seg;
+    drawChart();
+    const cap = $('#cap');
+    if (cap) cap.innerHTML = '<b>' + esc(a.text) + '</b>　' + esc(a.basis || '') +
+      '　<span style="color:var(--text-secondary)">上图高亮段 = 这条建议对应的观察窗口（第 ' +
+      a.seg[0] + '–' + a.seg[1] + '%）</span>';
+    setTimeout(function(){ focusSection('sec-curve'); }, 120);
+    return;
+  }
+  setTimeout(function(){ focusSection('sec-action'); }, 120);
 }
 
 /* ── 证据钻取：点结论关键词或偏离卡 → 高亮该段 + 拉这一段的真实弹幕 ── */
@@ -960,12 +1726,13 @@ function showPeak(i){
    安全约定：默认全部可见；只有 JS 接管且用户没开 reduced-motion 时才做逐段展开。
    任一前提不满足就只是没有动画，内容一个都不少。 */
 function initNarrative(){
-  const nodes = ['sec-verdict', 'sec-position', 'sec-curve', 'sec-dev', 'sec-bench', 'sec-action']
+  // 主视图四段（五块里切片卡与高光卡互斥，同一个 id）
+  const nodes = ['sec-hlgraph', 'sec-hlfeedback', 'sec-hlout', 'sec-hlbench']
     .map(id => document.getElementById(id)).filter(Boolean);
   const rail = document.getElementById('rail');
   if (!nodes.length || !rail) return;
-  const names = {'sec-verdict': '诊断结论', 'sec-position': '① 市场定位', 'sec-curve': '② 曲线对照',
-                 'sec-dev': '③ 偏离', 'sec-bench': '④ 对标视频', 'sec-action': '⑤ 建议'};
+  const names = {'sec-hlgraph': '① 图谱', 'sec-hlfeedback': '② 弹幕构成',
+                 'sec-hlout': '③ 切片 / 高光', 'sec-hlbench': '④ 对标'};
   rail.innerHTML = nodes.map(n =>
     '<a href="#' + n.id + '" data-t="' + n.id + '">' + names[n.id] + '</a>').join('');
   rail.hidden = false;
@@ -973,14 +1740,9 @@ function initNarrative(){
   rail.querySelectorAll('a').forEach(a => { links[a.dataset.t] = a; });
   const setOn = id => Object.keys(links).forEach(k => links[k].classList.toggle('on', k === id));
 
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce || !('IntersectionObserver' in window)) { setOn(nodes[0].id); return; }
-
-  nodes.forEach(n => n.classList.add('reveal'));
-  const io = new IntersectionObserver(es => {
-    es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, {rootMargin: '0px 0px -10% 0px', threshold: 0.02});
-  nodes.forEach(n => io.observe(n));
+  // 不做逐段淡入：主视图区块必须默认全可见 ——
+  // 否则没滚到的区块是 opacity:0，整页截图 / 「存为图片」会把它们拍成空白。
+  if (!('IntersectionObserver' in window)) { setOn(nodes[0].id); return; }
 
   // 导轨高亮"我现在读到哪"（判定带放在视口中部，避免来回抖）
   const rio = new IntersectionObserver(es => {
@@ -1086,7 +1848,7 @@ function runAI(){
 /* 折叠技术层 */
 </script>
     </div>
-  </div>
+  </main>
 </div>
 </body>
 </html>

@@ -11,6 +11,7 @@ import ai_report
 import auth
 import diagnosis
 import collector
+import highlights as hl     # 别名：本文件后面有同名端点函数 highlights()，不能用原名
 import live_diag
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -442,6 +443,22 @@ def highlights(bvid: str, resp: Response,
     return ok(resp, rows, meta={'n': len(rows)})
 
 
+# ─────────────── 精彩时刻（PLAN_HIGHLIGHTS §2.6：4 张新表；旧事件高光端点保留不动） ───────────────
+
+@app.get('/api/video/{bvid}/highlights')
+def video_highlights(bvid: str, resp: Response,
+                     batch_date: str = Query(None, min_length=8, max_length=8)):
+    '''精彩时刻：共振峰 / 质疑段 / 从众-批判占比 / 分区对标 / 切片与高光建议。
+
+    数据来自 ads_highlights.py 导出的 4 张新表（与旧 /api/highlights/{bvid} 互不影响）。
+    batch_date 省略时取该 bvid 最新批次；不在快照里的视频明确 404，不静默换视频。
+    '''
+    d = hl.card(bvid, batch_date)
+    if not d:
+        raise HTTPException(404, hl.not_found_msg())
+    return ok(resp, d['data'], meta=d['meta'], cache=False)
+
+
 @app.get('/api/fingerprint/{bvid}')
 def fingerprint(bvid: str, resp: Response,
                 batch_date: str = Query(..., min_length=8, max_length=8)):
@@ -632,6 +649,10 @@ TABLE_DOC = {
     'ads_quality_report': ('质量报告', '旧 PG 层：数据质量检查结果'),
     'ads_up_profile': ('UP 主画像', '旧 PG 层：UP 主维度汇总'),
     'ads_video_highlights': ('高光卡', '旧 PG 层：事件高光'),
+    'ads_resonance_peaks': ('精彩时刻·共振峰', '弹幕复读聚集定界：每支视频的情绪共振时间段与秒级峰值'),
+    'ads_critique_segments': ('精彩时刻·质疑段', '认真质疑的弹幕聚集段（含代表弹幕与占比）'),
+    'ads_video_feedback_profile': ('精彩时刻·反馈画像', '从众/中性/批判占比 + 共振强度分区对标'),
+    'ads_dict_critique': ('精彩时刻·质疑词典', '质疑词表：词条、权重、来源与人工确认状态'),
     'ads_dual_axis': ('双时间轴', '旧 PG 层：位置×滞后热力'),
     'ads_evolution_feats': ('演化特征', '旧 PG 层：批次演化'),
 }

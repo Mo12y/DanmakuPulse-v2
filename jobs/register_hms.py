@@ -39,6 +39,10 @@ TABLES = [
     ('dws_video_daily', '/warehouse/dws_video_daily'),
     ('dws_metric_track', '/warehouse/dws_metric_track'),
     ('ods_video_fetch_times', '/warehouse/ods_video_fetch_times'),
+    # M2-L4（精彩时刻检测，PLAN_HIGHLIGHTS §2.2–2.5）
+    ('dws_resonance_peaks', '/warehouse/dws_resonance_peaks'),
+    ('dws_critique_segments', '/warehouse/dws_critique_segments'),
+    ('dws_video_feedback_profile', '/warehouse/dws_video_feedback_profile'),
 ]
 
 # 非分区表（含 batch_date 作为普通列，不 MSCK）
@@ -58,6 +62,7 @@ TABLES_PLAIN = [
     ('dict_slang_meme', '/warehouse/dict_slang_meme'),
     ('dict_anchor', '/warehouse/dict_anchor'),
     ('dict_emoticon', '/warehouse/dict_emoticon'),
+    ('dict_critique', '/warehouse/dict_critique'),   # 质疑词词典（M2-L4，平铺）
 ]
 
 

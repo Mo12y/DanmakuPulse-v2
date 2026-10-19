@@ -24,8 +24,10 @@ SUBMIT_L3 = $(SUBMIT) --py-files /opt/work/jobs/hawkes_core.py
 SUBMIT_M6 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py,/opt/work/jobs/m2_l2_events.py
 # M4 链 v2（2026-10-14）：跨批轨迹/演化分型——闭包依赖 m4_track_common（+l2_common）
 SUBMIT_M4 = $(SUBMIT) --py-files /opt/work/jobs/m4_track_common.py,/opt/work/jobs/l2_common.py
+# M2-L4 链（精彩时刻检测，PLAN_HIGHLIGHTS §2.2–2.5）：RDD 逐视频纯函数，闭包依赖 highlight_core
+SUBMIT_L4 = $(SUBMIT) --py-files /opt/work/jobs/highlight_core.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize l2-candidates l2-eval m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize l2-candidates l2-eval m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build ads-highlights m2-l4-highlights serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -197,8 +199,14 @@ perf-suite: ## 启动性能套件（放大 1/4/8× + 密度/事件网格 + Hawke
 	setsid bash tools/perf_suite.sh < /dev/null > /dev/null 2>&1 &
 	@echo "套件已后台启动；日志 logs/perf_suite_*.log；结果 data-out/perf_results.jsonl"
 
+m2-l4-highlights: ## 精彩时刻检测 DWS（dws_resonance_peaks / dws_critique_segments / dws_video_feedback_profile / dict_critique）
+	$(SUBMIT_L4) /opt/work/jobs/m2_l4_highlights.py
+
 ads-build: ## 生产链 ADS 导出（11 张表 → PG；覆盖 3 页数据流 + M4）
 	$(SUBMIT) /opt/work/jobs/ads_build.py
+
+ads-highlights: ## 精彩时刻 ADS 导出（4 张新表 → PG；需先跑 m2-l4-highlights 产出 DWS）
+	$(SUBMIT) /opt/work/jobs/ads_highlights.py
 
 serve-rebuild: ## 重建并重启 fastapi 容器（改 serve/ 后执行；静态页 nginx 挂载无需重建）
 	$(COMPOSE) build fastapi && $(COMPOSE) up -d --no-deps fastapi
