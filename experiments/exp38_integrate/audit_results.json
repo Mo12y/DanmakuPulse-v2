@@ -1,0 +1,166 @@
+{
+  "D1_recheck": {
+    "n_train": 918,
+    "n_test": 395,
+    "bvid_overlap": 0,
+    "ablation": [
+      {
+        "model": "OLS_1f",
+        "feats": [
+          "c0"
+        ],
+        "R2_test": 0.4532,
+        "dR2_vs_baseline": 0.0,
+        "ci": [
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "model": "OLS_2f",
+        "feats": [
+          "c0",
+          "n36"
+        ],
+        "R2_test": 0.5224,
+        "dR2_vs_baseline": 0.0692,
+        "ci": [
+          0.0291,
+          0.1076
+        ]
+      },
+      {
+        "model": "OLS_3f",
+        "feats": [
+          "c0",
+          "n36",
+          "n13"
+        ],
+        "R2_test": 0.5257,
+        "dR2_vs_baseline": 0.0725,
+        "ci": [
+          0.0321,
+          0.1119
+        ]
+      },
+      {
+        "model": "OLS_4f",
+        "feats": [
+          "c0",
+          "n36",
+          "n13",
+          "n01"
+        ],
+        "R2_test": 0.5332,
+        "dR2_vs_baseline": 0.0801,
+        "ci": [
+          0.0393,
+          0.1185
+        ]
+      },
+      {
+        "model": "OLS_5f",
+        "feats": [
+          "c0",
+          "n36",
+          "n13",
+          "n01",
+          "slope"
+        ],
+        "R2_test": 0.5332,
+        "dR2_vs_baseline": 0.0801,
+        "ci": [
+          0.0393,
+          0.1185
+        ]
+      },
+      {
+        "model": "OLS_6f",
+        "feats": [
+          "c0",
+          "n36",
+          "n13",
+          "n01",
+          "slope",
+          "dur"
+        ],
+        "R2_test": 0.5607,
+        "dR2_vs_baseline": 0.1076,
+        "ci": [
+          0.0711,
+          0.1484
+        ]
+      },
+      {
+        "model": "HGB",
+        "feats": [
+          "c0",
+          "n36",
+          "n13",
+          "n01",
+          "slope",
+          "dur"
+        ],
+        "R2_test": 0.5391,
+        "dR2_vs_baseline": 0.086,
+        "ci": [
+          0.0288,
+          0.1343
+        ]
+      }
+    ],
+    "replicate_exp37": {
+      "OLS1": 0.4532,
+      "OLS6": 0.5607,
+      "HGB": 0.5391
+    }
+  },
+  "data_hygiene_offset_gt_duration": {
+    "rows": 2417130,
+    "gt_duration": 39,
+    "share": 1.6e-05
+  },
+  "D2_recheck": {
+    "n_train": 5774,
+    "n_test": 2552,
+    "bvid_overlap": 0,
+    "s_d_frozen": {
+      "cold_pct": 19.802,
+      "cv": 0.489,
+      "main_peak_pct": 53.218
+    },
+    "AUC_base": 0.7914,
+    "AUC_HGB": 0.8696,
+    "dAUC": 0.0783,
+    "ci": [
+      0.06,
+      0.0964
+    ],
+    "PR_AUC_base": 0.5264,
+    "PR_AUC_HGB": 0.7247,
+    "precision_at_30pct_base": 0.502,
+    "precision_at_30pct_HGB": 0.6092,
+    "Brier_baseL0": 0.2547,
+    "Brier_HGB": 0.1197,
+    "Brier_LR": 0.1312,
+    "replicate_exp37": {
+      "AUC_base": 0.7914,
+      "AUC_HGB": 0.8696,
+      "dAUC": 0.0783
+    }
+  },
+  "D4_independent_cohort": {
+    "cohort": "daily 1012-1026, bvid not in D-train (time-extrapolated)",
+    "n_points": 51589,
+    "n_videos": 1424,
+    "pos_rate": 0.3597,
+    "AUC_LR6": 0.6001,
+    "AUC_NegLam": 0.4538,
+    "Brier_cal": 0.2238,
+    "Brier_L0": 0.3597,
+    "brier_skill": 0.3779,
+    "cal_slope": 0.93,
+    "cal_intercept": -0.126,
+    "note": "LR6+Platt 在 D-train 全量拟合后直接用于时间外推 cohort（生产口径）；不属 exp35 冻结协议"
+  }
+}
