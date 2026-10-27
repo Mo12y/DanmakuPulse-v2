@@ -203,3 +203,25 @@ def test_non_finite_feature_rejected():
                  prog=0.1, log1p_duration=5.0)]
     with pytest.raises(M.ProtocolError):
         M.select_features(rows, M.FEATURES_M2)
+
+
+# ── M1 已批准定义（2026-10-27）的契约测试 ───────────────────────────
+def test_m1_feature_set_is_exact():
+    """M1 = 仅 log1p_lam（研究者 2026-10-27 批准）；不得悄悄加列。"""
+    assert M.FEATURES_M1 == ("log1p_lam",)
+    assert len(M.FEATURES_M1) == 1
+    assert M.model_features("M1") == ("log1p_lam",)
+
+
+def test_m1_matrix_has_exactly_one_column():
+    rows = [dict(log1p_lam=0.5, slope=0.1, since=12.0, censored=1.0, prog=0.2,
+                 log1p_duration=5.0, ent=0.3) for _ in range(3)]
+    X = M.select_features(rows, M.model_features("M1"))
+    assert X.shape == (3, 1)
+
+
+def test_m1_cannot_smuggle_extra_columns():
+    """M1 的列数由 model_features 固定；给 fit_model 多传一列必须因形状不符失败。"""
+    feats = M.model_features("M1")
+    with pytest.raises(M.ProtocolError):
+        M.fit_model(np.ones((4, 2)), np.array([0, 1, 0, 1]), feats)

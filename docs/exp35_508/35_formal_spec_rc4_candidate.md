@@ -1,5 +1,7 @@
 # exp35 正式协议（v2.0-rc4-candidate）
 
+> ⚠️ **本版已被 `35_formal_spec_rc5_candidate.md` 取代（2026-10-27）**；保留原样用于审计追溯，不再作为执行依据。
+
 > **状态：`candidate`（冻结候选，未冻结，不可跑正式实验）**
 > 版本沿革：v1 `35_播放位置爆发风险预测方案_20261026.md` → v2.0-rc1 `35_revised_protocol.md` → v2.0-rc2/rc2.1 `_exp35_staging/35_protocol_v2.0-rc2.md` → **v2.0-rc4-candidate（本文件）**
 > 日期：2026-10-27　｜　协议版本串：`exp35-formal-rc4-candidate`

@@ -109,3 +109,39 @@ def test_single_class_fit_rejected(data):
     rows, X, y, vid = data
     with pytest.raises(M.ProtocolError):
         M.fit_model(X, np.zeros(len(y), dtype=int), M.FEATURES_M2)
+
+
+def test_scaler_fit_on_train_only():
+    """批准定义要求"标准化器只在训练数据上拟合"：scaler.mean_ 必须等于训练折均值。"""
+    rows = make_dataset(n_videos=12, K=48, seed=31)
+    X = M.select_features(rows, M.model_features("M1"))
+    y = np.array([r["y"] for r in rows], dtype=int)
+    vid = np.array([r["bvid"] for r in rows], dtype=str)
+    fold = M.group_folds(vid, folds=2, seed=1)
+    train_mask = np.array([fold[v] == 0 for v in vid])
+    model = M.fit_model(X[train_mask], y[train_mask], M.model_features("M1"),
+                        fit_videos=set(vid[train_mask]))
+    assert model.scaler.n_features_in_ == 1
+    assert abs(model.scaler.mean_[0] - X[train_mask].mean()) < 1e-12
+    # 反例：若在全体数据上 fit，均值会不同（确保本测试有分辨力）
+    assert abs(float(X[train_mask].mean()) - float(X.mean())) > 1e-6
+    assert model.clf.n_features_in_ == 1
+    assert model.clf.C == 1.0
+
+
+def test_m1_fit_uses_only_log1p_lam():
+    """M1 的拟合矩阵列数 = 1；多传一列必须失败（白名单）。"""
+    rows = make_dataset(n_videos=8, K=36, seed=32)
+    X = M.select_features(rows, M.model_features("M1"))
+    assert X.shape[1] == 1
+    with pytest.raises(M.ProtocolError):
+        M.fit_model(np.hstack([X, X]), np.array([r["y"] for r in rows]),
+                    M.model_features("M1"))
+
+
+def test_hyperparameter_search_absent():
+    import os
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                            "jobs", "m2_l6_burst_risk.py"), encoding="utf-8").read()
+    for bad in ("GridSearchCV", "RandomizedSearchCV", "optuna"):
+        assert bad not in src
