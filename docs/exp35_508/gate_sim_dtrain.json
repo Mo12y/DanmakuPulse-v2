@@ -1,0 +1,106 @@
+{
+  "split": "train",
+  "n_train_videos": 189,
+  "reps": 2000,
+  "seed": 20261026,
+  "grid": [
+    150,
+    200,
+    250,
+    300,
+    400,
+    500
+  ],
+  "per_video": {
+    "points_p50": 13.0,
+    "points_p90": 64.20000000000002,
+    "pos_rate": 0.37183918501000546
+  },
+  "rows": [
+    {
+      "n_conf_videos": 150,
+      "eligible_p05": 97.0,
+      "eligible_p50": 106.0,
+      "eligible_p95": 115.0,
+      "p_eligible_ge30": 1.0,
+      "pos_p05": 1286.95,
+      "pos_p50": 1601.5,
+      "neg_p05": 2064.9,
+      "neg_p50": 2699.5,
+      "single_class_share_p50": 0.14,
+      "p_single_class_share_gt_20pct": 0.0285
+    },
+    {
+      "n_conf_videos": 200,
+      "eligible_p05": 131.0,
+      "eligible_p50": 142.0,
+      "eligible_p95": 153.0,
+      "p_eligible_ge30": 1.0,
+      "pos_p05": 1788.0,
+      "pos_p50": 2158.0,
+      "neg_p05": 2878.9,
+      "neg_p50": 3621.5,
+      "single_class_share_p50": 0.14,
+      "p_single_class_share_gt_20pct": 0.0085
+    },
+    {
+      "n_conf_videos": 250,
+      "eligible_p05": 165.0,
+      "eligible_p50": 177.0,
+      "eligible_p95": 189.0,
+      "p_eligible_ge30": 1.0,
+      "pos_p05": 2287.8,
+      "pos_p50": 2690.0,
+      "neg_p05": 3690.85,
+      "neg_p50": 4522.5,
+      "single_class_share_p50": 0.14,
+      "p_single_class_share_gt_20pct": 0.005
+    },
+    {
+      "n_conf_videos": 300,
+      "eligible_p05": 200.0,
+      "eligible_p50": 213.0,
+      "eligible_p95": 226.0,
+      "p_eligible_ge30": 1.0,
+      "pos_p05": 2770.0,
+      "pos_p50": 3227.0,
+      "neg_p05": 4533.9,
+      "neg_p50": 5448.0,
+      "single_class_share_p50": 0.14333333333333334,
+      "p_single_class_share_gt_20pct": 0.0015
+    },
+    {
+      "n_conf_videos": 400,
+      "eligible_p05": 269.0,
+      "eligible_p50": 284.0,
+      "eligible_p95": 298.0,
+      "p_eligible_ge30": 1.0,
+      "pos_p05": 3752.75,
+      "pos_p50": 4315.5,
+      "neg_p05": 6172.6,
+      "neg_p50": 7267.0,
+      "single_class_share_p50": 0.1425,
+      "p_single_class_share_gt_20pct": 0.0
+    },
+    {
+      "n_conf_videos": 500,
+      "eligible_p05": 338.0,
+      "eligible_p50": 355.0,
+      "eligible_p95": 371.0,
+      "p_eligible_ge30": 1.0,
+      "pos_p05": 4781.85,
+      "pos_p50": 5392.5,
+      "neg_p05": 7883.45,
+      "neg_p50": 9149.0,
+      "single_class_share_p50": 0.142,
+      "p_single_class_share_gt_20pct": 0.0005
+    }
+  ],
+  "recommendation": {
+    "n_conf_videos": 150,
+    "min_pos_windows": 1286,
+    "min_neg_windows": 2064,
+    "basis": "n=150 时 P(可评估>=30)=1.00，取正/负窗口总数的 5% 分位向下取整",
+    "caveat": "计数门槛只保证'AUC 可算'，不保证 CI 半宽 <=0.02；后者由视频数与 SD 决定"
+  }
+}

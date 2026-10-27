@@ -1,0 +1,20 @@
+{
+  "n_videos": 134,
+  "n_points": 5157,
+  "shift_buckets": 6,
+  "seed": 7,
+  "base_macro_auc": 0.6157964246620886,
+  "shuffle_label_eval_auc": 0.5105337527596719,
+  "shuffle_label_fit_auc": 0.39535259761471436,
+  "duration_only_macro_auc": 0.5,
+  "feature_shift_macro_auc": 0.6177422325681601,
+  "shift_n_points": 5023,
+  "shift_n_videos": 134,
+  "verdict": {
+    "shuffle_eval_ok": true,
+    "shuffle_fit_ok": false,
+    "duration_only_exact": true,
+    "shift_drops": false
+  },
+  "note": "负对照是诊断；不达标说明管道有问题，不得据此调整主模型"
+}
