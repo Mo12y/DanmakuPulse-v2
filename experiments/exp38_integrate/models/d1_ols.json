@@ -1,0 +1,27 @@
+{
+  "model": "OLS-5f(renamed from OLS-6; 5 feature columns)",
+  "features": [
+    "c0",
+    "n36",
+    "n13",
+    "n01",
+    "slope",
+    "dur"
+  ],
+  "coef": [
+    0.31066228665244205,
+    0.22366067839090056,
+    0.09530727828517732,
+    -0.20846103483636097,
+    0.12835340010572296,
+    0.2652144237150843
+  ],
+  "intercept": 2.2060667801781353,
+  "resid_log_q": {
+    "p10": -0.9332,
+    "p50": 0.0496,
+    "p90": 1.0125
+  },
+  "trained_on": "daily 1012-1026 full window (1,313 units / videos age>=31h)",
+  "eval_ref": "exp38 audit (time-split CI)"
+}

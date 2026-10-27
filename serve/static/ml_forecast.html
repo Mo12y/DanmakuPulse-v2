@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="dark">
+<script>try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ML 预测卡 · 弹幕互动节奏分析系统</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="v3.css">
+<style>
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:18px;margin:0 0 4px}
+.pagesub{font-size:12px;color:var(--text-secondary);margin:0 0 14px}
+.sub{font-size:12px;color:var(--text-secondary);margin-bottom:14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{font-size:12px;padding:4px 10px;border:1px solid var(--border-subtle);border-radius:999px}
+.search{width:280px;padding:7px 10px;font-size:13px;background:var(--card);
+  border:1px solid var(--border-subtle);border-radius:8px;color:var(--text);margin-bottom:16px}
+.card{border:1px solid var(--border-subtle);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card)}
+.card h3{font-size:14px;margin:0 0 2px}
+.meta{font-size:11px;color:var(--text-tertiary);margin-bottom:8px}
+.row{display:grid;grid-template-columns:150px 1fr;gap:8px;font-size:13px;padding:3px 0}
+.k{color:var(--text-secondary)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid var(--border-subtle)}
+.pill.ok{color:var(--success-ink);background:var(--success-soft)}
+.pill.pending{color:var(--warn-ink);background:var(--warn-soft)}
+.pill.insufficient,.pill.unavailable{color:var(--text-tertiary)}
+.bar{height:6px;background:var(--surface-active);border-radius:3px;overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--primary)}
+.err{color:var(--danger-ink);font-size:13px;padding:16px;border:1px solid var(--border-subtle);border-radius:10px}
+.note{font-size:11px;color:var(--text-tertiary);margin-top:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ML 预测卡</h1>
+  <p class="pagesub"><b>弹幕余量与结论稳定度</b> ｜ 发布 6 小时后的视频</p>
+  <div class="sub" id="meta">加载中…</div>
+  <div class="chips" id="chips"></div>
+  <input class="search" id="q" placeholder="按 bvid 过滤（回车）">
+  <div id="list"></div>
+  <div class="note">
+    口径边界：D1 = 发布后 6h 时点对 (6h,30h] 弹幕量的预测（OLS-5f，时间切验证 ΔR²=+0.095 [0.045,0.144]），
+    不是播放量/热度/质量预测；D2.p_stable = 当前节奏结论到采集结束不漂移（≤0.25 IQR）的模型概率
+    （HGB，时间切验证 ΔAUC=+0.078 [0.060,0.096]），stable_measured = 全量对照实测值，与模型概率严格区分。
+    训练数据窗 20261012–1026，多 P 已知视频剔除；pending = 标签窗口尚未完全观测。
+  </div>
+</div>
+<script>
+let ALL = [];
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function pill(st){return `<span class="pill ${st}">${st}</span>`}
+function bar(p){return `<div style="display:flex;align-items:center;gap:8px"><div class="bar"><i style="width:${Math.round(p*100)}%"></i></div><span>${(p*100).toFixed(1)}%</span></div>`}
+function card(it){
+  const d1 = it.d1||{}, d2 = it.d2||{};
+  let d1r = `${pill(d1.status||'unavailable')} `;
+  if(d1.status==='ok') d1r += `预计 <b>${Math.round(d1.forecast_6h_30h)}</b> 条 ｜ 实测 <b>${Math.round(d1.actual_6h_30h)}</b> 条`;
+  else if(d1.status==='pending') d1r += `预计 <b>${Math.round(d1.forecast_6h_30h)}</b> 条（实测待窗口闭合）`;
+  let d2r = `${pill(d2.status||'unavailable')} `;
+  if(d2.status==='ok'){
+    const c=d2.current;
+    d2r += `${bar(c.p_stable)} <span class="k">（t=${c.t}h，k=${c.k}；实测：${c.stable_measured?'稳定':'漂移'}）</span>`;
+  }
+  return `<div class="card"><h3>${esc(it.title||it.bvid)}</h3>
+    <div class="meta">${esc(it.bvid)} ｜ ${esc(it.tname||'')} ｜ ${it.duration_min}min ｜ 采集时龄 ${it.age_h}h ｜ 批次 ${it.batch}</div>
+    <div class="row"><span class="k">D1 未来24h弹幕量</span><span>${d1r}</span></div>
+    <div class="row"><span class="k">D2 结论稳定度</span><span>${d2r}</span></div></div>`;
+}
+function render(items){
+  document.getElementById('list').innerHTML = items.length ? items.map(card).join('') :
+    '<div class="err">无匹配视频</div>';
+}
+function boot(){
+  fetch('/api/ml/forecast').then(r=>r.json()).then(r=>{
+    if(r.code!==0) throw new Error(r.message||'code!=0');
+    const d=r.data; ALL=d.items;
+    document.getElementById('meta').textContent =
+      `生成于 ${d.generated_at} ｜ 数据窗 ${d.data_window} ｜ ${d.n_items} 支视频 ｜ 模型 ml_forecast@exp38`;
+    render(ALL);
+  }).catch(e=>{document.getElementById('list').innerHTML =
+    `<div class="err">快照不可用：${esc(e.message)}（需在宿主机运行 jobs/ml_forecast_build.py 并重建 fastapi 镜像）</div>`;});
+}
+document.getElementById('q').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){const v=e.target.value.trim();render(ALL.filter(x=>!v||x.bvid.includes(v)));}
+});
+boot();
+</script>
+</body>
+</html>
