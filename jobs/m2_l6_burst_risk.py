@@ -1,0 +1,1262 @@
+#!/usr/bin/env python3
+"""
+m2_l6_burst_risk.py — exp35 正式实现：播放位置短期爆发风险（H = 6 × 5 s = 30 s）
+
+定位（写死，不因结果修改）
+------------------------
+给定**单个观测快照**，只用 `time_offset < t` 的弹幕，预测 `[t, t+30s)` 内是否出现
+"相对决策点基线的统计爆发"。是**离线、快照条件**的播放位置预测，不是实时预警
+（快照在采集时刻已含 t 之后的全部弹幕，实时性不可检验 —— 见协议 §1.1 / §12）。
+
+协议常量（改任一值 = 新协议版本，见 docs/exp35_508/35_formal_spec_rc4_candidate.md）
+--------------------------------------------------------------------------
+B=5 s 桶宽　PRE=12 桶（60 s 历史）　H=6 桶（30 s 预测）　步长 = H
+thr_t = max(3.0, λ_t + 2·√λ_t)　　y_t = 1[ max(c[t:t+H]) >= thr_t ]
+λ_t = mean(c[t-PRE:t])　　（阈值在 t 处只算一次，不在未来窗口内滚动）
+
+运行
+----
+  PY=~/danmaku-venv/bin/python
+  $PY jobs/m2_l6_burst_risk.py --verify-manifest
+  $PY jobs/m2_l6_burst_risk.py --stage power --data-root /home/molly/projects/danmaku
+  $PY jobs/m2_l6_burst_risk.py --stage gate-sim --data-root /home/molly/projects/danmaku
+  $PY jobs/m2_l6_burst_risk.py --stage build --data-root /home/molly/projects/danmaku
+
+边界（硬约束，违反即 raise，不静默）
+----------------------------------
+* 只允许 ODS 层；DWD 只作独立敏感性（不同输出目录，禁止合并入模）
+* 只允许批次 {20260902,20260907}(train) / {20260914,20260917}(dev)；
+  其余批次（含任何 >= 20261027 的 D-conf 候选）一律 DataIsolationError
+* 特征白名单 + 显式黑名单断言；非法列立即失败
+* 输入文件来自 manifest 白名单，不 glob 目录
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import json
+import math
+import os
+import re
+import sys
+from dataclasses import dataclass, field
+
+import numpy as np
+
+# ══════════════════════════════════════════════════════════════════════
+# 0. 协议常量（写死）
+# ══════════════════════════════════════════════════════════════════════
+PROTOCOL_VERSION = "exp35-formal-rc4-candidate"
+
+B = 5                 # 桶宽（秒）
+PRE = 12              # 历史窗口（桶）
+H = 6                 # 预测窗口（桶）= 30 s
+DECISION_STEP = H     # 决策点步长 = H（窗口不重叠）
+MIN_COUNT = 3.0       # 阈值下限
+SIGMA = 2.0           # 阈值系数
+MIN_DURATION = 120    # 正式可用视频最低时长（秒）
+
+MIN_POINTS = 5        # 每视频有效决策点下限
+MIN_POS = 2           # 每视频正例下限
+MIN_NEG = 2           # 每视频负例下限
+MIN_ELIGIBLE_VIDEOS = 30   # 报告下限（非功效保证）
+
+BOOT_B = 2000
+BOOT_SEED = 20261026
+BOOT_MIN_ELIGIBLE = 50
+CALIB_FOLDS = 5
+CALIB_SEED = 20261026
+CV_FOLDS = 5
+CV_SEED = 20261026
+
+D_TRAIN_BATCHES = ("20260902", "20260907")
+D_DEV_BATCHES = ("20260914", "20260917")
+KNOWN_BATCHES = D_TRAIN_BATCHES + D_DEV_BATCHES
+D_CONF_FIRST_BATCH = "20261027"   # 冻结 commit 之后才开始采集的批次
+
+# 特征名映射（任务书用 lambda / duration，协议 §5 批准的是 log1p 变换）
+TASK_FEATURE_ALIAS = {"lambda": "log1p_lam", "duration": "log1p_duration"}
+
+FEATURES_M1 = ("log1p_lam",)
+FEATURES_M2 = ("log1p_lam", "slope", "since", "censored", "prog", "log1p_duration")
+FEATURES_M3 = FEATURES_M2 + ("ent",)
+FEATURES_DURATION_ONLY = ("log1p_duration",)
+
+BANNED = frozenset({
+    "n_dm", "danmaku_got", "danmaku_reported", "play", "like", "coin", "favorite",
+    "share", "reply", "tname", "up_mid", "up_name", "bvid", "cid", "pubdate",
+    "y", "label", "thr", "thr_t", "lam_t", "future_max", "win_max",
+    "main_peak_pct", "cold_pct", "cv", "global_ent", "is_spam",
+})
+
+MODEL_SPECS = {
+    "M0": None,   # 未获批准定义 —— 保留接口，不实现
+    "M1": FEATURES_M1,
+    "M2": FEATURES_M2,
+    "M3": FEATURES_M3,
+    "M4": None,   # 未获批准定义 —— 保留接口，不实现
+}
+PRIMARY_MODEL = "M2"
+SECONDARY_MODEL = "M3"
+COMPARISON_MODEL = "M1"
+
+
+class ProtocolError(RuntimeError):
+    """协议/实现契约被违反。"""
+
+
+class DataIsolationError(RuntimeError):
+    """试图触碰 D-conf / 未登记批次 / 跨层混用。"""
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 1. 数据隔离
+# ══════════════════════════════════════════════════════════════════════
+_DCONF_PATTERNS = (
+    re.compile(r"d[_\-\s]?conf", re.I),
+    re.compile(r"dt\s*=\s*2026(102[7-9]|1[12]\d\d)"),
+    re.compile(r"(?<!\d)2026(102[7-9]|1[12]\d\d)(?!\d)"),
+    re.compile(r"hotlist_(top\d+|videos)_.*2026(102[7-9]|1[12]\d\d)", re.I),
+)
+
+
+_V2_DATA = re.compile(r"danmaku-v2[/\\]+data", re.I)
+
+
+def guard_path(path) -> str:
+    """拒绝任何疑似 D-conf 的路径，以及 v2 探索数据（不进正式路径）。
+
+    白名单之外的一切数据入口都必须先过这里。
+    """
+    s = str(path)
+    for pat in _DCONF_PATTERNS:
+        if pat.search(s):
+            raise DataIsolationError(
+                f"拒绝访问疑似 D-conf 路径: {s}（匹配 {pat.pattern}）")
+    if _V2_DATA.search(s):
+        raise DataIsolationError(f"v2 探索数据不得进入正式路径: {s}")
+    return s
+
+
+def split_of(batch) -> str:
+    """批次 → 集合名。未登记批次一律拒绝，绝不"默认归入 train"。"""
+    b = str(batch).strip()
+    if b in D_TRAIN_BATCHES:
+        return "train"
+    if b in D_DEV_BATCHES:
+        return "dev"
+    if b.isdigit() and b >= D_CONF_FIRST_BATCH:
+        raise DataIsolationError(f"批次 {b} 属 D-conf 区间（>= {D_CONF_FIRST_BATCH}），正式路径拒绝读取")
+    raise DataIsolationError(f"未登记批次 {b}；允许集合 = {KNOWN_BATCHES}")
+
+
+def assert_single_layer(layers) -> str:
+    """ODS 与 DWD 不得混入同一训练/校准/评估集合。"""
+    s = {str(x).lower() for x in layers}
+    if len(s) != 1:
+        raise ProtocolError(f"禁止混用数据层: {sorted(s)}")
+    layer = s.pop()
+    if layer not in ("ods", "dwd"):
+        raise ProtocolError(f"未知数据层: {layer}")
+    return layer
+
+
+def output_dir_for(layer: str) -> str:
+    """ODS 与 DWD 输出目录必须独立。"""
+    layer = assert_single_layer([layer])
+    return os.path.join("data-out", "m2_l6", "ods" if layer == "ods" else "dwd_sensitivity")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 2. 序列构建（去重 → 分桶）
+# ══════════════════════════════════════════════════════════════════════
+@dataclass
+class Sequence:
+    """单视频在单快照内的 5 s 桶计数序列。"""
+    bvid: str
+    batch: str
+    duration: float
+    c: np.ndarray
+    audit: dict = field(default_factory=dict)
+
+    @property
+    def K(self) -> int:
+        return int(self.c.size)
+
+    @property
+    def usable(self) -> bool:
+        return self.duration >= MIN_DURATION and self.K >= PRE + H
+
+
+def build_sequence(bvid, batch, time_offsets, dmids, duration, *,
+                   B=B, min_duration=MIN_DURATION) -> Sequence:
+    """正式规则：**先按 dmid 去重，再按 floor(time_offset/B) 分桶**。
+
+    - dmid = ODS 的 `row_id`（19 位；schema 无 `dmid` 字段，映射见协议 §5.1）
+    - 时间缺失/非有限、负值、> duration：丢弃并计数（不静默）
+    - offset == duration 且 duration 为 B 整数倍时落入 K 号桶 → 夹到 K-1 并计数
+    """
+    split_of(batch)  # 未登记批次在此 raise
+    off = np.asarray(time_offsets, dtype=float).ravel()
+    ids = np.asarray(dmids, dtype=str).ravel()
+    if off.size != ids.size:
+        raise ProtocolError(f"time_offset({off.size}) 与 dmid({ids.size}) 长度不一致")
+    dur = float(duration)
+    if not math.isfinite(dur) or dur <= 0:
+        raise ProtocolError(f"{bvid}/{batch}: 非法 duration={duration!r}")
+
+    audit = dict(rows_in=int(off.size), dropped_nan=0, dropped_negative=0,
+                 dropped_beyond_duration=0, dropped_duplicate_dmid=0, clipped_to_last_bucket=0)
+    ok = np.isfinite(off)
+    audit["dropped_nan"] = int((~ok).sum())
+    neg = ok & (off < 0)
+    audit["dropped_negative"] = int(neg.sum())
+    ok &= ~neg
+    oob = ok & (off > dur)
+    audit["dropped_beyond_duration"] = int(oob.sum())
+    ok &= ~oob
+    off, ids = off[ok], ids[ok]
+
+    # 去重：按 (offset, dmid) 排序后保留每个 dmid 的首条 → 确定性、可复现
+    order = np.lexsort((ids, off))
+    off, ids = off[order], ids[order]
+    _, first = np.unique(ids, return_index=True)
+    keep = np.zeros(ids.size, dtype=bool)
+    keep[first] = True
+    audit["dropped_duplicate_dmid"] = int(ids.size - keep.sum())
+    off = off[keep]
+    audit["rows_kept"] = int(off.size)
+
+    K = int(math.ceil(dur / B))
+    idx = np.floor(off / B).astype(np.int64)
+    hi = int((idx >= K).sum())
+    if hi:
+        audit["clipped_to_last_bucket"] = hi
+        idx = np.clip(idx, 0, K - 1)
+    c = np.bincount(idx, minlength=K).astype(np.int64)
+    return Sequence(bvid=str(bvid), batch=str(batch), duration=dur, c=c, audit=audit)
+
+
+def decision_times(K, *, pre=PRE, h=H, step=None) -> np.ndarray:
+    """合法决策点：t ∈ {PRE, PRE+step, ...} 且 **t + H <= K**（闭区间上界，最后一点必须保留）。"""
+    step = h if step is None else step
+    if K < pre + h:
+        return np.zeros(0, dtype=np.int64)
+    ts = list(range(pre, K - h + 1, step))
+    return np.asarray(ts, dtype=np.int64)
+
+
+def threshold(lam, *, min_count=MIN_COUNT, sigma=SIGMA) -> float:
+    """thr_t = max(3.0, λ + 2√λ)；λ=0 时退化为 3.0（float64，不引入 epsilon）。"""
+    lam = float(lam)
+    return float(max(min_count, lam + sigma * math.sqrt(lam)))
+
+
+@dataclass(frozen=True)
+class Point:
+    bvid: str
+    batch: str
+    t: int
+    lam: float
+    thr: float
+    y: int
+    win_start: int
+    win_end: int      # 不含
+    K: int
+
+    def as_row(self):
+        return dict(bvid=self.bvid, batch=self.batch, t=self.t, lam=self.lam,
+                    thr=self.thr, y=self.y, win_start=self.win_start,
+                    win_end=self.win_end, K=self.K)
+
+
+def label_points(seq: Sequence, *, pre=PRE, h=H, step=None,
+                 min_count=MIN_COUNT, sigma=SIGMA):
+    """在单条序列上生成全部合法决策点标签。
+
+    阈值在 t 处**只算一次**，未来窗口只用于比较（不在窗口内滚动重算）。
+    """
+    ts = decision_times(seq.K, pre=pre, h=h, step=step)
+    out = []
+    for t in ts:
+        t = int(t)
+        lam = float(seq.c[t - pre:t].mean())
+        thr = threshold(lam, min_count=min_count, sigma=sigma)
+        fut = seq.c[t:t + h]
+        y = int(fut.size == h and float(fut.max()) >= thr)
+        out.append(Point(seq.bvid, seq.batch, t, lam, thr, y, t, t + h, seq.K))
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 3. 特征（白名单）
+# ══════════════════════════════════════════════════════════════════════
+def entropy12(win) -> float:
+    """ent = -Σ p_k log p_k / log(12)，p_k 在**全部 12 桶**上归一。
+
+    全零窗口 → 0.0；单桶集中 → 0.0；均匀 → 1.0。
+    """
+    w = np.asarray(win, dtype=float)
+    s = float(w.sum())
+    if s <= 0:
+        return 0.0
+    p = w / s
+    p = p[p > 0]
+    if p.size <= 1:
+        return 0.0
+    return float(-(p * np.log(p)).sum() / math.log(len(w)))
+
+
+def since_censored(seq: Sequence, t, *, pre=PRE, h=H) -> tuple:
+    """D2 滚动参照：距上次"同类爆发"（e_k 与标签同函数形式）的时间。
+
+    e_k = 1[c[k] >= max(3, λ_k + 2√λ_k)]，λ_k = mean(c[k-PRE:k])，只用 k <= t-1。
+    只在**可观察的 12 桶**内查找：k ∈ [max(PRE, t-PRE), t)。
+    无事件 → since = PRE, censored = 1（首个决策点 t=PRE 必然如此）。
+    """
+    t = int(t)
+    lo = max(pre, t - pre)
+    for k in range(t - 1, lo - 1, -1):
+        lam_k = float(seq.c[k - pre:k].mean())
+        if float(seq.c[k]) >= threshold(lam_k):
+            return float(t - k), 0.0
+    return float(pre), 1.0
+
+
+def feature_row(seq: Sequence, t, *, pre=PRE, feature_shift=0) -> dict:
+    """单点特征。全部输入只用 c[0:t]（`feature_shift>0` 仅用于负对照，把窗口整体前移）。"""
+    t = int(t)
+    te = t - int(feature_shift)          # 负对照：窗口整体前移
+    if te - pre < 0:
+        raise ProtocolError(f"feature_shift={feature_shift} 超出可观察范围（t={t}, PRE={pre}）")
+    win = seq.c[te - pre:te].astype(float)
+    lam = float(win.mean())
+    recent = float(seq.c[te - 6:te].mean())
+    older = float(seq.c[te - pre:te - 6].mean())
+    since, cens = since_censored(seq, te, pre=pre)
+    return dict(
+        log1p_lam=math.log1p(lam),
+        slope=math.log1p(recent) - math.log1p(older),   # 对数差分，无 epsilon
+        since=since,
+        censored=cens,
+        prog=te / float(seq.K),
+        ent=entropy12(win),
+        log1p_duration=math.log1p(seq.duration),
+        lam=lam,
+    )
+
+
+def select_features(rows, columns) -> np.ndarray:
+    """白名单取列 + 黑名单断言。非法列**立即失败**，不静默丢弃。"""
+    cols = tuple(columns)
+    assert_whitelist(cols)
+    try:
+        X = np.asarray([[r[c] for c in cols] for r in rows], dtype=float)
+    except KeyError as exc:
+        raise ProtocolError(f"特征列缺失: {exc}") from exc
+    if not np.isfinite(X).all():
+        bad = [c for i, c in enumerate(cols) if not np.isfinite(X[:, i]).all()]
+        raise ProtocolError(f"特征含非有限值: {bad}")
+    return X
+
+
+def assert_whitelist(columns) -> None:
+    cols = tuple(columns)
+    if not cols:
+        raise ProtocolError("特征白名单为空")
+    bad = [c for c in cols if c in BANNED]
+    if bad:
+        raise ProtocolError(f"禁用特征进入模型: {bad}")
+    allowed = set(FEATURES_M2) | {"ent"}
+    unknown = [c for c in cols if c not in allowed]
+    if unknown:
+        raise ProtocolError(f"未获批准的特征: {unknown}（允许: {sorted(allowed)}）")
+
+
+def model_features(name: str) -> tuple:
+    if name not in MODEL_SPECS:
+        raise ProtocolError(f"未知模型 {name}；允许 {sorted(MODEL_SPECS)}")
+    feats = MODEL_SPECS[name]
+    if feats is None:
+        raise ProtocolError(f"模型 {name} 未获批准定义（协议无正文），只保留接口，不得训练")
+    return tuple(feats)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 4. 模型（Logistic + L2 + 标准化，C=1.0；不搜索超参）
+# ══════════════════════════════════════════════════════════════════════
+@dataclass
+class FittedModel:
+    scaler: object
+    clf: object
+    features: tuple
+    fit_videos: frozenset = frozenset()
+    n_fit_points: int = 0
+
+    def predict_proba(self, X):
+        Z = self.scaler.transform(np.asarray(X, dtype=float))
+        return self.clf.predict_proba(Z)[:, 1]
+
+
+def fit_model(X, y, features, *, C=1.0, fit_videos=None, n_fit_points=None) -> FittedModel:
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=int)
+    if X.ndim != 2 or X.shape[1] != len(features):
+        raise ProtocolError(f"X 形状 {X.shape} 与特征数 {len(features)} 不符")
+    if np.unique(y).size < 2:
+        raise ProtocolError("训练集只有单一类别，拒绝拟合")
+    assert_whitelist(features)
+    scaler = StandardScaler().fit(X)            # 只在传入的（训练）X 上 fit
+    clf = LogisticRegression(C=C, max_iter=1000, solver="lbfgs")   # 默认 L2
+    clf.fit(scaler.transform(X), y)
+    return FittedModel(scaler, clf, tuple(features),
+                       frozenset(fit_videos or ()), n_fit_points)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 5. 评估：视频宏平均视频内 AUC + 配对视频级 Bootstrap
+# ══════════════════════════════════════════════════════════════════════
+def auc(y, p) -> float:
+    """单视频内 AUC（Mann–Whitney，平均秩处理并列）。要求两类齐全。"""
+    from sklearn.metrics import roc_auc_score
+    y = np.asarray(y, dtype=int)
+    p = np.asarray(p, dtype=float)
+    if np.unique(y).size < 2:
+        raise ProtocolError("单类视频不得计算/填补 AUC")
+    return float(roc_auc_score(y, p))
+
+
+def macro_within_video_auc(y, p, vid) -> dict:
+    """主指标：每视频一票的视频内 AUC 宏平均。单类视频**排除且不填补 0.5**。"""
+    y = np.asarray(y, dtype=int)
+    p = np.asarray(p, dtype=float)
+    vid = np.asarray(vid, dtype=str)
+    videos = np.unique(vid)
+    per, excluded = {}, []
+    for v in videos:
+        m = vid == v
+        if np.unique(y[m]).size < 2:
+            excluded.append(v)
+            continue
+        per[v] = auc(y[m], p[m])
+    vals = np.array(list(per.values()), dtype=float)
+    n_el = int(vals.size)
+    return dict(
+        metric="macro_within_video_auc",
+        macro=float(vals.mean()) if n_el else float("nan"),
+        per_video=per,
+        n_videos=int(videos.size),
+        n_eligible=n_el,
+        n_excluded_single_class=len(excluded),
+        eligibility_share=(n_el / videos.size) if videos.size else 0.0,
+        quantiles=dict(
+            p10=float(np.percentile(vals, 10)) if n_el else float("nan"),
+            p50=float(np.percentile(vals, 50)) if n_el else float("nan"),
+            p90=float(np.percentile(vals, 90)) if n_el else float("nan"),
+        ) if n_el else {},
+    )
+
+
+def pooled_auc(y, p) -> float:
+    return auc(y, p)
+
+
+def paired_bootstrap_delta(y, p_a, p_b, vid, *, B=BOOT_B, seed=BOOT_SEED,
+                           min_eligible=None) -> dict:
+    """ΔAUC = macro(a) − macro(b) 的配对视频级 Bootstrap 95% CI。
+
+    重采样单位 = bvid（整簇）；两个模型用**同一批**被抽中的视频；
+    单次重采样若可用视频 < min_eligible 则丢弃并计数。
+    """
+    y = np.asarray(y, dtype=int)
+    vid = np.asarray(vid, dtype=str)
+    videos = np.unique(vid)
+    d = {}
+    for v in videos:
+        m = vid == v
+        if np.unique(y[m]).size < 2:
+            continue
+        d[v] = auc(y[m], np.asarray(p_a)[m]) - auc(y[m], np.asarray(p_b)[m])
+    if not d:
+        raise ProtocolError("没有可评估视频，无法做配对 Bootstrap")
+    keys = np.array(sorted(d))
+    deltas = np.array([d[k] for k in keys], dtype=float)
+    if min_eligible is None:      # 一次重采样若丢掉一半以上的视频，视为退化样本
+        min_eligible = max(2, int(round(0.5 * keys.size)))
+    rng = np.random.default_rng(seed)
+    reps, discarded = [], 0
+    for _ in range(int(B)):
+        samp = rng.choice(keys, size=keys.size, replace=True)
+        if np.unique(samp).size < min_eligible:
+            discarded += 1
+            continue
+        reps.append(float(np.mean([d[s] for s in samp])))
+    reps = np.asarray(reps, dtype=float)
+    if reps.size < 100:
+        raise ProtocolError(f"有效重采样仅 {reps.size} 次（<100），拒绝报告 CI")
+    return dict(delta=float(deltas.mean()), ci_lo=float(np.percentile(reps, 2.5)),
+                ci_hi=float(np.percentile(reps, 97.5)), B=int(B), seed=int(seed),
+                unit="bvid", n_eligible=int(keys.size), n_valid_reps=int(reps.size),
+                n_discarded=int(discarded))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 6. 交叉拟合 + Platt 校准（只用 D-train）
+# ══════════════════════════════════════════════════════════════════════
+def _logit(p, eps=1e-6):
+    p = np.clip(np.asarray(p, dtype=float), eps, 1 - eps)
+    return np.log(p / (1 - p))
+
+
+def group_folds(vid, *, folds=CV_FOLDS, seed=CV_SEED) -> dict:
+    """按 bvid 分组的分折（同一视频的全部决策点进同一折）。"""
+    videos = np.unique(np.asarray(vid, dtype=str))
+    rng = np.random.default_rng(seed)
+    perm = rng.permutation(videos)
+    return {v: int(i % folds) for i, v in enumerate(perm)}
+
+
+def cross_fit_scores(X, y, vid, features, *, folds=CV_FOLDS, seed=CV_SEED) -> dict:
+    """折外（OOF）分数：每个点的分数都来自**没见过该视频**的基础模型。"""
+    vid = np.asarray(vid, dtype=str)
+    y = np.asarray(y, dtype=int)
+    fold_of = group_folds(vid, folds=folds, seed=seed)
+    fold_id = np.array([fold_of[v] for v in vid], dtype=int)
+    oof = np.full(y.size, np.nan)
+    assignments = []
+    for f in range(folds):
+        te = fold_id == f
+        tr = ~te
+        if tr.sum() == 0 or te.sum() == 0:
+            raise ProtocolError(f"折 {f} 为空，无法交叉拟合")
+        model = fit_model(X[tr], y[tr], features,
+                          fit_videos=set(vid[tr]), n_fit_points=int(tr.sum()))
+        oof[te] = model.predict_proba(X[te])
+        assignments.append(dict(fold=f, n_train_points=int(tr.sum()), n_test_points=int(te.sum()),
+                                n_train_videos=int(np.unique(vid[tr]).size),
+                                n_test_videos=int(np.unique(vid[te]).size),
+                                video_overlap=int(len(set(vid[tr]) & set(vid[te])))))
+    if not np.isfinite(oof).all():
+        raise ProtocolError("OOF 分数不完整")
+    return dict(oof=oof, fold_id=fold_id, assignments=assignments,
+                fit_split="train_inner", folds=folds, seed=seed)
+
+
+def fit_platt(oof_scores, y, *, C=1e6) -> dict:
+    """在 OOF 分数上拟合 Platt（1 维 logistic，不惩罚）。返回 a,b 与指标。"""
+    from sklearn.linear_model import LogisticRegression
+    z = _logit(oof_scores).reshape(-1, 1)
+    y = np.asarray(y, dtype=int)
+    if np.unique(y).size < 2:
+        raise ProtocolError("校准集单一类别")
+    lr = LogisticRegression(C=C, max_iter=1000, solver="lbfgs")
+    lr.fit(z, y)
+    a = float(lr.coef_[0, 0])
+    b = float(lr.intercept_[0])
+    return dict(a=a, b=b, platt=lr, n=int(y.size), fit_split="train_inner_oof")
+
+
+def apply_platt(calib, scores):
+    z = _logit(scores)
+    return 1.0 / (1.0 + np.exp(-(calib["a"] * z + calib["b"])))
+
+
+def calibration_report(p, y, *, bins=10) -> dict:
+    """校准斜率/截距 + 可靠性曲线 + Brier。斜率 = 对 logit(p) 做 1 维 logistic。"""
+    from sklearn.linear_model import LogisticRegression
+    p = np.clip(np.asarray(p, dtype=float), 1e-6, 1 - 1e-6)
+    y = np.asarray(y, dtype=int)
+    z = _logit(p).reshape(-1, 1)
+    lr = LogisticRegression(C=np.inf, max_iter=1000, solver="lbfgs").fit(z, y)
+    slope = float(lr.coef_[0, 0])
+    intercept = float(lr.intercept_[0])
+    base = float(y.mean())
+    brier = float(np.mean((p - y) ** 2))
+    brier0 = float(np.mean((base - y) ** 2))
+    order = np.argsort(p, kind="mergesort")
+    curve = []
+    for chunk in np.array_split(order, bins):
+        if chunk.size == 0:
+            continue
+        curve.append(dict(n=int(chunk.size), mean_p=float(p[chunk].mean()),
+                          obs_rate=float(y[chunk].mean()),
+                          lo=float(p[chunk].min()), hi=float(p[chunk].max())))
+    return dict(slope=slope, intercept=intercept, brier=brier, brier_base=brier0,
+                brier_skill=float(1 - brier / brier0) if brier0 > 0 else float("nan"),
+                reliability=curve)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 7. 负对照（诊断，不是通过手段）
+# ══════════════════════════════════════════════════════════════════════
+def shuffle_labels_within_video(y, vid, *, seed=7) -> np.ndarray:
+    """负对照①：**视频内**置换标签（保持每视频正负数与总体基率，破坏"点↔特征"对应）。"""
+    y = np.asarray(y, dtype=int)
+    vid = np.asarray(vid, dtype=str)
+    out = y.copy()
+    rng = np.random.default_rng(seed)
+    for v in np.unique(vid):
+        m = np.flatnonzero(vid == v)
+        out[m] = rng.permutation(y[m])
+    return out
+
+
+def shift_feature_rows(rows, shift) -> list:
+    """负对照②：窗口整体前移 `shift` 桶（标签不变）。"""
+    out = []
+    for r in rows:
+        g = dict(r)
+        g["_feature_shift"] = int(shift)
+        out.append(g)
+    return out
+
+
+def build_rows(seqs, *, feature_shift=0, models=("M2",)) -> list:
+    """把序列展开成决策点行（含标签与特征）。
+
+    `feature_shift>0` 仅用于负对照（时间窗整体前移）：标签不变，窗口前移；
+    前移后历史窗不足的点被**丢弃**（负对照的样本是原样本的子集，报告须写明）。
+    """
+    rows = []
+    for seq in seqs:
+        for pt in label_points(seq):
+            if feature_shift and pt.t - int(feature_shift) < PRE:
+                continue
+            feats = feature_row(seq, pt.t, feature_shift=feature_shift)
+            row = pt.as_row()
+            row.update(feats)
+            row["split"] = split_of(pt.batch)
+            row["feature_shift"] = int(feature_shift)
+            rows.append(row)
+    return rows
+
+
+def eligible_video_ids(rows, *, min_points=MIN_POINTS, min_pos=MIN_POS,
+                       min_neg=MIN_NEG) -> list:
+    """评估资格：≥5 有效点、≥2 正、≥2 负（视频级）。"""
+    agg = {}
+    for r in rows:
+        a = agg.setdefault(r["bvid"], [0, 0])
+        a[0] += 1
+        a[1] += int(r["y"])
+    return sorted(v for v, (n, pos) in agg.items()
+                  if n >= min_points and pos >= min_pos and (n - pos) >= min_neg)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 8. 数据入口（manifest 白名单，不 glob）
+# ══════════════════════════════════════════════════════════════════════
+def read_file_manifest(path) -> list:
+    with open(path, encoding="utf-8-sig", newline="") as fh:
+        return [dict(r) for r in csv.DictReader(fh)]
+
+
+def _sha256(path, chunk=1 << 20) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for blk in iter(lambda: fh.read(chunk), b""):
+            h.update(blk)
+    return h.hexdigest()
+
+
+def verify_manifest(manifest_csv, data_root, *, check_bytes=True) -> dict:
+    """逐文件核验 sha256 / 字节数；差异**如实记录**，不重写清单。"""
+    rows, ok = [], 0
+    for r in read_file_manifest(manifest_csv):
+        path = os.path.join(data_root, r["file"])
+        guard_path(path)
+        actual_bytes = os.path.getsize(path) if os.path.exists(path) else -1
+        actual_sha = _sha256(path) if actual_bytes >= 0 else ""
+        exp_bytes = int(float(r["bytes"])) if r.get("bytes") else -1
+        status = "ok"
+        if actual_bytes < 0:
+            status = "missing"
+        elif check_bytes and exp_bytes >= 0 and actual_bytes != exp_bytes:
+            status = "size_mismatch"
+        elif actual_sha.lower() != (r.get("sha256") or "").lower():
+            status = "sha_mismatch"
+        if status == "ok":
+            ok += 1
+        rows.append(dict(layer=r["layer"], batch=r["batch"], file=r["file"],
+                         expected_bytes=exp_bytes, actual_bytes=actual_bytes,
+                         expected_sha256=r.get("sha256", ""), actual_sha256=actual_sha,
+                         status=status))
+    return dict(n_files=len(rows), n_ok=ok, all_ok=(ok == len(rows)), rows=rows)
+
+
+_ODS_COLS = ["bvid", "duration", "time_offset", "row_id", "part_count"]
+
+
+def load_sequences(manifest_csv, data_root, *, batches=None, layer="ods") -> tuple:
+    """按 manifest 白名单读取指定批次的 ODS（或 DWD），逐 (bvid,batch) 构序列。"""
+    import pandas as pd
+
+    layer = assert_single_layer([layer])
+    want = tuple(batches or KNOWN_BATCHES)
+    for b in want:
+        split_of(b)  # 未登记/ D-conf 批次在此 raise
+    rows = [r for r in read_file_manifest(manifest_csv)
+            if r["layer"] == ("ods_parquet" if layer == "ods" else "dwd_parquet")
+            and str(r["batch"]) in want]
+    if not rows:
+        raise ProtocolError(f"manifest 中没有 {layer} 层 / 批次 {want} 的文件")
+    provenance = []
+    seqs = []
+    for batch in want:
+        files = sorted(os.path.join(data_root, r["file"]) for r in rows if str(r["batch"]) == batch)
+        frames = []
+        for f in files:
+            guard_path(f)
+            frames.append(pd.read_parquet(f, columns=_ODS_COLS))
+            provenance.append(dict(batch=batch, file=os.path.relpath(f, data_root),
+                                   layer=layer, sha256=next(r["sha256"] for r in rows
+                                                            if os.path.join(data_root, r["file"]) == f)))
+        df = pd.concat(frames, ignore_index=True)
+        for bvid, g in df.groupby("bvid", sort=True):
+            seq = build_sequence(bvid, batch, g["time_offset"].to_numpy(),
+                                 g["row_id"].to_numpy(), float(g["duration"].iloc[0]))
+            seqs.append(seq)
+    return seqs, provenance
+
+
+def first_seen(records) -> dict:
+    """bvid → 最早出现批次。**必须在未过滤的原始表上计算**（协议 §6.2-1）。"""
+    out = {}
+    for bvid, batch in records:
+        b = str(batch)
+        out[str(bvid)] = b if str(bvid) not in out else min(out[str(bvid)], b)
+    return out
+
+
+def split_leak_check(records, *, assigned_split=None) -> dict:
+    """用原始表 first_seen 复核"训练视频不得在 dev 批次首次出现"。"""
+    fs = first_seen(records)
+    assigned = assigned_split or {}
+    bad = []
+    for bvid, batch in fs.items():
+        if bvid in assigned and split_of(batch) == "dev" and assigned[bvid] == "train":
+            bad.append(dict(bvid=bvid, first_seen=batch, assigned="train"))
+    return dict(n_videos=len(fs), violations=bad, n_violations=len(bad))
+
+
+def assert_train_only(rows) -> None:
+    """训练/校准入口守卫：混入 dev 行立即失败。"""
+    bad = sorted({r.get("split") for r in rows if r.get("split") != "train"})
+    if bad:
+        raise ProtocolError(f"训练入口只接受 D-train，收到 split={bad}")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 9. D-train-only 功效分析（最小可检测增量）
+# ══════════════════════════════════════════════════════════════════════
+POWER_GRID = (0.0, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05)
+
+
+def power_analysis(train_rows, *, grid=POWER_GRID, reps=2000, seed=BOOT_SEED,
+                   target_n=(134, 150, 200)) -> dict:
+    """用 D-train 的 OOF 配对视频级 AUC 差估计 SD，再模拟不同真实增量的检出功效。
+
+    统计单位 = 视频；效应量网格预先声明；**不按结果删格**。
+    功效定义：双侧 95% CI 下界 > 0（等价于 |Δ̂| / SE > 1.96 且方向为正）。
+    """
+    # 评估资格（≥5 点、≥2 正、≥2 负）先过滤，再算主指标
+    elig = set(eligible_video_ids(train_rows))
+    n_total = len({r["bvid"] for r in train_rows})
+    rows = [r for r in train_rows if r["bvid"] in elig]
+    y = np.array([r["y"] for r in rows], dtype=int)
+    vid = np.array([r["bvid"] for r in rows], dtype=str)
+
+    out = dict(protocol_version=PROTOCOL_VERSION, split="train", n_points=int(y.size),
+               n_videos=int(np.unique(vid).size), n_videos_total=int(n_total),
+               eligibility_rule=">=5 points, >=2 pos, >=2 neg",
+               grid=list(grid), reps=int(reps), seed=int(seed))
+    scores = {}
+    for name in (COMPARISON_MODEL, PRIMARY_MODEL):
+        feats = model_features(name)
+        X = select_features(rows, feats)
+        cf = cross_fit_scores(X, y, vid, feats, folds=CV_FOLDS, seed=CV_SEED)
+        m = macro_within_video_auc(y, cf["oof"], vid)
+        scores[name] = cf["oof"]
+        out[name] = dict(features=list(feats), macro_auc=m["macro"],
+                         n_eligible=m["n_eligible"], n_videos=m["n_videos"],
+                         eligibility_share=m["eligibility_share"],
+                         per_video_quantiles=m["quantiles"])
+    boot = paired_bootstrap_delta(y, scores[PRIMARY_MODEL], scores[COMPARISON_MODEL], vid)
+    out["delta"] = dict(model_a=PRIMARY_MODEL, model_b=COMPARISON_MODEL, **boot)
+
+    # 配对差的经验 SD（只用 D-train，只看离散度，不看方向）
+    d = []
+    for v in np.unique(vid):
+        m = vid == v
+        if np.unique(y[m]).size < 2:
+            continue
+        d.append(auc(y[m], scores[PRIMARY_MODEL][m]) - auc(y[m], scores[COMPARISON_MODEL][m]))
+    d = np.asarray(d, dtype=float)
+    out["paired_sd"] = float(d.std(ddof=1))
+    out["paired_sd_n"] = int(d.size)
+
+    sims = {}
+    for n in target_n:
+        se = out["paired_sd"] / math.sqrt(n)
+        row = {}
+        for delta in grid:
+            rng = np.random.default_rng(seed + int(delta * 1e6) + n)
+            draws = rng.normal(delta, out["paired_sd"], size=(reps, n))
+            mean = draws.mean(axis=1)
+            lo = mean - 1.96 * se
+            row[f"{delta:.3f}"] = dict(power=float((lo > 0).mean()),
+                                       mde_note=f"n={n}, SE={se:.4f}")
+        sims[str(n)] = row
+    out["power"] = sims
+    out["mde_80pct"] = {str(n): float((1.96 + 0.8416) * out["paired_sd"] / math.sqrt(n))
+                        for n in target_n}
+    out["caveat"] = ("模拟功效基于 D-train 内部 OOF 的配对差离散度，"
+                     "不等于 D-conf 的真实功效保证；D-conf 批次与训练批次不同源时 SD 只会更大")
+    return out
+
+
+def negative_controls(train_rows, train_seqs, *, seed=7, shift=6) -> dict:
+    """负对照（D-train 内部）：标签置乱 / 时间窗前移 / 仅时长。
+
+    三者都是**管道自检**，不是结果：
+      * 置乱：在置乱标签上拟合、对真标签评估 → 主指标应≈0.5
+      * 仅时长：视频内为常数 → 视频内 AUC 必须恰为 0.5
+      * 前移：特征整体前移 6 桶（30 s）→ 主指标应明显低于基线
+    任一项显著偏离即说明评估代码有误。
+    """
+    elig = set(eligible_video_ids(train_rows))
+    rows = [r for r in train_rows if r["bvid"] in elig]
+    y = np.array([r["y"] for r in rows], dtype=int)
+    vid = np.array([r["bvid"] for r in rows], dtype=str)
+
+    X = select_features(rows, FEATURES_M2)
+    base = cross_fit_scores(X, y, vid, FEATURES_M2)
+    base_auc = macro_within_video_auc(y, base["oof"], vid)["macro"]
+
+    # 置乱对照两口径（都报）：
+    #   eval 侧：真标签拟合 → 对置乱标签评估（标准置换检验，应≈0.5）
+    #   fit  侧：置乱标签拟合 → 对真标签评估（检验"用噪声训练能否预测真值"）
+    y_perm = shuffle_labels_within_video(y, vid, seed=seed)
+    true_model = fit_model(X, y, FEATURES_M2, fit_videos=set(vid))
+    p_true = true_model.predict_proba(X)
+    perm_eval_auc = macro_within_video_auc(y_perm, p_true, vid)["macro"]
+    perm_model = fit_model(X, y_perm, FEATURES_M2, fit_videos=set(vid))
+    perm_fit_auc = macro_within_video_auc(y, perm_model.predict_proba(X), vid)["macro"]
+
+    Xd = select_features(rows, FEATURES_DURATION_ONLY)
+    dur_model = fit_model(Xd, y, FEATURES_DURATION_ONLY, fit_videos=set(vid))
+    dur_auc = macro_within_video_auc(y, dur_model.predict_proba(Xd), vid)["macro"]
+
+    shifted_rows = [r for r in build_rows(train_seqs, feature_shift=shift) if r["bvid"] in elig]
+    ys = np.array([r["y"] for r in shifted_rows], dtype=int)
+    vs = np.array([r["bvid"] for r in shifted_rows], dtype=str)
+    Xs = select_features(shifted_rows, FEATURES_M2)
+    shift_model = fit_model(Xs, ys, FEATURES_M2, fit_videos=set(vs))
+    shift_auc = macro_within_video_auc(ys, shift_model.predict_proba(Xs), vs)["macro"]
+
+    return dict(n_videos=int(np.unique(vid).size), n_points=int(y.size),
+                shift_buckets=int(shift), seed=int(seed),
+                base_macro_auc=base_auc,
+                shuffle_label_eval_auc=perm_eval_auc,
+                shuffle_label_fit_auc=perm_fit_auc,
+                duration_only_macro_auc=dur_auc,
+                feature_shift_macro_auc=shift_auc,
+                shift_n_points=int(ys.size), shift_n_videos=int(np.unique(vs).size),
+                verdict=dict(
+                    shuffle_eval_ok=bool(abs(perm_eval_auc - 0.5) <= 0.06),
+                    shuffle_fit_ok=bool(abs(perm_fit_auc - 0.5) <= 0.06),
+                    duration_only_exact=bool(abs(dur_auc - 0.5) <= 1e-9),
+                    shift_drops=bool(shift_auc < base_auc - 0.02)),
+                note="负对照是诊断；不达标说明管道有问题，不得据此调整主模型")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 10. D-conf 事件门槛 count-only 模拟
+# ══════════════════════════════════════════════════════════════════════
+GATE_N_GRID = (150, 200, 250, 300, 400, 500)
+
+
+def gate_simulation(train_rows, *, n_grid=GATE_N_GRID, reps=2000, seed=BOOT_SEED) -> dict:
+    """用 D-train 的视频级(点数, 正例数)经验分布，模拟不同 D-conf 视频数下的门槛表现。
+
+    只做计数，不训练、不评估；不把相关窗口当独立样本。
+    """
+    per = {}
+    for r in train_rows:
+        a = per.setdefault(r["bvid"], [0, 0])
+        a[0] += 1
+        a[1] += int(r["y"])
+    keys = np.array(sorted(per))
+    npts = np.array([per[k][0] for k in keys], dtype=float)
+    pos = np.array([per[k][1] for k in keys], dtype=float)
+    rng = np.random.default_rng(seed)
+    out = dict(split="train", n_train_videos=int(keys.size), reps=int(reps), seed=int(seed),
+               grid=list(n_grid), per_video=dict(
+                   points_p50=float(np.percentile(npts, 50)), points_p90=float(np.percentile(npts, 90)),
+                   pos_rate=float(pos.sum() / npts.sum())))
+    rows = []
+    for n in n_grid:
+        elig, tot_pos, tot_neg, single = [], [], [], []
+        for _ in range(reps):
+            idx = rng.integers(0, keys.size, size=n)
+            p, q = npts[idx], pos[idx]
+            neg = p - q
+            ok = (p >= MIN_POINTS) & (q >= MIN_POS) & (neg >= MIN_NEG)
+            elig.append(int(ok.sum()))
+            tot_pos.append(int(q.sum()))
+            tot_neg.append(int(neg.sum()))
+            single.append(float((((q == 0) | (neg == 0))).mean()))
+        elig = np.asarray(elig); tp = np.asarray(tot_pos); tn = np.asarray(tot_neg)
+        single = np.asarray(single)
+        rows.append(dict(
+            n_conf_videos=int(n),
+            eligible_p05=float(np.percentile(elig, 5)), eligible_p50=float(np.percentile(elig, 50)),
+            eligible_p95=float(np.percentile(elig, 95)),
+            p_eligible_ge30=float((elig >= MIN_ELIGIBLE_VIDEOS).mean()),
+            pos_p05=float(np.percentile(tp, 5)), pos_p50=float(np.percentile(tp, 50)),
+            neg_p05=float(np.percentile(tn, 5)), neg_p50=float(np.percentile(tn, 50)),
+            single_class_share_p50=float(np.percentile(single, 50)),
+            p_single_class_share_gt_20pct=float((single > 0.2).mean()),
+        ))
+    out["rows"] = rows
+    rec = [r for r in rows if r["p_eligible_ge30"] >= 0.95]
+    if rec:
+        best = rec[0]
+        out["recommendation"] = dict(
+            n_conf_videos=best["n_conf_videos"],
+            min_pos_windows=int(math.floor(best["pos_p05"])),
+            min_neg_windows=int(math.floor(best["neg_p05"])),
+            basis=f"n={best['n_conf_videos']} 时 P(可评估>=30)={best['p_eligible_ge30']:.2f}，"
+                  f"取正/负窗口总数的 5% 分位向下取整",
+            caveat="计数门槛只保证'AUC 可算'，不保证 CI 半宽 <=0.02；后者由视频数与 SD 决定")
+    else:
+        out["recommendation"] = None
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 11. CLI
+# ══════════════════════════════════════════════════════════════════════
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_MANIFEST = os.path.join(ROOT, "docs", "exp35_508", "file_manifest.csv")
+DEFAULT_DATA_ROOT = "/home/molly/projects/danmaku"
+
+
+def _dump(obj, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, ensure_ascii=False, indent=2, default=float)
+    return path
+
+
+def _split_audit(seqs_by_batch) -> dict:
+    """两侧**独立构造**视频集合后再求交（不得用 tr = ~te 的恒等式）。"""
+    train_v = {s.bvid for s in seqs_by_batch if split_of(s.batch) == "train"}
+    dev_v = {s.bvid for s in seqs_by_batch if split_of(s.batch) == "dev"}
+    return dict(train_videos=len(train_v), dev_videos=len(dev_v),
+                intersection=sorted(train_v & dev_v),
+                n_intersection=len(train_v & dev_v),
+                train_batches=list(D_TRAIN_BATCHES), dev_batches=list(D_DEV_BATCHES),
+                d_train_end="2026-09-07",
+                constructed_independently=True)
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="exp35 正式实现（H=6）")
+    ap.add_argument("--stage", default="audit",
+                    choices=["audit", "build", "power", "gate-sim", "negctl", "verify-manifest"])
+    ap.add_argument("--data-root", default=os.environ.get("EXP35_DATA_ROOT", DEFAULT_DATA_ROOT))
+    ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
+    ap.add_argument("--out-dir", default=None)
+    ap.add_argument("--layer", default="ods", choices=["ods", "dwd"])
+    ap.add_argument("--reps", type=int, default=2000)
+    args = ap.parse_args(argv)
+
+    layer = assert_single_layer([args.layer])
+    out_dir = args.out_dir or os.path.join(ROOT, output_dir_for(layer))
+    os.makedirs(out_dir, exist_ok=True)
+    guard_path(args.manifest)
+
+    if args.stage == "verify-manifest":
+        res = verify_manifest(args.manifest, args.data_root)
+        _dump(res, os.path.join(out_dir, "manifest_verify.json"))
+        print(f"manifest: {res['n_ok']}/{res['n_files']} ok, all_ok={res['all_ok']}")
+        return 0 if res["all_ok"] else 9
+
+    if args.stage == "audit":
+        ver = verify_manifest(args.manifest, args.data_root)
+        seqs, prov = load_sequences(args.manifest, args.data_root, layer=layer)
+        rows = build_rows(seqs)
+        by_split = {}
+        for sp in ("train", "dev"):
+            sub = [r for r in rows if r["split"] == sp]
+            el = eligible_video_ids(sub)
+            by_split[sp] = dict(
+                videos=len({r["bvid"] for r in sub}), points=len(sub),
+                pos=int(sum(r["y"] for r in sub)),
+                rate=(sum(r["y"] for r in sub) / len(sub)) if sub else None,
+                eligible_videos=len(el), eligible_ids=el)
+        res = dict(protocol_version=PROTOCOL_VERSION, layer=layer, data_root=args.data_root,
+                   manifest=args.manifest, manifest_verify={k: ver[k] for k in ("n_files", "n_ok", "all_ok")},
+                   n_sequences=len(seqs), n_videos=len({s.bvid for s in seqs}),
+                   split=_split_audit(seqs), by_split=by_split,
+                   dropped={k: int(sum(s.audit.get(k, 0) for s in seqs))
+                            for k in ("rows_in", "dropped_nan", "dropped_negative",
+                                      "dropped_beyond_duration", "dropped_duplicate_dmid",
+                                      "clipped_to_last_bucket", "rows_kept")},
+                   provenance=prov)
+        res["manifest_rows"] = ver["rows"]
+        _dump(res, os.path.join(out_dir, "audit.json"))
+        with open(os.path.join(out_dir, "audit_manifest_files.csv"), "w",
+                  encoding="utf-8", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(ver["rows"][0]))
+            w.writeheader()
+            w.writerows(ver["rows"])
+        print(json.dumps({k: res[k] for k in ("n_sequences", "n_videos", "split", "dropped")},
+                         ensure_ascii=False, indent=2))
+        print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk != "eligible_ids"}
+                          for k, v in by_split.items()}, ensure_ascii=False, indent=2))
+        return 0
+
+    # 以下阶段只用 D-train
+    seqs, prov = load_sequences(args.manifest, args.data_root,
+                               batches=D_TRAIN_BATCHES, layer=layer)
+    train_rows = build_rows(seqs)
+
+    if args.stage == "build":
+        import pandas as pd
+        df = pd.DataFrame(train_rows)
+        path = os.path.join(out_dir, "points_train.parquet")
+        df.to_parquet(path, index=False)
+        summary = dict(protocol_version=PROTOCOL_VERSION, layer=layer, n_rows=len(df),
+                       n_videos=df.bvid.nunique(), pos=int(df.y.sum()),
+                       rate=float(df.y.mean()), split="train",
+                       eligible_videos=len(eligible_video_ids(train_rows)),
+                       output=path, provenance=prov)
+        _dump(summary, os.path.join(out_dir, "build.json"))
+        print(json.dumps({k: summary[k] for k in ("n_rows", "n_videos", "pos", "rate",
+                                                  "eligible_videos")}, ensure_ascii=False))
+        return 0
+
+    if args.stage == "power":
+        res = power_analysis(train_rows, reps=args.reps)
+        _dump(res, os.path.join(out_dir, "power_dtrain.json"))
+        print(json.dumps({k: res[k] for k in ("M1", "M2", "delta", "paired_sd",
+                                              "mde_80pct")}, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.stage == "negctl":
+        res = negative_controls(train_rows, seqs)
+        _dump(res, os.path.join(out_dir, "negative_controls_dtrain.json"))
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.stage == "gate-sim":
+        res = gate_simulation(train_rows, reps=args.reps)
+        _dump(res, os.path.join(out_dir, "gate_sim_dtrain.json"))
+        print(json.dumps(res["rows"], ensure_ascii=False, indent=2))
+        print(json.dumps(res["recommendation"], ensure_ascii=False, indent=2))
+        return 0
+
+    raise ProtocolError(f"未知 stage {args.stage}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+# ══════════════════════════════════════════════════════════════════════
+# 10. D-conf 事件门槛 count-only 模拟
+# ══════════════════════════════════════════════════════════════════════
+GATE_N_GRID = (150, 200, 250, 300, 400, 500)
+
+
+def gate_simulation(train_rows, *, n_grid=GATE_N_GRID, reps=2000, seed=BOOT_SEED) -> dict:
+    """用 D-train 的视频级(点数, 正例数)经验分布，模拟不同 D-conf 视频数下的门槛表现。
+
+    只做计数，不训练、不评估；不把相关窗口当独立样本。
+    """
+    per = {}
+    for r in train_rows:
+        a = per.setdefault(r["bvid"], [0, 0])
+        a[0] += 1
+        a[1] += int(r["y"])
+    keys = np.array(sorted(per))
+    npts = np.array([per[k][0] for k in keys], dtype=float)
+    pos = np.array([per[k][1] for k in keys], dtype=float)
+    rng = np.random.default_rng(seed)
+    out = dict(split="train", n_train_videos=int(keys.size), reps=int(reps), seed=int(seed),
+               grid=list(n_grid), per_video=dict(
+                   points_p50=float(np.percentile(npts, 50)), points_p90=float(np.percentile(npts, 90)),
+                   pos_rate=float(pos.sum() / npts.sum())))
+    rows = []
+    for n in n_grid:
+        elig, tot_pos, tot_neg, single = [], [], [], []
+        for _ in range(reps):
+            idx = rng.integers(0, keys.size, size=n)
+            p, q = npts[idx], pos[idx]
+            neg = p - q
+            ok = (p >= MIN_POINTS) & (q >= MIN_POS) & (neg >= MIN_NEG)
+            elig.append(int(ok.sum()))
+            tot_pos.append(int(q.sum()))
+            tot_neg.append(int(neg.sum()))
+            single.append(float((((q == 0) | (neg == 0))).mean()))
+        elig = np.asarray(elig); tp = np.asarray(tot_pos); tn = np.asarray(tot_neg)
+        single = np.asarray(single)
+        rows.append(dict(
+            n_conf_videos=int(n),
+            eligible_p05=float(np.percentile(elig, 5)), eligible_p50=float(np.percentile(elig, 50)),
+            eligible_p95=float(np.percentile(elig, 95)),
+            p_eligible_ge30=float((elig >= MIN_ELIGIBLE_VIDEOS).mean()),
+            pos_p05=float(np.percentile(tp, 5)), pos_p50=float(np.percentile(tp, 50)),
+            neg_p05=float(np.percentile(tn, 5)), neg_p50=float(np.percentile(tn, 50)),
+            single_class_share_p50=float(np.percentile(single, 50)),
+            p_single_class_share_gt_20pct=float((single > 0.2).mean()),
+        ))
+    out["rows"] = rows
+    rec = [r for r in rows if r["p_eligible_ge30"] >= 0.95]
+    if rec:
+        best = rec[0]
+        out["recommendation"] = dict(
+            n_conf_videos=best["n_conf_videos"],
+            min_pos_windows=int(math.floor(best["pos_p05"])),
+            min_neg_windows=int(math.floor(best["neg_p05"])),
+            basis=f"n={best['n_conf_videos']} 时 P(可评估>=30)={best['p_eligible_ge30']:.2f}，"
+                  f"取正/负窗口总数的 5% 分位向下取整",
+            caveat="计数门槛只保证'AUC 可算'，不保证 CI 半宽 <=0.02；后者由视频数与 SD 决定")
+    else:
+        out["recommendation"] = None
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 11. CLI
+# ══════════════════════════════════════════════════════════════════════
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_MANIFEST = os.path.join(ROOT, "docs", "exp35_508", "file_manifest.csv")
+DEFAULT_DATA_ROOT = "/home/molly/projects/danmaku"
+
+
+def _dump(obj, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, ensure_ascii=False, indent=2, default=float)
+    return path
+
+
+def _split_audit(seqs_by_batch) -> dict:
+    """两侧**独立构造**视频集合后再求交（不得用 tr = ~te 的恒等式）。"""
+    train_v = {s.bvid for s in seqs_by_batch if split_of(s.batch) == "train"}
+    dev_v = {s.bvid for s in seqs_by_batch if split_of(s.batch) == "dev"}
+    return dict(train_videos=len(train_v), dev_videos=len(dev_v),
+                intersection=sorted(train_v & dev_v),
+                n_intersection=len(train_v & dev_v),
+                train_batches=list(D_TRAIN_BATCHES), dev_batches=list(D_DEV_BATCHES),
+                d_train_end="2026-09-07",
+                constructed_independently=True)
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="exp35 正式实现（H=6）")
+    ap.add_argument("--stage", default="audit",
+                    choices=["audit", "build", "power", "gate-sim", "negctl", "verify-manifest"])
+    ap.add_argument("--data-root", default=os.environ.get("EXP35_DATA_ROOT", DEFAULT_DATA_ROOT))
+    ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
+    ap.add_argument("--out-dir", default=None)
+    ap.add_argument("--layer", default="ods", choices=["ods", "dwd"])
+    ap.add_argument("--reps", type=int, default=2000)
+    args = ap.parse_args(argv)
+
+    layer = assert_single_layer([args.layer])
+    out_dir = args.out_dir or os.path.join(ROOT, output_dir_for(layer))
+    os.makedirs(out_dir, exist_ok=True)
+    guard_path(args.manifest)
+
+    if args.stage == "verify-manifest":
+        res = verify_manifest(args.manifest, args.data_root)
+        _dump(res, os.path.join(out_dir, "manifest_verify.json"))
+        print(f"manifest: {res['n_ok']}/{res['n_files']} ok, all_ok={res['all_ok']}")
+        return 0 if res["all_ok"] else 9
+
+    if args.stage == "audit":
+        ver = verify_manifest(args.manifest, args.data_root)
+        seqs, prov = load_sequences(args.manifest, args.data_root, layer=layer)
+        rows = build_rows(seqs)
+        by_split = {}
+        for sp in ("train", "dev"):
+            sub = [r for r in rows if r["split"] == sp]
+            el = eligible_video_ids(sub)
+            by_split[sp] = dict(
+                videos=len({r["bvid"] for r in sub}), points=len(sub),
+                pos=int(sum(r["y"] for r in sub)),
+                rate=(sum(r["y"] for r in sub) / len(sub)) if sub else None,
+                eligible_videos=len(el), eligible_ids=el)
+        res = dict(protocol_version=PROTOCOL_VERSION, layer=layer, data_root=args.data_root,
+                   manifest=args.manifest, manifest_verify={k: ver[k] for k in ("n_files", "n_ok", "all_ok")},
+                   n_sequences=len(seqs), n_videos=len({s.bvid for s in seqs}),
+                   split=_split_audit(seqs), by_split=by_split,
+                   dropped={k: int(sum(s.audit.get(k, 0) for s in seqs))
+                            for k in ("rows_in", "dropped_nan", "dropped_negative",
+                                      "dropped_beyond_duration", "dropped_duplicate_dmid",
+                                      "clipped_to_last_bucket", "rows_kept")},
+                   provenance=prov)
+        res["manifest_rows"] = ver["rows"]
+        _dump(res, os.path.join(out_dir, "audit.json"))
+        with open(os.path.join(out_dir, "audit_manifest_files.csv"), "w",
+                  encoding="utf-8", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(ver["rows"][0]))
+            w.writeheader()
+            w.writerows(ver["rows"])
+        print(json.dumps({k: res[k] for k in ("n_sequences", "n_videos", "split", "dropped")},
+                         ensure_ascii=False, indent=2))
+        print(json.dumps({k: {kk: vv for kk, vv in v.items() if kk != "eligible_ids"}
+                          for k, v in by_split.items()}, ensure_ascii=False, indent=2))
+        return 0
+
+    # 以下阶段只用 D-train
+    seqs, prov = load_sequences(args.manifest, args.data_root,
+                               batches=D_TRAIN_BATCHES, layer=layer)
+    train_rows = build_rows(seqs)
+
+    if args.stage == "build":
+        import pandas as pd
+        df = pd.DataFrame(train_rows)
+        path = os.path.join(out_dir, "points_train.parquet")
+        df.to_parquet(path, index=False)
+        summary = dict(protocol_version=PROTOCOL_VERSION, layer=layer, n_rows=len(df),
+                       n_videos=df.bvid.nunique(), pos=int(df.y.sum()),
+                       rate=float(df.y.mean()), split="train",
+                       eligible_videos=len(eligible_video_ids(train_rows)),
+                       output=path, provenance=prov)
+        _dump(summary, os.path.join(out_dir, "build.json"))
+        print(json.dumps({k: summary[k] for k in ("n_rows", "n_videos", "pos", "rate",
+                                                  "eligible_videos")}, ensure_ascii=False))
+        return 0
+
+    if args.stage == "power":
+        res = power_analysis(train_rows, reps=args.reps)
+        _dump(res, os.path.join(out_dir, "power_dtrain.json"))
+        print(json.dumps({k: res[k] for k in ("M1", "M2", "delta", "paired_sd",
+                                              "mde_80pct")}, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.stage == "negctl":
+        res = negative_controls(train_rows, seqs)
+        _dump(res, os.path.join(out_dir, "negative_controls_dtrain.json"))
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.stage == "gate-sim":
+        res = gate_simulation(train_rows, reps=args.reps)
+        _dump(res, os.path.join(out_dir, "gate_sim_dtrain.json"))
+        print(json.dumps(res["rows"], ensure_ascii=False, indent=2))
+        print(json.dumps(res["recommendation"], ensure_ascii=False, indent=2))
+        return 0
+
+    raise ProtocolError(f"未知 stage {args.stage}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
