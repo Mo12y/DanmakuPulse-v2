@@ -2,7 +2,7 @@
 
 - 审计日期：2026-10-27
 - 审计对象：exp35 正式实现、测试、数据核验、D-train-only 分析、冻结候选协议
-- 代码基线：`danmaku-v2` @ `b113aba`（本报告随行一次行尾/文档提交，见文末"变更")
+- 代码基线：`danmaku-v2` @ `b113aba`（实现+测试+清单核验）→ `2a0adb5`（本报告+方法章草稿+行尾统一）
 - 审计性质：**只读核验 + 机械验收**。未读取 D-conf（项目中不存在 `dt >= 20261027` 的 ODS 分区）
 - 结论：**正式实验尚未冻结** —— 8 项阻塞（B-01…B-08）
 
@@ -170,3 +170,12 @@ cd ~/projects/danmaku-v2
 | 新增产物 | `docs/exp35_508/{audit_manifest_files.csv, power_dtrain.json, gate_sim_dtrain.json, negative_controls_dtrain.json}` |
 | 数据清单 | 从旧仓 `~/projects/danmaku/docs/exp35_508/` **原样复制**到本仓（字节未改，哈希不变） |
 | 未改动 | 任何数据文件、任何既有 jobs/serve 代码、任何历史协议版本 |
+
+提交记录（`danmaku-v2`，显式路径提交，未 `git add -A`）：
+
+```
+2a0adb5 [WorkBuddy] exp35 冻结前审计+论文方法章草稿+统一 LF 行尾（仍未冻结，9 项阻塞）
+b113aba [WorkBuddy] exp35 正式实现+91 项测试+D-train 功效/门槛模拟+清单核验（未冻结，rc4 候选）
+```
+
+工作区洁净度：提交后仍有 **22 个与本实验无关的已跟踪文件处于 modified 状态**（`Makefile`、`serve/*.py`、`serve/static/*.html` 等，均为本轮之前既存改动）⇒ `git_status_clean = false`，计入 B-09。
