@@ -165,3 +165,26 @@ def test_label_permutation_eval_side_is_at_chance():
     m = M.fit_model(X, y, M.FEATURES_M2)
     r = M.macro_within_video_auc(y_perm, m.predict_proba(X), vid)
     assert 0.4 <= r["macro"] <= 0.6
+
+
+# ── 功效公式（设计估计，不是结果） ─────────────────────────────────
+def test_mde_matches_normal_approximation():
+    """MDE = (z.975 + z.80)·SD/√n；用精确分位复算（与旧产物用 1.96/0.8416 的差约 3e-7）。"""
+    sd = 0.22204870655293082
+    assert M.Z_975 == pytest.approx(1.9599639845400545, rel=1e-12)
+    assert M.Z_80 == pytest.approx(0.8416212335729143, rel=1e-12)
+    assert M.mde_80(sd, 150) == pytest.approx(0.0507933, abs=1e-6)
+    assert M.mde_80(sd, 134) == pytest.approx(0.0537405, abs=1e-6)
+    assert M.mde_80(sd, 200) == pytest.approx(0.0439885, abs=1e-6)
+    # 与旧产物（用四舍五入常量 2.8016）的偏差必须 < 1e-5，否则说明公式变了
+    assert abs(M.mde_80(sd, 150) - 0.05079357103752174) < 1e-5
+
+
+def test_n_for_effect_02_is_968():
+    """检出 0.02 所需视频数 = ceil(((z.975+z.80)*SD/0.02)^2) = 968。"""
+    assert M.n_for_effect(0.22204870655293082, 0.02) == 968
+
+
+def test_n_for_effect_rejects_nonpositive_delta():
+    with pytest.raises(M.ProtocolError):
+        M.n_for_effect(0.22, 0.0)

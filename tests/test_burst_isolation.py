@@ -119,3 +119,22 @@ def test_manifest_sha_mismatch_detected(tmp_path):
         f"{f.stat().st_size},0000,\n", encoding="utf-8")
     res = M.verify_manifest(man, str(tmp_path))
     assert res["rows"][0]["status"] == "sha_mismatch"
+
+
+def test_freeze_digest_is_stable_and_detects_missing(tmp_path):
+    (tmp_path / "a").mkdir()
+    f1 = tmp_path / "a" / "x.py"
+    f2 = tmp_path / "b.md"
+    f1.write_text("print(1)\n", encoding="utf-8")
+    f2.write_text("doc\n", encoding="utf-8")
+    paths = ("a/x.py", "b.md")
+    d1 = M.freeze_digest(paths, root=str(tmp_path))
+    d2 = M.freeze_digest(paths, root=str(tmp_path))
+    assert d1["digest"] == d2["digest"] and d1["n_files"] == 2
+    # 内容变化 → 摘要变化
+    f2.write_text("doc2\n", encoding="utf-8")
+    assert M.freeze_digest(paths, root=str(tmp_path))["digest"] != d1["digest"]
+    # 缺文件 → 拒绝（不允许"冻结时少文件"）
+    (tmp_path / "b.md").unlink()
+    with pytest.raises(M.ProtocolError):
+        M.freeze_digest(paths, root=str(tmp_path))

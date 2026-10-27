@@ -99,3 +99,41 @@ def test_eligibility_gate_counts():
             [dict(bvid="C", y=1)] * 1 + [dict(bvid="C", y=0)] * 6 +      # 只有 1 正 → 不合格
             [dict(bvid="D", y=1)] * 6 + [dict(bvid="D", y=0)] * 1)       # 只有 1 负 → 不合格
     assert M.eligible_video_ids(rows) == ["A"]
+
+
+# ── A3（2026-10-27 批准）：多 P 口径 ────────────────────────────────
+def _seq_pc(c, bvid, pc):
+    c = np.asarray(c, dtype=np.int64)
+    return M.Sequence(bvid=bvid, batch="20260902", duration=len(c) * M.B, c=c, part_count=pc)
+
+
+def test_known_multip_only_counts_positive_evidence():
+    rows = M.build_rows([_seq_pc([2] * 30, "BVmulti", 4),
+                         _seq_pc([2] * 30, "BVsingle", 1),
+                         _seq_pc([2] * 30, "BVunknown", None)])
+    assert M.known_multip_bvids(rows) == {"BVmulti"}
+
+
+def test_multip_policy_keep_keeps_everything():
+    rows = M.build_rows([_seq_pc([2] * 30, "BVmulti", 2),
+                         _seq_pc([2] * 30, "BVunknown", None)])
+    assert len(M.filter_multip(rows, "keep")) == len(rows)
+
+
+def test_multip_policy_exclude_known_drops_only_known():
+    rows = M.build_rows([_seq_pc([2] * 30, "BVmulti", 2),
+                         _seq_pc([2] * 30, "BVunknown", None),
+                         _seq_pc([2] * 30, "BVsingle", 1)])
+    kept = M.filter_multip(rows, "exclude_known")
+    assert {r["bvid"] for r in kept} == {"BVunknown", "BVsingle"}
+    assert len({r["bvid"] for r in rows}) - len({r["bvid"] for r in kept}) == 1
+
+
+def test_multip_policy_rejects_unknown_value():
+    with pytest.raises(M.ProtocolError):
+        M.filter_multip([], "drop_all_unknown")
+
+
+def test_multip_rows_carry_part_count():
+    rows = M.build_rows([_seq_pc([2] * 30, "BVmulti", 5)])
+    assert all(r["part_count"] == 5 for r in rows)

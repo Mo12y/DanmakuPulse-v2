@@ -29,6 +29,8 @@ thr_t = max(3.0, λ_t + 2·√λ_t)　　y_t = 1[ max(c[t:t+H]) >= thr_t ]
   其余批次（含任何 >= 20261027 的 D-conf 候选）一律 DataIsolationError
 * 特征白名单 + 显式黑名单断言；非法列立即失败
 * 输入文件来自 manifest 白名单，不 glob 目录
+* 多 P（A3，2026-10-27 批准）：主分析 `keep`（保留全部，空值不当单 P）；
+  敏感性 `exclude_known`（只排除 `part_count > 1` 的已知多 P）。两者不得事后互换。
 """
 from __future__ import annotations
 
@@ -89,6 +91,10 @@ BANNED = frozenset({
     "y", "label", "thr", "thr_t", "lam_t", "future_max", "win_max",
     "main_peak_pct", "cold_pct", "cv", "global_ent", "is_spam",
 })
+
+# A3（2026-10-27 批准）：主分析保留全部；敏感性排除"可可靠识别的已知多 P"
+MULTIP_POLICIES = ("keep", "exclude_known")
+MULTIP_POLICY_PRIMARY = "keep"
 
 MODEL_SPECS = {
     "M0": None,   # 未获批准定义 —— 保留接口，不实现
@@ -179,6 +185,7 @@ class Sequence:
     duration: float
     c: np.ndarray
     audit: dict = field(default_factory=dict)
+    part_count: object = None      # ODS 的 part_count（>1 = 已知多 P；None = 未知）
 
     @property
     def K(self) -> int:
@@ -190,12 +197,14 @@ class Sequence:
 
 
 def build_sequence(bvid, batch, time_offsets, dmids, duration, *,
-                   B=B, min_duration=MIN_DURATION) -> Sequence:
+                   B=B, min_duration=MIN_DURATION, part_count=None) -> Sequence:
     """正式规则：**先按 dmid 去重，再按 floor(time_offset/B) 分桶**。
 
     - dmid = ODS 的 `row_id`（19 位；schema 无 `dmid` 字段，映射见协议 §5.1）
     - 时间缺失/非有限、负值、> duration：丢弃并计数（不静默）
-    - offset == duration 且 duration 为 B 整数倍时落入 K 号桶 → 夹到 K-1 并计数
+    - offset == duration：若 duration 为 B 的整数倍，floor 会得到 K（越界一个桶），
+      按"归入最后一桶 K-1"处理并计入 `clipped_to_last_bucket`；否则自然落在 K-1。
+      本轮 4 批共 36 行 `offset == duration`，其中 4 行需要夹取（见审计报告 §3）。
     """
     split_of(batch)  # 未登记批次在此 raise
     off = np.asarray(time_offsets, dtype=float).ravel()
@@ -235,7 +244,8 @@ def build_sequence(bvid, batch, time_offsets, dmids, duration, *,
         audit["clipped_to_last_bucket"] = hi
         idx = np.clip(idx, 0, K - 1)
     c = np.bincount(idx, minlength=K).astype(np.int64)
-    return Sequence(bvid=str(bvid), batch=str(batch), duration=dur, c=c, audit=audit)
+    return Sequence(bvid=str(bvid), batch=str(batch), duration=dur, c=c, audit=audit,
+                    part_count=part_count)
 
 
 def decision_times(K, *, pre=PRE, h=H, step=None) -> np.ndarray:
@@ -629,10 +639,34 @@ def build_rows(seqs, *, feature_shift=0, models=("M2",)) -> list:
             feats = feature_row(seq, pt.t, feature_shift=feature_shift)
             row = pt.as_row()
             row.update(feats)
+            row["part_count"] = seq.part_count
             row["split"] = split_of(pt.batch)
             row["feature_shift"] = int(feature_shift)
             rows.append(row)
     return rows
+
+
+def _pc_int(v):
+    try:
+        x = int(float(v))
+    except (TypeError, ValueError):
+        return None
+    return x if x > 0 else None
+
+
+def known_multip_bvids(rows) -> set:
+    """`part_count > 1` 的视频集合（阳性证据；空值不计入，也不当作单 P）。"""
+    return {r["bvid"] for r in rows if (_pc_int(r.get("part_count")) or 0) > 1}
+
+
+def filter_multip(rows, policy=MULTIP_POLICY_PRIMARY) -> list:
+    """A3：`keep` = 主分析（全部保留）；`exclude_known` = 敏感性（只排除已知多 P）。"""
+    if policy not in MULTIP_POLICIES:
+        raise ProtocolError(f"未知多 P 口径 {policy}；允许 {MULTIP_POLICIES}")
+    if policy == "keep":
+        return list(rows)
+    bad = known_multip_bvids(rows)
+    return [r for r in rows if r["bvid"] not in bad]
 
 
 def eligible_video_ids(rows, *, min_points=MIN_POINTS, min_pos=MIN_POS,
@@ -718,7 +752,8 @@ def load_sequences(manifest_csv, data_root, *, batches=None, layer="ods") -> tup
         df = pd.concat(frames, ignore_index=True)
         for bvid, g in df.groupby("bvid", sort=True):
             seq = build_sequence(bvid, batch, g["time_offset"].to_numpy(),
-                                 g["row_id"].to_numpy(), float(g["duration"].iloc[0]))
+                                 g["row_id"].to_numpy(), float(g["duration"].iloc[0]),
+                                 part_count=_pc_int(g["part_count"].iloc[0]))
             seqs.append(seq)
     return seqs, provenance
 
@@ -754,6 +789,22 @@ def assert_train_only(rows) -> None:
 # 9. D-train-only 功效分析（最小可检测增量）
 # ══════════════════════════════════════════════════════════════════════
 POWER_GRID = (0.0, 0.005, 0.01, 0.015, 0.02, 0.03, 0.05)
+
+# 双侧 95% + 80% 功效的正态分位（常量，不引入 scipy 依赖）
+Z_975 = 1.959963984540054
+Z_80 = 0.8416212335729143
+
+
+def mde_80(sd, n) -> float:
+    """80% 功效下的最小可检测效应（正态近似，SD 已知）。"""
+    return (Z_975 + Z_80) * float(sd) / math.sqrt(int(n))
+
+
+def n_for_effect(sd, delta) -> int:
+    """要在 80% 功效下检出 `delta`，所需视频数（向上取整）。"""
+    if delta <= 0:
+        raise ProtocolError("delta 必须为正")
+    return int(math.ceil(((Z_975 + Z_80) * float(sd) / float(delta)) ** 2))
 
 
 def power_analysis(train_rows, *, grid=POWER_GRID, reps=2000, seed=BOOT_SEED,
@@ -812,8 +863,8 @@ def power_analysis(train_rows, *, grid=POWER_GRID, reps=2000, seed=BOOT_SEED,
                                        mde_note=f"n={n}, SE={se:.4f}")
         sims[str(n)] = row
     out["power"] = sims
-    out["mde_80pct"] = {str(n): float((1.96 + 0.8416) * out["paired_sd"] / math.sqrt(n))
-                        for n in target_n}
+    out["mde_80pct"] = {str(n): mde_80(out["paired_sd"], n) for n in target_n}
+    out["n_for_effect_0.02"] = n_for_effect(out["paired_sd"], 0.02)
     out["caveat"] = ("模拟功效基于 D-train 内部 OOF 的配对差离散度，"
                      "不等于 D-conf 的真实功效保证；D-conf 批次与训练批次不同源时 SD 只会更大")
     return out
@@ -939,7 +990,47 @@ def gate_simulation(train_rows, *, n_grid=GATE_N_GRID, reps=2000, seed=BOOT_SEED
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 11. CLI
+# 11. 路径级冻结凭据（工作区不洁净时的替代方案）
+# ══════════════════════════════════════════════════════════════════════
+EXP35_FREEZE_PATHS = (
+    "jobs/m2_l6_burst_risk.py",
+    "tests/test_burst_label.py",
+    "tests/test_burst_features.py",
+    "tests/test_burst_split.py",
+    "tests/test_burst_calibration.py",
+    "tests/test_burst_eval.py",
+    "tests/test_burst_isolation.py",
+    "docs/exp35_508/file_manifest.csv",
+    "docs/exp35_508/manifest.sha256",
+    "docs/exp35_508/D-train-508_bvids.txt",
+    "docs/exp35_508/D-dev-508_bvids.txt",
+    "docs/exp35_508/35_formal_spec_rc5_candidate.md",
+    "docs/exp35_508/exp35_freeze_and_isolation_plan.md",
+)
+
+
+def freeze_digest(paths=EXP35_FREEZE_PATHS, root=".") -> dict:
+    """对冻结路径集合逐个算 sha256，再对 (path, sha256) 排序后求总摘要。
+
+    用途：工作区存在与本实验无关的修改时，**用路径级摘要**代替 `git_status_clean`。
+    任一文件缺失即 raise（不允许"冻结时少一两个文件"）。
+    """
+    entries = []
+    for rel in paths:
+        p = os.path.join(root, rel)
+        if not os.path.exists(p):
+            raise ProtocolError(f"冻结路径缺失: {rel}")
+        entries.append(dict(path=rel, bytes=os.path.getsize(p), sha256=_sha256(p)))
+    entries.sort(key=lambda e: e["path"])
+    h = hashlib.sha256()
+    for e in entries:
+        h.update(f"{e['path']}:{e['sha256']}\n".encode("utf-8"))
+    return dict(n_files=len(entries), digest=h.hexdigest(), entries=entries,
+                scheme="sha256 over sorted 'path:sha256' lines")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 12. CLI
 # ══════════════════════════════════════════════════════════════════════
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MANIFEST = os.path.join(ROOT, "docs", "exp35_508", "file_manifest.csv")
@@ -968,11 +1059,15 @@ def _split_audit(seqs_by_batch) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="exp35 正式实现（H=6）")
     ap.add_argument("--stage", default="audit",
-                    choices=["audit", "build", "power", "gate-sim", "negctl", "verify-manifest"])
+                    choices=["audit", "build", "power", "gate-sim", "negctl",
+                             "verify-manifest", "freeze-digest"])
     ap.add_argument("--data-root", default=os.environ.get("EXP35_DATA_ROOT", DEFAULT_DATA_ROOT))
     ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--layer", default="ods", choices=["ods", "dwd"])
+    ap.add_argument("--multip-policy", default=MULTIP_POLICY_PRIMARY,
+                    choices=list(MULTIP_POLICIES),
+                    help="A3：keep=主分析（默认）；exclude_known=敏感性")
     ap.add_argument("--reps", type=int, default=2000)
     args = ap.parse_args(argv)
 
@@ -980,6 +1075,13 @@ def main(argv=None) -> int:
     out_dir = args.out_dir or os.path.join(ROOT, output_dir_for(layer))
     os.makedirs(out_dir, exist_ok=True)
     guard_path(args.manifest)
+
+    if args.stage == "freeze-digest":
+        res = freeze_digest(root=ROOT)
+        _dump(res, os.path.join(out_dir, "freeze_digest.json"))
+        print(json.dumps({k: res[k] for k in ("n_files", "digest", "scheme")},
+                         ensure_ascii=False, indent=2))
+        return 0
 
     if args.stage == "verify-manifest":
         res = verify_manifest(args.manifest, args.data_root)
@@ -995,11 +1097,13 @@ def main(argv=None) -> int:
         for sp in ("train", "dev"):
             sub = [r for r in rows if r["split"] == sp]
             el = eligible_video_ids(sub)
+            el_sens = eligible_video_ids(filter_multip(sub, "exclude_known"))
             by_split[sp] = dict(
                 videos=len({r["bvid"] for r in sub}), points=len(sub),
                 pos=int(sum(r["y"] for r in sub)),
                 rate=(sum(r["y"] for r in sub) / len(sub)) if sub else None,
-                eligible_videos=len(el), eligible_ids=el)
+                eligible_videos=len(el), eligible_ids=el,
+                eligible_videos_excl_known_multip=len(el_sens))
         res = dict(protocol_version=PROTOCOL_VERSION, layer=layer, data_root=args.data_root,
                    manifest=args.manifest, manifest_verify={k: ver[k] for k in ("n_files", "n_ok", "all_ok")},
                    n_sequences=len(seqs), n_videos=len({s.bvid for s in seqs}),
@@ -1025,7 +1129,7 @@ def main(argv=None) -> int:
     # 以下阶段只用 D-train
     seqs, prov = load_sequences(args.manifest, args.data_root,
                                batches=D_TRAIN_BATCHES, layer=layer)
-    train_rows = build_rows(seqs)
+    train_rows = filter_multip(build_rows(seqs), args.multip_policy)
 
     if args.stage == "build":
         import pandas as pd
@@ -1044,6 +1148,7 @@ def main(argv=None) -> int:
 
     if args.stage == "power":
         res = power_analysis(train_rows, reps=args.reps)
+        res["multip_policy"] = args.multip_policy
         _dump(res, os.path.join(out_dir, "power_dtrain.json"))
         print(json.dumps({k: res[k] for k in ("M1", "M2", "delta", "paired_sd",
                                               "mde_80pct")}, ensure_ascii=False, indent=2))
@@ -1057,6 +1162,7 @@ def main(argv=None) -> int:
 
     if args.stage == "gate-sim":
         res = gate_simulation(train_rows, reps=args.reps)
+        res["multip_policy"] = args.multip_policy
         _dump(res, os.path.join(out_dir, "gate_sim_dtrain.json"))
         print(json.dumps(res["rows"], ensure_ascii=False, indent=2))
         print(json.dumps(res["recommendation"], ensure_ascii=False, indent=2))
@@ -1132,7 +1238,47 @@ def gate_simulation(train_rows, *, n_grid=GATE_N_GRID, reps=2000, seed=BOOT_SEED
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 11. CLI
+# 11. 路径级冻结凭据（工作区不洁净时的替代方案）
+# ══════════════════════════════════════════════════════════════════════
+EXP35_FREEZE_PATHS = (
+    "jobs/m2_l6_burst_risk.py",
+    "tests/test_burst_label.py",
+    "tests/test_burst_features.py",
+    "tests/test_burst_split.py",
+    "tests/test_burst_calibration.py",
+    "tests/test_burst_eval.py",
+    "tests/test_burst_isolation.py",
+    "docs/exp35_508/file_manifest.csv",
+    "docs/exp35_508/manifest.sha256",
+    "docs/exp35_508/D-train-508_bvids.txt",
+    "docs/exp35_508/D-dev-508_bvids.txt",
+    "docs/exp35_508/35_formal_spec_rc5_candidate.md",
+    "docs/exp35_508/exp35_freeze_and_isolation_plan.md",
+)
+
+
+def freeze_digest(paths=EXP35_FREEZE_PATHS, root=".") -> dict:
+    """对冻结路径集合逐个算 sha256，再对 (path, sha256) 排序后求总摘要。
+
+    用途：工作区存在与本实验无关的修改时，**用路径级摘要**代替 `git_status_clean`。
+    任一文件缺失即 raise（不允许"冻结时少一两个文件"）。
+    """
+    entries = []
+    for rel in paths:
+        p = os.path.join(root, rel)
+        if not os.path.exists(p):
+            raise ProtocolError(f"冻结路径缺失: {rel}")
+        entries.append(dict(path=rel, bytes=os.path.getsize(p), sha256=_sha256(p)))
+    entries.sort(key=lambda e: e["path"])
+    h = hashlib.sha256()
+    for e in entries:
+        h.update(f"{e['path']}:{e['sha256']}\n".encode("utf-8"))
+    return dict(n_files=len(entries), digest=h.hexdigest(), entries=entries,
+                scheme="sha256 over sorted 'path:sha256' lines")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 12. CLI
 # ══════════════════════════════════════════════════════════════════════
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_MANIFEST = os.path.join(ROOT, "docs", "exp35_508", "file_manifest.csv")
@@ -1161,11 +1307,15 @@ def _split_audit(seqs_by_batch) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="exp35 正式实现（H=6）")
     ap.add_argument("--stage", default="audit",
-                    choices=["audit", "build", "power", "gate-sim", "negctl", "verify-manifest"])
+                    choices=["audit", "build", "power", "gate-sim", "negctl",
+                             "verify-manifest", "freeze-digest"])
     ap.add_argument("--data-root", default=os.environ.get("EXP35_DATA_ROOT", DEFAULT_DATA_ROOT))
     ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--layer", default="ods", choices=["ods", "dwd"])
+    ap.add_argument("--multip-policy", default=MULTIP_POLICY_PRIMARY,
+                    choices=list(MULTIP_POLICIES),
+                    help="A3：keep=主分析（默认）；exclude_known=敏感性")
     ap.add_argument("--reps", type=int, default=2000)
     args = ap.parse_args(argv)
 
@@ -1173,6 +1323,13 @@ def main(argv=None) -> int:
     out_dir = args.out_dir or os.path.join(ROOT, output_dir_for(layer))
     os.makedirs(out_dir, exist_ok=True)
     guard_path(args.manifest)
+
+    if args.stage == "freeze-digest":
+        res = freeze_digest(root=ROOT)
+        _dump(res, os.path.join(out_dir, "freeze_digest.json"))
+        print(json.dumps({k: res[k] for k in ("n_files", "digest", "scheme")},
+                         ensure_ascii=False, indent=2))
+        return 0
 
     if args.stage == "verify-manifest":
         res = verify_manifest(args.manifest, args.data_root)
@@ -1188,11 +1345,13 @@ def main(argv=None) -> int:
         for sp in ("train", "dev"):
             sub = [r for r in rows if r["split"] == sp]
             el = eligible_video_ids(sub)
+            el_sens = eligible_video_ids(filter_multip(sub, "exclude_known"))
             by_split[sp] = dict(
                 videos=len({r["bvid"] for r in sub}), points=len(sub),
                 pos=int(sum(r["y"] for r in sub)),
                 rate=(sum(r["y"] for r in sub) / len(sub)) if sub else None,
-                eligible_videos=len(el), eligible_ids=el)
+                eligible_videos=len(el), eligible_ids=el,
+                eligible_videos_excl_known_multip=len(el_sens))
         res = dict(protocol_version=PROTOCOL_VERSION, layer=layer, data_root=args.data_root,
                    manifest=args.manifest, manifest_verify={k: ver[k] for k in ("n_files", "n_ok", "all_ok")},
                    n_sequences=len(seqs), n_videos=len({s.bvid for s in seqs}),
@@ -1218,7 +1377,7 @@ def main(argv=None) -> int:
     # 以下阶段只用 D-train
     seqs, prov = load_sequences(args.manifest, args.data_root,
                                batches=D_TRAIN_BATCHES, layer=layer)
-    train_rows = build_rows(seqs)
+    train_rows = filter_multip(build_rows(seqs), args.multip_policy)
 
     if args.stage == "build":
         import pandas as pd
@@ -1237,6 +1396,7 @@ def main(argv=None) -> int:
 
     if args.stage == "power":
         res = power_analysis(train_rows, reps=args.reps)
+        res["multip_policy"] = args.multip_policy
         _dump(res, os.path.join(out_dir, "power_dtrain.json"))
         print(json.dumps({k: res[k] for k in ("M1", "M2", "delta", "paired_sd",
                                               "mde_80pct")}, ensure_ascii=False, indent=2))
@@ -1250,6 +1410,7 @@ def main(argv=None) -> int:
 
     if args.stage == "gate-sim":
         res = gate_simulation(train_rows, reps=args.reps)
+        res["multip_policy"] = args.multip_policy
         _dump(res, os.path.join(out_dir, "gate_sim_dtrain.json"))
         print(json.dumps(res["rows"], ensure_ascii=False, indent=2))
         print(json.dumps(res["recommendation"], ensure_ascii=False, indent=2))
