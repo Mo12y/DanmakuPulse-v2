@@ -91,6 +91,74 @@ def test_real_model_artifact():
     assert "time-split" in art["eval_ref"]
 
 
+def test_state_model_persisted():
+    """exp47-v1 状态模型持久化：阈值一致性 + 概率归一 + 编码一致 + 短序列/缺失降级"""
+    p = os.path.join(REPO, "experiments/exp47_state_structure/model.json")
+    if not os.path.exists(p):
+        pytest.skip("状态模型未导出（先跑 experiments/exp47_state_structure/export_model.py）")
+    m = json.load(open(p, encoding="utf-8"))
+    assert m["edges"] == [20.0, 45.0, 92.0]          # 与 exp47 results.json 一致
+    assert all(abs(sum(row) - 1.0) < 1e-6 for row in m["M1"])  # 每行概率和为 1
+    assert m["K"] == 4 and len(m["state_names"]) == 4
+    r = jb.state_fields(np.array([0, 19, 20, 45, 92, 93], float), m)
+    assert r["seq"] == [0, 0, 1, 2, 3, 3]             # 状态编码与 searchsorted(right) 一致：c=45 归态 2
+    assert r["current_idx"] == 3 and r["current_name"] == "S3 爆"
+    assert abs(sum(r["next_prob"]) - 1.0) < 1e-4
+    assert jb.state_fields(np.array([7.0]), m) is None        # 单桶 → 降级 None
+    assert jb.state_fields(np.array([1.0, 2.0]), None) is None  # 无模型 → 降级 None
+
+
+def test_state_fields_trans_counts_and_coverage():
+    """状态字段扩展：转移计数矩阵、覆盖度、样本量提示所需字段（纯函数，可测）"""
+    p = os.path.join(REPO, "experiments/exp47_state_structure/model.json")
+    if not os.path.exists(p):
+        pytest.skip("状态模型未导出")
+    m = json.load(open(p, encoding="utf-8"))
+    c60 = np.array([0, 19, 20, 45, 92, 93], float)
+    r = jb.state_fields(c60, m)
+    tc = np.array(r["trans_counts"])
+    assert tc.shape == (4, 4)
+    assert int(tc.sum()) == len(c60) - 1            # 每次转移只计一次
+    assert tc[0, 0] == 1 and tc[0, 1] == 1 and tc[3, 3] == 1
+    cov = r["coverage"]
+    assert cov["n_buckets"] == 6 and cov["n_zero"] == 1
+    assert cov["zero_share"] == pytest.approx(1 / 6, abs=1e-3)
+    assert cov["observed_span"] == 6 and cov["tail_blank"] == 0
+    # 尾部空白：末两桶无弹幕
+    r2 = jb.state_fields(np.array([5, 5, 0, 0], float), m)
+    assert r2["coverage"]["tail_blank"] == 2 and r2["coverage"]["observed_span"] == 2
+    assert r2["current_idx"] == 0                   # 当前状态取自最后一桶（含零弹幕桶）
+
+
+def test_state_fields_next_prob_from_training_matrix():
+    """下一状态概率必须直接取自持久化 M1 行，不在本视频上重拟合"""
+    p = os.path.join(REPO, "experiments/exp47_state_structure/model.json")
+    if not os.path.exists(p):
+        pytest.skip("状态模型未导出")
+    m = json.load(open(p, encoding="utf-8"))
+    r = jb.state_fields(np.array([1, 2, 3, 4, 5], float), m)
+    cur = r["current_idx"]
+    assert r["next_prob"] == [round(float(x), 4) for x in m["M1"][cur]]
+    assert abs(sum(r["next_prob"]) - 1.0) < 1e-3
+    assert r["K"] == 4 and r["trans"] == m["M1"]
+
+
+def test_state_note_declares_exp48_1_boundary():
+    """口径守卫：状态说明必须写明 exp48.1 的负结果，防止页面宣称『转移优于活跃度基线』"""
+    note = jb.STATE_NOTE
+    assert "exp48.1" in note and "无稳健增量" in note
+    assert "不等同于人工语义阶段" in note
+
+
+@needs_mf
+def test_shape_item_rhythm_backward_compat():
+    """旧快照（rhythm 无 state 字段）与完整快照均不崩"""
+    old = mf.shape_item({"bvid": "BVold", "rhythm": {"seg3_dpm": [1, 2, 3], "S1": 0.5}})
+    assert old["rhythm"]["seg3_dpm"] == [1, 2, 3] and "state" not in old["rhythm"]
+    new = mf.shape_item({"bvid": "BVnew", "rhythm": {"state": {"current_idx": 1, "next_prob": [0.1, 0.2, 0.3, 0.4]}}})
+    assert new["rhythm"]["state"]["current_idx"] == 1
+
+
 # ---------------- 契约（服务在线时） ----------------
 
 BASE = os.environ.get("API_BASE", "http://localhost:8000")
