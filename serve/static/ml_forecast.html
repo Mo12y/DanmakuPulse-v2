@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ML 预测卡 · 弹幕互动节奏分析系统</title>
+<title>弹幕互动节奏分析 · ML 卡</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="v3.css">
 <style>
@@ -29,21 +29,35 @@ h1{font-size:18px;margin:0 0 4px}
 .bar i{display:block;height:100%;background:var(--primary)}
 .err{color:var(--danger-ink);font-size:13px;padding:16px;border:1px solid var(--border-subtle);border-radius:10px}
 .note{font-size:11px;color:var(--text-tertiary);margin-top:14px;line-height:1.6}
+.hint{font-size:11px;color:var(--text-tertiary);margin-top:3px;line-height:1.7}
+.mtx{border-collapse:collapse;font-size:11px;margin-top:4px;font-variant-numeric:tabular-nums}
+.mtx th,.mtx td{border:1px solid var(--border-subtle);padding:2px 7px;text-align:center}
+.mtx th{color:var(--text-secondary);font-weight:400}
+.mtx th.cur{color:var(--text);font-weight:600;border-bottom:2px solid var(--primary)}
+.mtx td .n{color:var(--text-tertiary);font-size:10px;margin-left:4px}
+.warnbox{font-size:11px;color:var(--warn-ink);background:var(--warn-soft);border-radius:6px;padding:5px 8px;margin-top:5px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>ML 预测卡</h1>
-  <p class="pagesub"><b>弹幕余量与结论稳定度</b> ｜ 发布 6 小时后的视频</p>
+  <h1>弹幕互动节奏分析</h1>
+  <p class="pagesub"><b>分钟强度曲线 → 强度状态序列 → 状态转移</b> ｜ 辅助：D1/D2 预测</p>
   <div class="sub" id="meta">加载中…</div>
   <div class="chips" id="chips"></div>
   <input class="search" id="q" placeholder="按 bvid 过滤（回车）">
   <div id="list"></div>
   <div class="note">
-    口径边界：D1 = 发布后 6h 时点对 (6h,30h] 弹幕量的预测（OLS-5f，时间切验证 ΔR²=+0.095 [0.045,0.144]），
-    不是播放量/热度/质量预测；D2.p_stable = 当前节奏结论到采集结束不漂移（≤0.25 IQR）的模型概率
-    （HGB，时间切验证 ΔAUC=+0.078 [0.060,0.096]），stable_measured = 全量对照实测值，与模型概率严格区分。
-    训练数据窗 20261012–1026，多 P 已知视频剔除；pending = 标签窗口尚未完全观测。
+    <b>口径边界（逐条对应实现）</b>：<br>
+    ① 状态 = 按分钟弹幕量做<b>分位离散化</b>得到的强度等级（K=4，阈值 20/45/92 条每分，仅由训练 276 支视频估计），
+    是<b>操作性类别</b>，不是人工确认的语义阶段，也不是"高潮/低谷"判定。<br>
+    ② 转移矩阵来自训练集全局估计，<b>不使用本视频重新拟合</b>；页内"本视频转移次数"仅作描述。
+    exp48.1 已核实：该转移结构相对"本视频自身状态构成"基线<b>无稳健增量</b>（M1−B2b=+0.010 nats/桶，95%CI 含 0），
+    因此转移只作为<b>可观察的描述量</b>呈现，不宣称它优于活跃度基线。<br>
+    ③ 候选事件 = 局部中位基线 + 2σ 的<b>算法候选</b>，未经人工确认，端点存在 25–60s 系统滞后；不得读作"已验证高光"。<br>
+    ④ D1 = 发布后 6h 时点对 (6h,30h] 弹幕量的预测（OLS-5f，时间切 ΔR²=+0.095 [0.045,0.144]）；
+    D2.p_stable = 当前节奏结论到采集结束不漂移（≤0.25 IQR）的模型概率（HGB，时间切 ΔAUC=+0.078 [0.060,0.096]）；
+    D2.stable_measured 是实测值，与模型概率严格区分。二者是<b>辅助预测</b>，不等于互动节奏识别。<br>
+    ⑤ 训练数据窗 20261012–1026，多 P 已知视频剔除；pending = 标签窗口尚未完全观测。
   </div>
 </div>
 <script>
@@ -51,34 +65,149 @@ let ALL = [];
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function pill(st){return `<span class="pill ${st}">${st}</span>`}
 function bar(p){return `<div style="display:flex;align-items:center;gap:8px"><div class="bar"><i style="width:${Math.round(p*100)}%"></i></div><span>${(p*100).toFixed(1)}%</span></div>`}
+function fmt(s){s=Math.round(s||0);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+const SC=["var(--text-tertiary)","var(--primary)","var(--warn)","var(--accent)"];
+
+/* ---- 状态转移矩阵：行=上一分钟状态，列=下一分钟状态 ---- */
+function matrixHtml(stt){
+  const K = stt.K || (stt.next_names||[]).length;
+  if(!K || !stt.trans) return '';
+  const tc = stt.trans_counts || [];
+  const hasCount = tc.length === K;
+  let total = 0;
+  if(hasCount) tc.forEach(r=>r.forEach(v=>{total += (v||0)}));
+  let h = `<table class="mtx"><thead><tr><th>上\\下</th>`;
+  for(let i=0;i<K;i++) h += `<th>${i}</th>`;
+  h += '</tr></thead><tbody>';
+  for(let i=0;i<K;i++){
+    h += `<tr><th${i===stt.current_idx?' class="cur"':''}>${i}</th>`;
+    for(let j=0;j<K;j++){
+      const p = (stt.trans[i]||[])[j] || 0;
+      const a = Math.min(0.55, p*1.6).toFixed(3);
+      const n = hasCount && tc[i] ? tc[i][j] : null;
+      h += `<td style="background:rgba(90,150,255,${a})">${(p*100).toFixed(1)}%`
+         + (n!==null?`<span class="n">${n}</span>`:'') + `</td>`;
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  h += `<div class="hint">行=上一分钟状态、列=下一分钟状态；<b>百分数=训练集转移概率（276 支）</b>，角标数字=本视频实际转移次数；蓝色深浅对应概率。当前状态行已加粗下划线。</div>`;
+  if(total < 10){
+    h += `<div class="warnbox">本视频仅 <b>${total}</b> 次分钟级转移（序列 ${(stt.seq||[]).length} 桶）——单视频转移频次样本不足，<b>不可把其中的数值当作规律</b>，只能看训练矩阵的量级。</div>`;
+  }
+  return h;
+}
+
+/* ---- 数据覆盖与质量提示 ---- */
+function coverageHtml(cov){
+  if(!cov) return '';
+  const p = [];
+  p.push(`分钟桶 ${cov.n_buckets} 个`);
+  if(cov.n_zero) p.push(`零弹幕桶 ${cov.n_zero} 个（${(cov.zero_share*100).toFixed(0)}%）`);
+  if(cov.tail_blank) p.push(`尾部 ${cov.tail_blank} 个桶无弹幕（采集窗可能未覆盖到片尾，或片尾确实无互动）`);
+  let h = `<div class="hint">【数据覆盖】${p.join('；')}</div>`;
+  if(cov.zero_share > 0.5){
+    h += `<div class="warnbox">过半分钟桶无弹幕（${(cov.zero_share*100).toFixed(0)}%）——状态序列与转移统计的可靠性低，本卡片结论应视为<b>弱证据</b>。</div>`;
+  }
+  if(cov.tail_blank > Math.max(3, cov.n_buckets*0.2)){
+    h += `<div class="warnbox">尾部空白桶占 ${(cov.tail_blank/cov.n_buckets*100).toFixed(0)}%——该视频的"后段密度"与"当前状态"可能失真。</div>`;
+  }
+  return h;
+}
+
 function card(it){
-  const d1 = it.d1||{}, d2 = it.d2||{};
+  const d1 = it.d1||{}, d2 = it.d2||{}, rh = it.rhythm||{};
+  const stt = rh.state || null;
+
   let d1r = `${pill(d1.status||'unavailable')} `;
   if(d1.status==='ok') d1r += `预计 <b>${Math.round(d1.forecast_6h_30h)}</b> 条 ｜ 实测 <b>${Math.round(d1.actual_6h_30h)}</b> 条`;
   else if(d1.status==='pending') d1r += `预计 <b>${Math.round(d1.forecast_6h_30h)}</b> 条（实测待窗口闭合）`;
+  else if(d1.status==='insufficient') d1r += `<span class="k">前 6h 弹幕不足或无观测，不预测</span>`;
+
   let d2r = `${pill(d2.status||'unavailable')} `;
   if(d2.status==='ok'){
     const c=d2.current;
     d2r += `${bar(c.p_stable)} <span class="k">（t=${c.t}h，k=${c.k}；实测：${c.stable_measured?'稳定':'漂移'}）</span>`;
   }
+
+  /* 【观测】曲线 + 状态色带 + 三段密度 */
+  let rhr = `<span class="pill insufficient">无节奏数据</span>`;
+  if(rh.curve && rh.curve.length){
+    const pts = rh.curve.map(p=>p.c); const mx = Math.max(...pts,1);
+    const W=560,H=68; const dx = W/Math.max(rh.curve.length-1,1);
+    const poly = rh.curve.map((p,i)=>`${(i*dx).toFixed(1)},${(H-18-(p.c/mx)*(H-28)).toFixed(1)}`).join(' ');
+    const seq = stt?stt.seq:null;
+    const band = (seq?rh.curve.map((p,i)=>{
+        const s = seq[Math.min(Math.floor(p.t/60), seq.length-1)];
+        return `<rect x="${(i*dx).toFixed(1)}" y="${H-14}" width="${Math.max(1.2,dx).toFixed(1)}" height="10" style="fill:${SC[s]||'var(--border-subtle)'}" opacity="0.85"/>`;}).join(''):'');
+    rhr = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;background:var(--surface-soft);border-radius:6px">
+      ${poly?`<polyline points="${poly}" fill="none" style="stroke:var(--primary)" stroke-width="1.3"/>`:''}
+      ${(rh.events||[]).map(e=>{
+        const i0=rh.curve.findIndex(p=>p.t>=e.start_s), i1=rh.curve.findIndex(p=>p.t>=Math.min(e.end_s,1e9));
+        const x0=(i0<0?0:i0)*dx, x1=(i1<0?rh.curve.length-1:i1)*dx;
+        return `<rect x="${x0.toFixed(1)}" y="0" width="${Math.max(2,x1-x0).toFixed(1)}" height="${H-14}" style="fill:var(--accent)" opacity="0.15"/>`;}).join('')}
+      ${band}
+    </svg>
+    <div class="hint">【观测】折线=逐分钟弹幕量（等距抽样，最多 120 点）｜ 下带=逐分钟状态（灰 S0 冷 / 蓝 S1 温 / 橙 S2 热 / 红 S3 爆）｜ 前/中/后段密度：${(rh.seg3_dpm||[]).join(' / ')} 条每分 ｜ S1：${rh.S1??'—'}（≥1.0 视为段间波动明显）</div>`
+      + coverageHtml(stt?stt.coverage:null);
+  }
+
+  /* 【状态】当前状态 + 下一分钟概率 + 转移矩阵 */
+  let stBlock = '';
+  if(stt && stt.next_prob){
+    const bars = (stt.next_names||[]).map((n,i)=>`<span style="display:inline-flex;align-items:center;gap:3px;margin-right:10px">
+      <i style="width:8px;height:8px;border-radius:2px;display:inline-block;background:${SC[i]}"></i>${n} ${(stt.next_prob[i]*100).toFixed(0)}%</span>`).join('');
+    stBlock = `<div class="row"><span class="k">【状态】当前强度等级</span><span><b>${stt.current_name}</b>（阈值 ${stt.edges.join(' / ')} 条每分）
+      <span style="color:var(--text-tertiary)">· 强度等级，非语义阶段</span></span></div>
+      <div class="row"><span class="k">【状态】下一分钟概率</span><span>${bars}</span></div>
+      <div class="row"><span class="k">【状态】状态转移</span><span>${matrixHtml(stt)}</span></div>`;
+  } else if(rh.curve && rh.curve.length){
+    stBlock = `<div class="row"><span class="k">【状态】状态序列</span><span><span class="pill insufficient">无状态模型输出</span>
+      <span class="k">（分钟桶 &lt; 2，或模型文件缺失）</span></span></div>`;
+  }
+
+  /* 【候选事件】显式分级：算法候选，非人工确认 */
+  let evr = '';
+  if(rh.events && rh.events.length){
+    evr = `<div class="row"><span class="k">【候选事件】算法候选</span><span>` +
+      rh.events.slice(0,4).map(e=>`<span class="pill pending">${fmt(e.start_s)}–${fmt(e.end_s)} 峰${fmt(e.peak_s)} ×${e.total}</span>`).join(' ') +
+      (rh.events.length>4?` 等 ${rh.events.length} 个`:'') +
+      `</span></div>
+      <div class="row"><span class="k"></span><span class="hint">判据=局部中位基线+2σ，区间端点有 25–60s 系统滞后（exp45 实测误差 31s &gt; 15s 门槛）。
+      <b>这些是算法候选，未经人工确认，不得读作"已验证的高潮/语义阶段"</b>；人工标注目前仅覆盖 5–6 支视频。</span></div>`;
+  }
+
   return `<div class="card"><h3>${esc(it.title||it.bvid)}</h3>
     <div class="meta">${esc(it.bvid)} ｜ ${esc(it.tname||'')} ｜ ${it.duration_min}min ｜ 采集时龄 ${it.age_h}h ｜ 批次 ${it.batch}</div>
-    <div class="row"><span class="k">D1 未来24h弹幕量</span><span>${d1r}</span></div>
-    <div class="row"><span class="k">D2 结论稳定度</span><span>${d2r}</span></div></div>`;
+    <div class="row"><span class="k">【观测】弹幕曲线</span><span>${rhr}</span></div>
+    ${stBlock}
+    ${evr}
+    <div class="row"><span class="k">【预测·辅助】D1 (6h,30h] 弹幕量</span><span>${d1r}</span></div>
+    <div class="row"><span class="k">【预测·辅助】D2 结论稳定度</span><span>${d2r}</span></div></div>`;
 }
+
 function render(items){
   document.getElementById('list').innerHTML = items.length ? items.map(card).join('') :
     '<div class="err">无匹配视频</div>';
 }
 function boot(){
-  fetch('/api/ml/forecast').then(r=>r.json()).then(r=>{
+  fetch('/api/ml/forecast').then(r=>{
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(r=>{
     if(r.code!==0) throw new Error(r.message||'code!=0');
     const d=r.data; ALL=d.items;
+    const withState = ALL.filter(x=>(x.rhythm||{}).state).length;
     document.getElementById('meta').textContent =
-      `生成于 ${d.generated_at} ｜ 数据窗 ${d.data_window} ｜ ${d.n_items} 支视频 ｜ 模型 ml_forecast@exp38`;
+      `生成于 ${d.generated_at} ｜ 数据窗 ${d.data_window} ｜ ${d.n_items} 支视频（含状态序列 ${withState} 支）｜ 快照 ml_forecast@exp38 + state exp47-v1`;
+    document.getElementById('chips').innerHTML =
+      [[ALL.length+' 支'],['状态序列 '+withState],
+       ['D1 时间切 ΔR²=+0.095'],['D2 时间切 ΔAUC=+0.078'],
+       ['转移增量 exp48.1：无稳健增量']]
+        .map(([t])=>`<span class="chip">${esc(t)}</span>`).join('');
     render(ALL);
   }).catch(e=>{document.getElementById('list').innerHTML =
-    `<div class="err">快照不可用：${esc(e.message)}（需在宿主机运行 jobs/ml_forecast_build.py 并重建 fastapi 镜像）</div>`;});
+    `<div class="err">快照不可用：${esc(e.message)}（需在宿主机运行 jobs/ml_forecast_build.py 并确认容器挂载）</div>`;});
 }
 document.getElementById('q').addEventListener('keydown',e=>{
   if(e.key==='Enter'){const v=e.target.value.trim();render(ALL.filter(x=>!v||x.bvid.includes(v)));}
