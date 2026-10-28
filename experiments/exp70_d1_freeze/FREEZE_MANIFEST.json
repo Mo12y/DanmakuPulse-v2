@@ -1,7 +1,8 @@
 {
  "freeze_id": "D1-FREEZE-20261028",
- "status": "FROZEN-LIMITED (documentation + hash manifest; NOT committed)",
+ "status": "FROZEN-LIMITED (documentation + hash manifest; committed 555e60b)",
  "repo_head": "500c7c7",
+ "commit": "555e60b",
  "created_at": "2026-10-28",
  "frozen_claim": "头 6h 计数（age≥31h 快照回溯）→ (6h,30h] 弹幕量延续；R² 0.5607 / MAE 238.39；vs B1 ΔR² 0.1076 [0.0711,0.1484]、MAE −14.1%。不是 6h 在线预测。",
  "not_frozen": [
@@ -73,13 +74,13 @@
   },
   "experiments/exp70_d1_freeze/D1_FREEZE.md": {
    "role": "freeze record",
-   "sha256": "4c8b1e4ae330bb4a8c4d2eaa2ca1a75aaeb178fbc4529fc3ba746ed26742971e",
-   "bytes": 5599
+   "sha256": "d62fb9f320504e048c209765bf0d8345ea504411e63bf5ff89bc6b7fbe2def7b",
+   "bytes": 5479
   },
   "experiments/exp70_d1_freeze/TEXT_ERRATA.md": {
    "role": "text/metadata errata",
-   "sha256": "9cb22b3d737f8242e5f228e5f39b31c4091213c44e11f773e1d6a55a27441541",
-   "bytes": 4666
+   "sha256": "9485beae067957fe972e5317252e27aac5004d381caac527f661dd68694aebf0",
+   "bytes": 4622
   },
   "experiments/exp38_integrate/models/d1_ols.json": {
    "role": "production D1 artifact (model string fixed; coef unchanged)",

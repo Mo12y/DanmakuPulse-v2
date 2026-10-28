@@ -67,8 +67,9 @@ assert am["metrics"]["OLS6"]["MAE_orig"] == 238.39
 
 manifest = dict(
     freeze_id="D1-FREEZE-20261028",
-    status="FROZEN-LIMITED (documentation + hash manifest; NOT committed)",
+    status="FROZEN-LIMITED (documentation + hash manifest; committed 555e60b)",
     repo_head="500c7c7",
+    commit="555e60b",
     created_at="2026-10-28",
     frozen_claim="头 6h 计数（age≥31h 快照回溯）→ (6h,30h] 弹幕量延续；R² 0.5607 / MAE 238.39；vs B1 ΔR² 0.1076 [0.0711,0.1484]、MAE −14.1%。不是 6h 在线预测。",
     not_frozen=["6h 在线预测", "3.4× 公平基线", "生产模型已验证", "R7 独立人工盲评", "节奏结构解释 D1 残差"],
