@@ -150,7 +150,11 @@ function card(it){
 
   /* 【观测】曲线 + 状态色带 + 三段密度 */
   let rhr = `<span class="pill insufficient">无节奏数据</span>`;
-  if(rh.curve && rh.curve.length){
+  if(rh.curve && rh.curve.length === 1){
+    // 单桶视频：曲线无法成线，直接给数而不是画一个空框
+    rhr = `<span class="pill insufficient">仅 1 个分钟桶</span>
+      <span class="k">（时长不足 2 分钟；弹幕 ${rh.curve[0].c} 条集中在第 1 分钟，无法构成强度曲线与状态序列）</span>`;
+  } else if(rh.curve && rh.curve.length){
     const pts = rh.curve.map(p=>p.c); const mx = Math.max(...pts,1);
     const W=560,H=68; const dx = W/Math.max(rh.curve.length-1,1);
     const poly = rh.curve.map((p,i)=>`${(i*dx).toFixed(1)},${(H-18-(p.c/mx)*(H-28)).toFixed(1)}`).join(' ');
