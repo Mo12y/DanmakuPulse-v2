@@ -137,6 +137,43 @@ def seg_event_candidates(cnts, smooth_k=SMOOTH_K, base_half=BASE_HALF, thr_k=THR
     return segs
 
 
+# ---------------------------------------------------------------- 候选 v2（协议一次调整权，2026-10-28）
+# 失败分析（exp51 首跑，candidate v1 match_rate=0.302）：
+#   ① 3 桶平滑把单桶尖峰稀释 ~3 倍（BV16uJy6CEuX 桶6: 50 → 平滑后 28.7 < 阈值 36.4）→ 漏检；
+#   ② mode='same' 卷积在边缘零填充，片头爆发 102 → 52.3 < 64.3 → 片头 B 段全漏；
+#   ③ 构念不变：仍以"相对突起段的起止"为段界（exp44 §5 已论证 阶段边界≠均值变点）。
+# 调整 = 修实现缺陷，不动构念、不动阈值族、不加模型：检测改用原始计数，事件=连续命中桶
+# （间隔 ≤merge_gap 合并），min_total/min_excess 照旧。此为本协议允许的唯一一次调整。
+def seg_event_candidates_v2(cnts, base_half=BASE_HALF, thr_k=THR_K,
+                            min_total=MIN_TOTAL, min_excess=MIN_EXCESS, merge_gap=2):
+    c = np.asarray(cnts, float)
+    n = len(c)
+    if n == 0:
+        return []
+    base = np.array([np.median(c[max(0, i - base_half):min(n, i + base_half + 1)]) for i in range(n)])
+    thr = base + thr_k * np.sqrt(base + 1.0)
+    hit = (c >= thr)
+    # 连续/近邻命中合并成事件（间隔 ≤ merge_gap）
+    idx = np.flatnonzero(hit)
+    if len(idx) == 0:
+        return []
+    events, s, e = [], idx[0], idx[0]
+    for i in idx[1:]:
+        if i - e <= merge_gap:
+            e = i
+        else:
+            events.append((s, e))
+            s = e = i
+    events.append((s, e))
+    out = []
+    for s, e in events:
+        total = float(c[s:e + 1].sum())
+        excess = float((c[s:e + 1] - base[s:e + 1]).clip(0).sum())
+        if total >= min_total and excess >= min_excess:
+            out.append((int(s), int(e)))
+    return out
+
+
 # ---------------------------------------------------------------- 汇总（纯函数）
 def evaluate(truth_by_video, pred_by_video, tol=TOL_BUCKETS):
     """truth_by_video/pred_by_video: {bvid: 边界桶 list}。返回总体与逐视频。"""

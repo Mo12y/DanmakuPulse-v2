@@ -1,0 +1,185 @@
+{
+ "gate": {
+  "med_err_s": 0.0,
+  "med_err_gate": true,
+  "match_rate_60s": 0.4892,
+  "match_rate_gate": false,
+  "verdict": "FAIL"
+ },
+ "overall": {
+  "equal_freq": {
+   "method": "equal_freq(等频)",
+   "precision": 0.7194,
+   "recall": 0.7194,
+   "f1": 0.7194,
+   "TP": 100,
+   "FP": 39,
+   "FN": 39,
+   "med_err_s": 0.0,
+   "match_rate_60s": 0.7194
+  },
+  "single_cp": {
+   "method": "single_cp(单变点)",
+   "precision": 0.9222,
+   "recall": 0.5971,
+   "f1": 0.7249,
+   "TP": 83,
+   "FP": 7,
+   "FN": 56,
+   "med_err_s": 0.0,
+   "match_rate_60s": 0.5971
+  },
+  "candidate": {
+   "method": "candidate_v2(2σ突起,调整后)",
+   "precision": 0.6733,
+   "recall": 0.4892,
+   "f1": 0.5667,
+   "TP": 68,
+   "FP": 33,
+   "FN": 71,
+   "med_err_s": 0.0,
+   "match_rate_60s": 0.4892
+  },
+  "candidate_v1_rejected": {
+   "method": "candidate_v1(首跑,留档)",
+   "precision": 0.7925,
+   "recall": 0.3022,
+   "f1": 0.4375,
+   "TP": 42,
+   "FP": 11,
+   "FN": 97,
+   "med_err_s": 0.0,
+   "match_rate_60s": 0.3022
+  }
+ },
+ "adjustment_log": {
+  "allowed": 1,
+  "used": 1,
+  "reason": "v1 两实现缺陷：3桶平滑稀释单桶尖峰(50→28.7<36.4)、mode=same 边缘零填充杀片头爆发(102→52.3<64.3)；构念不变（相对突起段起止为段界），检测改用原始计数",
+  "date": "2026-10-28"
+ },
+ "delta_vs_baselines": {
+  "vs_equal_freq": {
+   "d_f1": -0.1527,
+   "d_match": -0.2302
+  },
+  "vs_single_cp": {
+   "d_f1": -0.1582,
+   "d_match": -0.1079
+  }
+ },
+ "sensitivity": {
+  "by_coverage": {
+   "cov<0.8": {
+    "n": 9,
+    "f1": 0.4533,
+    "match_rate": 0.3953,
+    "med_err_s": 0.0
+   },
+   "cov>=0.8": {
+    "n": 21,
+    "f1": 0.6182,
+    "match_rate": 0.5312,
+    "med_err_s": 0.0
+   }
+  },
+  "by_got": {
+   "got300-500": {
+    "n": 9,
+    "f1": 0.5185,
+    "match_rate": 0.4773,
+    "med_err_s": 0.0
+   },
+   "got500-600": {
+    "n": 9,
+    "f1": 0.619,
+    "match_rate": 0.5417,
+    "med_err_s": 0.0
+   },
+   "got<300": {
+    "n": 12,
+    "f1": 0.56,
+    "match_rate": 0.4468,
+    "med_err_s": 0.0
+   }
+  },
+  "by_len": {
+   "long(>40桶)": {
+    "n": 2,
+    "f1": 0.3846,
+    "match_rate": 0.4545,
+    "med_err_s": 0.0
+   },
+   "mid(15-40桶)": {
+    "n": 8,
+    "f1": 0.5607,
+    "match_rate": 0.4688,
+    "med_err_s": 0.0
+   },
+   "short(<15桶)": {
+    "n": 20,
+    "f1": 0.6168,
+    "match_rate": 0.5156,
+    "med_err_s": 0.0
+   }
+  }
+ },
+ "worst5_candidate": [
+  {
+   "bvid": "BV18tp764En4",
+   "n_truth": 4,
+   "n_pred": 2,
+   "hits": 1,
+   "recall": 0.25,
+   "med_err_s": 0.0,
+   "n_seg_expected": 12
+  },
+  {
+   "bvid": "BV13GJi6zEN6",
+   "n_truth": 10,
+   "n_pred": 4,
+   "hits": 3,
+   "recall": 0.3,
+   "med_err_s": 0.0,
+   "n_seg_expected": 28
+  },
+  {
+   "bvid": "BV1HapC6SEMS",
+   "n_truth": 9,
+   "n_pred": 3,
+   "hits": 3,
+   "recall": 0.3333,
+   "med_err_s": 0.0,
+   "n_seg_expected": 23
+  },
+  {
+   "bvid": "BV18vpg6zEWF",
+   "n_truth": 3,
+   "n_pred": 3,
+   "hits": 1,
+   "recall": 0.3333,
+   "med_err_s": 0.0,
+   "n_seg_expected": 12
+  },
+  {
+   "bvid": "BV118nd6QEZq",
+   "n_truth": 8,
+   "n_pred": 13,
+   "hits": 3,
+   "recall": 0.375,
+   "med_err_s": 60.0,
+   "n_seg_expected": 124
+  }
+ ],
+ "meta": {
+  "n_videos": 30,
+  "n_truth_bounds": 139,
+  "reference": "ann_final.csv（2026-10-28 裁决，28 条逐条 resolution）",
+  "curves": "data-out/c1/curves_csv（Spark dws_rhythm_60s 产物）",
+  "gate_predefined": {
+   "med_err_s": 15.0,
+   "match_rate": 0.6
+  },
+  "granularity_note": "边界全在分钟刻度 ⇒ 误差∈{0,60,...}s；\"≤15s\"等价于匹配对中位同桶"
+ }
+}
