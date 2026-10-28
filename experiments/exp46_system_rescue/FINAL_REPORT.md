@@ -82,3 +82,57 @@ smoke：登录 → 列表 → 3 详情 → 页面 200 → 未知 bvid 404，全�
 2. **v3 分析页数据止于 1013**：PG `v3_video_danmaku` 仅含 0902/0907/0914/0917/1012/1013 六批（1,115,185 行 / 803 支）；`ads_video_curve` 更旧（仅 9 月 4 批，max 20260917），由 legacy `/api/video/{bvid}` 读取，v3 页面不依赖它。
 3. **节奏分析卡不受上述影响**：`ml_forecast` 快照直读 `data/cli_collected/hotlist_top200_202610*.csv`（1012–1026），与 Spark/PG 解耦。
 4. **补齐路径**（按代价从低到高）：`make ingest` → `make m0-full --batches 20261014..20261027` → `make m2-l1` → `jobs/export_v3_danmaku.py` + `jobs/load_v3_danmaku.sh`。需连续数小时且涉及分区覆盖，本轮未执行。
+
+---
+
+## 7. 启动与部署（2026-10-28 实测）
+
+### 7.1 服务与入口
+
+| 项 | 值 |
+|---|---|
+| 容器 | 9 个：namenode / datanode / spark-master / spark-worker / spark-history / hive-metastore / postgres / fastapi / nginx |
+| 页面入口 | **`http://<vm>:8088/ml_forecast.html`** —— nginx 提供静态；⚠️ **8000 是 fastapi，只有 API，页面在那儿是 404** |
+| API | `http://<vm>:8000/api/ml/forecast[?bvid=]`、`/api/ml/forecast/{bvid}`（全局登录中间件保护） |
+| 账号 | 管理员 `admin`；**只读演示 `demo` / `demo@nndx2026`（role=user）**，管理域 5 条路径全部 403（实测） |
+| 计费 | AI 解读开关**已置 `enabled=false`**（原为 true，demo 可触发计费调用） |
+
+### 7.2 快照重建（改了 rhythm/state 字段后必做）
+
+```bash
+cd ~/projects/danmaku-v2
+~/danmaku-venv/bin/python jobs/ml_forecast_build.py     # 实测 22s → 2,167 支
+```
+输出两份：`data-out/ml_forecast/ml_snapshot.json`（host/pytest）+ `~/projects/danmaku/data/cli_collected/ml_forecast_snapshot.json`（容器 `/data-out` 挂载）。
+serve 侧按 mtime 缓存，**不用重启容器**；页面静态由 nginx 直接挂载，改完即生效。
+
+### 7.3 数据链（补齐新批次）
+
+```bash
+make m0-daily BATCHES=20261020,20261021     # raw → ODS，dynamic partition overwrite，只动指定批次
+make m0-full                                # ODS → DWD（滚动全量重算，实测 6.5 min / 3.58M 行）
+make m2-l1                                  # DWD → dws_density_5s / _1pct / rhythm_features / partition_rhythm
+docker cp jobs/export_v3_danmaku.py spark-master:/tmp/
+docker exec spark-master /opt/spark/bin/spark-submit --master local[2] /tmp/export_v3_danmaku.py
+bash jobs/load_v3_danmaku.sh                # TRUNCATE + COPY 进 PG v3_video_danmaku
+```
+
+⚠️ **三个必须知道的坑**
+
+1. **导出必须 `--master local[2]`**。用 `--master spark://spark-master:7077` 时 driver（spark-master）与
+   executor（spark-worker）的 `file://` 是两个不同卷：`_SUCCESS` 落在 driver，part 文件卡在 worker 的
+   `_temporary`，`load` 脚本会报"找不到 part-*.csv"。2026-10-27 实际踩到并已修正。
+2. **`data-out/` 下产物由容器 root 写出**，宿主 `rm` 会"权限不够"，清理要经容器：
+   `docker exec spark-master rm -rf /opt/work/data-out/v3_danmaku`。
+3. **改 ODS 前先跑分区守卫**：`docker cp tools/probe_partition_guard.py spark-master:/tmp/guard.py` →
+   before 快照 → 装载 → after 快照 `--expect-unchanged <旧批>`。本轮实测输出 `变化=无 新增=['20261014'] 消失=无`。
+
+### 7.4 启动/部署验收（本轮实测）
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 容器重启后可恢复 | `docker compose -f compose/docker-compose.b0.yml restart fastapi` | 8s 起来 |
+| 端到端 | `e2e_check.py` | `E2E-OK ok=9`（未登录 401 / 列表 2167 / 4 类代表视频字段一致 / D1 三态 / 404 / 页面 200） |
+| 权限边界 | `setup_demo_account.py` | `DEMO-SETUP-OK ok=14` |
+| 全量测试 | `pytest tests/ -q` | **266 passed / 4 skipped / 0 failed** |
+| 实验可复现 | 复跑 `exp48_1_scoring_aligned.py` | `results.json` **逐字节等价** |

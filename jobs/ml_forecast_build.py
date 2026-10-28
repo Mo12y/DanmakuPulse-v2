@@ -192,6 +192,8 @@ def main():
         step = max(1, nb60 // 120)
         curve = [dict(t=int(i * 60), c=int(c60[i])) for i in range(0, nb60, step)]
         rhythm = dict(seg3_dpm=seg3, S1=s1v, n_events=len(events), events=events, curve=curve,
+                      n_danmaku=int(len(g)), n_buckets=int(nb60),
+                      n_zero_buckets=int((c60 == 0).sum()),
                       note="事件=局部基线+2σ 的算法候选，未经人工确认",
                       state=state_fields(c60, state_model))
         items.append(dict(bvid=bv, batch=int(bt), title=str(g["title"].iloc[0])[:60],
