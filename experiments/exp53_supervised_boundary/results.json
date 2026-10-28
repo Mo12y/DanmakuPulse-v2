@@ -1,0 +1,461 @@
+{
+ "meta": {
+  "n_videos": 30,
+  "n_buckets": 551,
+  "n_internal_truth": 79,
+  "note": "t=0/t=n 为定义性边界，已从评价中剔除；预测硬过滤=两侧桶均已观测；特征只用局部窗口，LOO 无泄漏"
+ },
+ "part1_diagnostic_internal_only": {
+  "equal_freq": {
+   "f1": 0.5063,
+   "precision": 0.5063,
+   "recall": 0.5063,
+   "TP": 40,
+   "FP": 39,
+   "FN": 39,
+   "med_err_s": 60.0
+  },
+  "single_cp": {
+   "f1": 0.422,
+   "precision": 0.7667,
+   "recall": 0.2911,
+   "TP": 23,
+   "FP": 7,
+   "FN": 56,
+   "med_err_s": 60.0
+  },
+  "candidate_v2": {
+   "f1": 0.4762,
+   "precision": 0.5147,
+   "recall": 0.443,
+   "TP": 35,
+   "FP": 33,
+   "FN": 44,
+   "med_err_s": 0.0
+  }
+ },
+ "part2_supervised": {
+  "balanced": {
+   "f1": 0.4653,
+   "precision": 0.3434,
+   "recall": 0.7215,
+   "TP": 57,
+   "FP": 109,
+   "FN": 22,
+   "med_err_s": 0.0,
+   "thr_median": 0.2,
+   "n_pred": 166,
+   "n_truth_internal": 79
+  },
+  "natural": {
+   "f1": 0.4715,
+   "precision": 0.3473,
+   "recall": 0.7342,
+   "TP": 58,
+   "FP": 109,
+   "FN": 21,
+   "med_err_s": 0.0,
+   "thr_median": 0.2,
+   "n_pred": 167,
+   "n_truth_internal": 79
+  }
+ },
+ "delta_vs_unsupervised": {
+  "equal_freq": {
+   "d_f1": -0.041,
+   "d_recall": 0.2152
+  },
+  "single_cp": {
+   "d_f1": 0.0433,
+   "d_recall": 0.4304
+  },
+  "candidate_v2": {
+   "d_f1": -0.0109,
+   "d_recall": 0.2785
+  }
+ },
+ "sweep": {
+  "balanced": [
+   {
+    "thr": 0.1,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.15,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.2,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.25,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.3,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.35,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.4,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.45,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.5,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.55,
+    "recall": 0.038,
+    "precision": 1.0,
+    "f1": 0.0732,
+    "n_pred": 3
+   },
+   {
+    "thr": 0.6,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   },
+   {
+    "thr": 0.65,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   },
+   {
+    "thr": 0.7,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   },
+   {
+    "thr": 0.75,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   },
+   {
+    "thr": 0.8,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   },
+   {
+    "thr": 0.85,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   },
+   {
+    "thr": 0.9,
+    "recall": 0.0253,
+    "precision": 1.0,
+    "f1": 0.0494,
+    "n_pred": 2
+   }
+  ],
+  "natural": [
+   {
+    "thr": 0.1,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.15,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.2,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.25,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.3,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.35,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.4,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.45,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   {
+    "thr": 0.5,
+    "recall": 0.7089,
+    "precision": 0.3394,
+    "f1": 0.459,
+    "n_pred": 165
+   },
+   {
+    "thr": 0.55,
+    "recall": 0.0127,
+    "precision": 1.0,
+    "f1": 0.025,
+    "n_pred": 1
+   },
+   {
+    "thr": 0.6,
+    "recall": 0.0127,
+    "precision": 1.0,
+    "f1": 0.025,
+    "n_pred": 1
+   },
+   {
+    "thr": 0.65,
+    "recall": 0.0127,
+    "precision": 1.0,
+    "f1": 0.025,
+    "n_pred": 1
+   },
+   {
+    "thr": 0.7,
+    "recall": 0.0127,
+    "precision": 1.0,
+    "f1": 0.025,
+    "n_pred": 1
+   },
+   {
+    "thr": 0.75,
+    "recall": 0.0127,
+    "precision": 1.0,
+    "f1": 0.025,
+    "n_pred": 1
+   },
+   {
+    "thr": 0.8,
+    "recall": 0.0,
+    "precision": 0.0,
+    "f1": 0.0,
+    "n_pred": 0
+   },
+   {
+    "thr": 0.85,
+    "recall": 0.0,
+    "precision": 0.0,
+    "f1": 0.0,
+    "n_pred": 0
+   },
+   {
+    "thr": 0.9,
+    "recall": 0.0,
+    "precision": 0.0,
+    "f1": 0.0,
+    "n_pred": 0
+   }
+  ],
+  "best_f1": {
+   "balanced": {
+    "thr": 0.1,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   },
+   "natural": {
+    "thr": 0.1,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   }
+  },
+  "best_precision_at_recall_ge_060": {
+   "balanced": {
+    "thr": 0.1,
+    "recall": 0.7342,
+    "precision": 0.3473,
+    "f1": 0.4715,
+    "n_pred": 167
+   }
+  }
+ },
+ "nearmiss": {
+  "dist_hist": {
+   "0": 39,
+   "1": 23,
+   "2": 29,
+   "3": 14,
+   "4": 11,
+   "5": 9,
+   "6": 4,
+   "7": 6,
+   "8": 4,
+   "9": 2,
+   "10": 2,
+   "11": 1,
+   "12": 2,
+   "13": 1,
+   "14": 3,
+   "15": 1,
+   "16": 2,
+   "17": 1,
+   "18": 1,
+   "19": 2,
+   "20": 2,
+   "22": 1,
+   "24": 1,
+   "25": 1,
+   "27": 1
+  },
+  "fp_count": 101,
+  "fp_within_3buckets": 0.426,
+  "note": "近失(≤3桶)=定位偏差；远距=把小波动当结构（过度触发）"
+ },
+ "sensitivity": {
+  "by_coverage": {
+   "cov>=0.8": {
+    "n": 30,
+    "f1": 0.4653,
+    "recall": 0.7215
+   }
+  },
+  "by_len": {
+   "long(>40桶)": {
+    "n": 2,
+    "f1": 0.24,
+    "recall": 0.8571
+   },
+   "mid(15-40桶)": {
+    "n": 8,
+    "f1": 0.5088,
+    "recall": 0.6042
+   },
+   "short(<15桶)": {
+    "n": 20,
+    "f1": 0.5432,
+    "recall": 0.9167
+   }
+  }
+ },
+ "worst5": [
+  {
+   "bvid": "BV117eF68ErS",
+   "hits": 0,
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "errors": [],
+   "n_truth": 0,
+   "n_pred": 0
+  },
+  {
+   "bvid": "BV11yn86jEuN",
+   "hits": 0,
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "errors": [],
+   "n_truth": 0,
+   "n_pred": 3
+  },
+  {
+   "bvid": "BV12Hbj6PEsm",
+   "hits": 0,
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "errors": [],
+   "n_truth": 0,
+   "n_pred": 0
+  },
+  {
+   "bvid": "BV14Meu6tEiC",
+   "hits": 0,
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "errors": [],
+   "n_truth": 0,
+   "n_pred": 0
+  },
+  {
+   "bvid": "BV1CKbs6jE5y",
+   "hits": 0,
+   "precision": 0.0,
+   "recall": 0.0,
+   "f1": 0.0,
+   "errors": [],
+   "n_truth": 0,
+   "n_pred": 0
+  }
+ ],
+ "gate_reference": {
+  "threshold": "参考 Gate B 预注册门槛（match>=0.60, med<=15s）；本实验为协议后探索，不改 Gate B 结论",
+  "match_rate_gate": true,
+  "med_err_gate": true
+ }
+}
