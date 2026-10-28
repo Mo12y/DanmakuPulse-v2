@@ -1,0 +1,218 @@
+{
+ "meta": {
+  "seed": 20261028,
+  "sample_videos": 148,
+  "sample_rows": 329379,
+  "all_videos": 2948,
+  "quality_summary": {
+   "user_cov": 0.811139,
+   "key_unique": false,
+   "spam_rate": 3e-06,
+   "norm_diff_rate": 0.00105
+  }
+ },
+ "route1_sync": {
+  "n_buckets": 3578,
+  "bucket_level_median": {
+   "n": 50.0,
+   "n_user": 43.0,
+   "repeat_share": 0.05588327145286098,
+   "multi_share": 0.023669467787114845
+  },
+  "corr_volume_vs_multi": 0.4327,
+  "corr_volume_vs_repeat": 0.2782,
+  "corr_volume_vs_userratio": -0.1491,
+  "within_volume_tertile": {
+   "low": {
+    "n": 50.0,
+    "multi_med": 0.0896,
+    "multi_iqr": 0.1262,
+    "repeat_med": 0.0719
+   },
+   "mid": {
+    "n": 49.0,
+    "multi_med": 0.1134,
+    "multi_iqr": 0.1628,
+    "repeat_med": 0.1175
+   },
+   "high": {
+    "n": 49.0,
+    "multi_med": 0.1747,
+    "multi_iqr": 0.2183,
+    "repeat_med": 0.4208
+   }
+  },
+  "interpretation": "multi_share 与 log(量) 的相关若接近 0，说明同步性不是量的替身",
+  "status": "有初步支持证据"
+ },
+ "route2_repeat": {
+  "def1_k3_any_window": 14201,
+  "def1_per_video": 95.95,
+  "def2_k3_within_3buckets": 12125,
+  "def2_per_video": 81.93,
+  "single_user_share": 0.7216,
+  "multi_user_share": 0.2784,
+  "span_median_single": 0.0,
+  "span_median_multi": 0.0,
+  "note_def": "定义1（任意窗口 k≥3）在低池视频上近乎普遍（约 96 个/视频）⇒ 失去\"事件\"性；主口径改用定义2（≤3 桶内 k≥3），见 def2_*",
+  "tnorm_groups_with_multiple_raw_texts": 0,
+  "note_norm": "tnorm 相同但原文不同 ⇒ 规范化把原文差异抹平（emoji/符号替换），复读计数会偏高",
+  "median_gap_buckets_obs": 0.0,
+  "median_gap_buckets_null_med": 0.0,
+  "temporal_clustering": "未超出随机基线",
+  "status": "结果不稳定",
+  "relay_note": "\"接力\"未单独定义（需预先定义前后事件关联条件）；本报告只测事件时间聚集性"
+ },
+ "route3_dual_clock": {
+  "n_videos": 148,
+  "gini_prog_median": 0.3332,
+  "gini_lag_median": 0.5099,
+  "corr_gini": 0.0685,
+  "corr_peak_positions": 0.0167,
+  "lag_coverage": {
+   "rows_with_lag": 329379,
+   "share": 1.0
+  },
+  "status": "有初步支持证据（两钟集中度与峰位相关性低）",
+  "caveat": "send_time 受采集截断（快照后发送的弹幕不在池）；lag≠观看时间"
+ },
+ "route4_expression": {
+  "n_buckets": 3578,
+  "corr_n_vs_colored": 0.0543,
+  "corr_n_vs_long": -0.052,
+  "high_vs_rest": {
+   "colored": -0.0062,
+   "long": -0.0823,
+   "mean_len": -1.51
+  },
+  "attr_weight_corr_with_n": 0.9991,
+  "status": "待判（见 high_vs_rest 与相关性；加权与未加权差异见 corr）",
+  "caveat": "颜色/字号/模式≠真实情绪；只作表达形式"
+ },
+ "route5_concentration": {
+  "n_buckets": 3578,
+  "hhi_median": 0.0255,
+  "peak_vs_rest": {
+   "hhi": -0.1151,
+   "top1": -0.118
+  },
+  "corr_n_vs_hhi": -0.7418,
+  "peak_pos_shift_after_removing_top1pct_users": 0.0,
+  "n_top_users_removed": 1565,
+  "status": "待判（peak 与非 peak 的集中度差 + 去高频用户后峰位漂移）",
+  "caveat": "user_hash 是匿名哈希，不等于独立自然人；is_spam 非完美标签"
+ },
+ "route6_completeness": {
+  "n_videos": 2948,
+  "n_multi_batch_videos": 576,
+  "got_over_reported_median": 1.0068,
+  "got_over_reported_p10": 0.3742,
+  "coverage_median": 1.0,
+  "multi_batch_coverage_range_median": 0.0,
+  "multi_batch_got_cv_median": 0.0746,
+  "status": "有初步支持证据（同视频跨批次覆盖差异可量化；结论敏感性需见下）",
+  "caveat": "got/reported 不是无偏采样率；跨批差异同时含池滚动与真实增长"
+ },
+ "route7_up_partition": {
+  "n_videos": 2218,
+  "n_ups": 1473,
+  "ups_with_3plus": 155,
+  "eta2_tname_from_exp56": "见 exp56 route_C（分区 21 组、1,710 支：η² 0.091–0.151，偏 η² 0.090–0.133）",
+  "icc_up": {
+   "rhythm_entropy": 0.4801,
+   "burst_cv": 0.4144,
+   "opening_5pct": 0.5437,
+   "mid_ratio": 0.5091
+  },
+  "icc_up_controlling_duration_volume": {
+   "rhythm_entropy": 0.4584,
+   "burst_cv": 0.3418,
+   "opening_5pct": 0.5262,
+   "mid_ratio": 0.4957
+  },
+  "icc_note": "偏 ICC = 先把指标对 log(duration)+log(got) 残差化，再算组内相关；若偏 ICC 明显小于原始 ICC，说明\"同 UP 更相似\"主要由时长/体量解释",
+  "status": "待判（UP 内 ICC 与分区 η² 比较：ICC 明显 >0 才说明同 UP 内部更相似）",
+  "caveat": "热榜样本非全体视频代表；同 UP 视频可能共享题材与粉丝结构"
+ },
+ "route8_representation": {
+  "n_videos": 201,
+  "redundancy": {
+   "multi": {
+    "R2_from_existing": 0.4618
+   },
+   "repeat": {
+    "R2_from_existing": 0.2282
+   },
+   "hhi": {
+    "R2_from_existing": 0.6133
+   },
+   "top1": {
+    "R2_from_existing": 0.5846
+   },
+   "colored": {
+    "R2_from_existing": 0.0189
+   },
+   "long": {
+    "R2_from_existing": 0.153
+   }
+  },
+  "status": "待判（R2 接近 1 ⇒ 与现有 8 维重复；明显 <1 ⇒ 携带新信息）",
+  "caveat": "无独立人工评价，只能判\"是否重复\"，不能判\"是否更有解释力\""
+ },
+ "cross": {
+  "corr_matrix": {
+   "multi": {
+    "multi": 1.0,
+    "repeat": 0.634,
+    "hhi": 0.273,
+    "top1": 0.262,
+    "colored": -0.025,
+    "long": -0.621
+   },
+   "repeat": {
+    "multi": 0.634,
+    "repeat": 1.0,
+    "hhi": 0.186,
+    "top1": 0.169,
+    "colored": 0.041,
+    "long": -0.415
+   },
+   "hhi": {
+    "multi": 0.273,
+    "repeat": 0.186,
+    "hhi": 1.0,
+    "top1": 0.987,
+    "colored": -0.092,
+    "long": -0.179
+   },
+   "top1": {
+    "multi": 0.262,
+    "repeat": 0.169,
+    "hhi": 0.987,
+    "top1": 1.0,
+    "colored": -0.04,
+    "long": -0.154
+   },
+   "colored": {
+    "multi": -0.025,
+    "repeat": 0.041,
+    "hhi": -0.092,
+    "top1": -0.04,
+    "colored": 1.0,
+    "long": 0.056
+   },
+   "long": {
+    "multi": -0.621,
+    "repeat": -0.415,
+    "hhi": -0.179,
+    "top1": -0.154,
+    "colored": 0.056,
+    "long": 1.0
+   }
+  },
+  "redundant_pairs": [
+   "hhi~top1"
+  ],
+  "note": "|r|≥0.8 视为重复信息；R1（multi）与 R5（hhi/top1）是否互补看 multi~hhi 与 multi~top1"
+ }
+}
