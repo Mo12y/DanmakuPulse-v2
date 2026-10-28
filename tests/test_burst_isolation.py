@@ -138,3 +138,13 @@ def test_freeze_digest_is_stable_and_detects_missing(tmp_path):
     (tmp_path / "b.md").unlink()
     with pytest.raises(M.ProtocolError):
         M.freeze_digest(paths, root=str(tmp_path))
+
+
+def test_single_main_and_no_duplicate_sections():
+    """REV-001/009：源码只能有一个 main 与一个 __main__，且章节不重复。"""
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                            "jobs", "m2_l6_burst_risk.py"), encoding="utf-8").read()
+    assert src.count("\ndef main(") == 1
+    assert src.count('if __name__ == "__main__"') == 1
+    for header in ("# 10. D-conf 事件门槛", "# 11. 路径级冻结凭据", "# 12. CLI"):
+        assert src.count(header) == 1, header

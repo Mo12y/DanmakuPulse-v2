@@ -41,9 +41,10 @@ def _load(refresh=False):
 def shape_item(it):
     """单视频卡片载荷（纯函数，可测）：缺字段降级为 status=unavailable，不抛错。"""
     out = {"bvid": it.get("bvid"), "title": it.get("title"), "tname": it.get("tname"),
-           "batch": it.get("batch"), "age_h": it.get("age_h"),
+           "batch": it.get("batch"), "age_h": it.get("age_h"), "duration_min": it.get("duration_min"),
            "d1": {"status": "unavailable", "forecast_6h_30h": None, "actual_6h_30h": None},
-           "d2": {"status": "unavailable", "current": None}}
+           "d2": {"status": "unavailable", "current": None},
+           "rhythm": it.get("rhythm")}
     d1 = it.get("d1") or {}
     out["d1"].update({k: d1.get(k) for k in ("status", "forecast_6h_30h", "actual_6h_30h")})
     d2 = it.get("d2") or {}

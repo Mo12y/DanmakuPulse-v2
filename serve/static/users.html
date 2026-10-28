@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>用户管理 · 弹幕互动节奏分析系统</title>
+<title>账号管理 · 弹幕互动节奏分析系统</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="v3.css">
 <style>
@@ -16,13 +16,16 @@
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
 th{color:var(--text-secondary);font-weight:600;font-size:12.5px}
-td.r{text-align:right}
+td.r{text-align:right;white-space:nowrap}
 .role{font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px}
 .role.admin{background:var(--accent-soft);color: var(--accent-ink)}
 .role.user{background:var(--surface-soft);color:var(--text-secondary)}
 .msg{margin-top:10px;font-size:13px;font-weight:600}
 .msg.ok{color:var(--success)} .msg.bad{color:var(--danger-ink)}
 .mini{font-size:12px;color:var(--text-tertiary);margin-top:12px;line-height:1.7}
+.rowbtns{display:inline-flex;gap:6px;justify-content:flex-end}
+.btn.danger{color:var(--danger-ink);border-color:var(--border)}
+.btn.danger:hover{background:var(--danger-soft, rgba(220,38,38,.12));border-color:var(--danger-ink);color:var(--danger-ink)}
 </style>
 </head>
 <body>
@@ -32,17 +35,13 @@ td.r{text-align:right}
     <div class="wrap">
       <p class="pagesub"><b>账号与角色管理</b></p>
   <div class="card">
-    <div class="verdict">
-      <span class="tone ok">● 仅管理员</span>
-      <div class="vmain">
-        <div class="vproblem">账号管理</div>
-        <div class="vhead">系统不提供注册——账号一律由管理员创建，并指定它能看到什么。</div>
-        <div class="vdetail">普通用户：诊断卡 / 市场总览 / 分区画像 / 我的收藏。管理员：额外可进 用户管理 与 原始细节（技术层）。</div>
-      </div>
+    <div class="hlhead">
+      <div class="vtitle">账号</div>
+      <div class="vmeta">仅管理员可见 · 账号由管理员创建，不开放注册</div>
     </div>
     <div class="sec">
       <div class="sechead"><span class="secno">①</span><span class="sectitle">现有账号</span>
-        <span class="secnote">最后一个管理员不能降级（旧版没这条保护，已补）</span></div>
+        <span class="secnote">最后一个管理员不能降级或删除</span></div>
       <div class="grid2">
         <div class="card f" style="padding:16px 18px">
           <div style="font-weight:700;font-size:14px">新建账号</div>
@@ -69,11 +68,13 @@ td.r{text-align:right}
     </div>
   </div>
 </div>
-<script src="v3nav.js"></script>
+<script src="v3nav.js?v=20261021"></script>
 <script>
 var $ = function (s) { return document.querySelector(s); };
+var ME = null;
 V3.ready(function (me) {
   if (!me || me.role !== 'admin') { location.href = '/403.html'; return; }
+  ME = me;
   load();
   $('#nuCreate').onclick = create;
 });
@@ -86,14 +87,23 @@ function load() {
     var rows = j.data || [];
     $('#rows').innerHTML = rows.length ? rows.map(function (u) {
       var to = u.role === 'admin' ? 'user' : 'admin';
+      // /api/me 只回 username/role（不含 id），所以按用户名判自己
+      var self = ME && (u.id === ME.id || u.username === ME.username);
       return '<tr><td>' + u.id + '</td><td><b>' + V3.esc(u.username) + '</b></td>' +
         '<td><span class="role ' + u.role + '">' + (u.role === 'admin' ? '管理员' : '普通用户') + '</span></td>' +
         '<td>' + V3.esc(u.created_at) + '</td>' +
-        '<td class="r"><button class="btn" data-uid="' + u.id + '" data-role="' + to + '">' +
-        (to === 'admin' ? '设为管理员' : '降为普通用户') + '</button></td></tr>';
+        '<td class="r"><span class="rowbtns">' +
+          '<button class="btn" data-uid="' + u.id + '" data-role="' + to + '">' +
+            (to === 'admin' ? '设为管理员' : '降为普通用户') + '</button>' +
+          (self ? '<span class="mini" style="margin:0">当前账号</span>'
+                : '<button class="btn danger" data-del="' + u.id + '" data-name="' + V3.esc(u.username) + '">删除</button>') +
+        '</span></td></tr>';
     }).join('') : '<tr><td colspan="5" class="loading">还没有账号</td></tr>';
     document.querySelectorAll('button[data-uid]').forEach(function (b) {
       b.onclick = function () { setRole(b.dataset.uid, b.dataset.role); };
+    });
+    document.querySelectorAll('button[data-del]').forEach(function (b) {
+      b.onclick = function () { del(b.dataset.del, b.dataset.name); };
     });
   });
 }
@@ -105,6 +115,16 @@ function setRole(uid, role) {
     .then(function (o) {
       if (o.s === 200) { V3.toast('已更新'); load(); }
       else { V3.toast(o.j.detail || o.j.error || '更新失败'); }
+    });
+}
+function del(uid, name) {
+  // 确认框写清删的是谁，以及会连带删掉什么
+  if (!confirm('删除账号「' + name + '」？\n该账号的收藏会一并删除，且无法恢复。')) return;
+  fetch('/api/users/' + uid, { method: 'DELETE', credentials: 'same-origin' })
+    .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+    .then(function (o) {
+      if (o.s === 200) { V3.toast('已删除：' + name); load(); }
+      else { V3.toast(o.j.detail || o.j.error || '删除失败'); }
     });
 }
 function create() {

@@ -188,3 +188,42 @@ def test_n_for_effect_02_is_968():
 def test_n_for_effect_rejects_nonpositive_delta():
     with pytest.raises(M.ProtocolError):
         M.n_for_effect(0.22, 0.0)
+
+
+# ── B1 负对照：N1 分布 / N5 / N2 删除 ──────────────────────────────
+def test_negative_controls_structure_and_n2_removed():
+    seqs = _seqs(n=24, K=60, seed=77)
+    rows = M.build_rows(seqs)
+    out = M.negative_controls(rows, seqs, seed=7, R=20)
+
+    assert "n1" in out and "n5" in out and "n6_exploratory" in out
+    # N2 已删除：字段与键都不得出现
+    assert "shuffle_label_fit_auc" not in out
+    assert not any("fit" in k for k in out["n1"])
+    n1 = out["n1"]
+    assert n1["R"] == 20 and n1["seed"] == 7
+    assert 0.0 <= n1["mean"] <= 1.0 and n1["sd"] >= 0.0
+    assert n1["p05"] <= n1["p50"] <= n1["p95"]
+    # 并列率：LR 概率应几乎无并列
+    assert n1["tie_rate_min"] >= 0.9
+    # 只报不判：R=20 时不做 0.49–0.51 的通过宣称
+    assert "passed" in n1
+    # N5 视频内恒定 → 恰 0.5
+    assert out["n5"]["exact_ok"] is True
+    assert abs(out["n5"]["macro_auc"] - 0.5) < 1e-12
+    # N6 只是探索性附注
+    assert "note" in out["n6_exploratory"]
+
+
+def test_negative_controls_is_reproducible():
+    seqs = _seqs(n=16, K=48, seed=88)
+    rows = M.build_rows(seqs)
+    a = M.negative_controls(rows, seqs, seed=7, R=10)["n1"]
+    b = M.negative_controls(rows, seqs, seed=7, R=10)["n1"]
+    assert (a["mean"], a["sd"], a["tie_rate_min"]) == (b["mean"], b["sd"], b["tie_rate_min"])
+
+
+def test_source_no_longer_contains_fit_side_shuffle():
+    src = open(os.path.join(HERE, "..", "jobs", "m2_l6_burst_risk.py"), encoding="utf-8").read()
+    assert "shuffle_label_fit_auc" not in src
+    assert "perm_fit_auc" not in src

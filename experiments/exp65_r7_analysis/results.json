@@ -1,0 +1,27 @@
+{
+ "n_pairs": 60,
+ "n_invalid_dropped": 0,
+ "stratum_means": {
+  "very_similar": 2.95,
+  "middle": 2.7,
+  "dissimilar": 1.35
+ },
+ "per_annotator": {
+  "A": {
+   "very_similar": 3.0,
+   "middle": 2.8,
+   "dissimilar": 1.4
+  },
+  "B": {
+   "very_similar": 2.9,
+   "middle": 2.6,
+   "dissimilar": 1.3
+  }
+ },
+ "monotonic": true,
+ "mannwhitney_p": 0.0,
+ "annotator_spearman": 0.9411,
+ "annotator_spearman_p": 0.0,
+ "gate": "PASS",
+ "pre_registered": "①MW p<0.05（very>dissim）②三层单调③评分者相关>=0.3"
+}

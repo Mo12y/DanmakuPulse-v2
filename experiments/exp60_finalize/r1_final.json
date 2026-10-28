@@ -1,0 +1,261 @@
+{
+ "n_videos": 2218,
+ "n_partitions": 91,
+ "ratio_p5": 0.2377,
+ "ratio_p10": 0.3989,
+ "ratio_median": 1.0052,
+ "tier_counts": {
+  "A(>=0.9)": 1399,
+  "B(0.5-0.9)": 501,
+  "C(<0.5)": 318
+ },
+ "tier_metric_medians": {
+  "A(>=0.9)": {
+   "rhythm_entropy": 0.9126,
+   "burst_cv": 0.9673,
+   "opening_5pct": 0.1143,
+   "mid_ratio": 0.8486
+  },
+  "B(0.5-0.9)": {
+   "rhythm_entropy": 0.9207,
+   "burst_cv": 0.9316,
+   "opening_5pct": 0.095,
+   "mid_ratio": 0.8583
+  },
+  "C(<0.5)": {
+   "rhythm_entropy": 0.8706,
+   "burst_cv": 1.1994,
+   "opening_5pct": 0.1053,
+   "mid_ratio": 0.855
+  }
+ },
+ "low_support_partitions": 70,
+ "low_support_videos": 501,
+ "effect_low_vs_high_by_group": {
+  "all": {
+   "rhythm_entropy": {
+    "diff": -0.042,
+    "diff_in_mad": -0.773,
+    "ci95": [
+     -0.0579,
+     -0.0264
+    ],
+    "n_low": 318,
+    "n_high": 1399
+   },
+   "burst_cv": {
+    "diff": 0.2321,
+    "diff_in_mad": 0.519,
+    "ci95": [
+     0.0463,
+     0.4988
+    ],
+    "n_low": 318,
+    "n_high": 1399
+   },
+   "opening_5pct": {
+    "diff": -0.0091,
+    "diff_in_mad": -0.13,
+    "ci95": [
+     -0.0221,
+     0.0071
+    ],
+    "n_low": 318,
+    "n_high": 1399
+   },
+   "mid_ratio": {
+    "diff": 0.0064,
+    "diff_in_mad": 0.08,
+    "ci95": [
+     -0.0072,
+     0.0203
+    ],
+    "n_low": 318,
+    "n_high": 1399
+   }
+  },
+  "low_support": {
+   "rhythm_entropy": {
+    "diff": -0.0377,
+    "diff_in_mad": -0.695,
+    "ci95": [
+     -0.0626,
+     -0.0068
+    ],
+    "n_low": 90,
+    "n_high": 300
+   },
+   "burst_cv": {
+    "diff": 0.2902,
+    "diff_in_mad": 0.649,
+    "ci95": [
+     -0.0002,
+     0.5665
+    ],
+    "n_low": 90,
+    "n_high": 300
+   },
+   "opening_5pct": {
+    "diff": -0.0026,
+    "diff_in_mad": -0.038,
+    "ci95": [
+     -0.0288,
+     0.0199
+    ],
+    "n_low": 90,
+    "n_high": 300
+   },
+   "mid_ratio": {
+    "diff": 0.0027,
+    "diff_in_mad": 0.034,
+    "ci95": [
+     -0.0374,
+     0.0196
+    ],
+    "n_low": 90,
+    "n_high": 300
+   }
+  },
+  "normal": {
+   "rhythm_entropy": {
+    "diff": -0.0458,
+    "diff_in_mad": -0.844,
+    "ci95": [
+     -0.0743,
+     -0.027
+    ],
+    "n_low": 228,
+    "n_high": 1099
+   },
+   "burst_cv": {
+    "diff": 0.2188,
+    "diff_in_mad": 0.49,
+    "ci95": [
+     0.0119,
+     0.5594
+    ],
+    "n_low": 228,
+    "n_high": 1099
+   },
+   "opening_5pct": {
+    "diff": -0.0098,
+    "diff_in_mad": -0.14,
+    "ci95": [
+     -0.0289,
+     0.0103
+    ],
+    "n_low": 228,
+    "n_high": 1099
+   },
+   "mid_ratio": {
+    "diff": 0.0122,
+    "diff_in_mad": 0.152,
+    "ci95": [
+     -0.0064,
+     0.0247
+    ],
+    "n_low": 228,
+    "n_high": 1099
+   }
+  }
+ },
+ "partitions_with_30pct_tierC": 18,
+ "partitions_with_30pct_tierC_list": [
+  "VOCALOID·UTAU",
+  "仿妆cos",
+  "动物二创",
+  "国产动画",
+  "娱乐杂谈",
+  "明星综合",
+  "极客DIY",
+  "校园学习",
+  "特摄",
+  "田园美食",
+  "社会",
+  "科工机械"
+ ],
+ "tier_rule_candidate": {
+  "A": "ratio>=0.9 可作为基准参与（1399 支/63%，见 tier_counts）",
+  "B": "0.5-0.9 参与但标记",
+  "C": "<0.5 建议不参与分区基准（318 支/14%）",
+  "note": "本规则只给候选与证据，不改 dws_partition_rhythm；阈值取自 got/reported 的分位数拐点，非事后择优"
+ },
+ "is_spam_note": "is_spam 命中 0.0003%（108/3,584,283）⇒ 不能当作\"已有效剔除刷量\"的证据",
+ "partitions_with_30pct_tierC_list_full": {
+  "明星综合": {
+   "n": 14,
+   "shareC": 0.571
+  },
+  "动物二创": {
+   "n": 4,
+   "shareC": 0.5
+  },
+  "科工机械": {
+   "n": 4,
+   "shareC": 0.5
+  },
+  "社会": {
+   "n": 10,
+   "shareC": 0.5
+  },
+  "国产动画": {
+   "n": 6,
+   "shareC": 0.5
+  },
+  "极客DIY": {
+   "n": 2,
+   "shareC": 0.5
+  },
+  "运动综合": {
+   "n": 11,
+   "shareC": 0.455
+  },
+  "娱乐杂谈": {
+   "n": 7,
+   "shareC": 0.429
+  },
+  "预告·资讯": {
+   "n": 8,
+   "shareC": 0.375
+  },
+  "综艺": {
+   "n": 8,
+   "shareC": 0.375
+  },
+  "校园学习": {
+   "n": 11,
+   "shareC": 0.364
+  },
+  "仿妆cos": {
+   "n": 11,
+   "shareC": 0.364
+  },
+  "VOCALOID·UTAU": {
+   "n": 3,
+   "shareC": 0.333
+  },
+  "特摄": {
+   "n": 6,
+   "shareC": 0.333
+  },
+  "田园美食": {
+   "n": 3,
+   "shareC": 0.333
+  },
+  "美妆护肤": {
+   "n": 3,
+   "shareC": 0.333
+  },
+  "野生技能协会": {
+   "n": 3,
+   "shareC": 0.333
+  },
+  "音乐综合": {
+   "n": 30,
+   "shareC": 0.333
+  }
+ },
+ "partitions_with_30pct_tierC_list_note": "旧键仅前 12 个（截断）；完整 18 个已并入 list_full；canonical = exp66_pure_chain/r1_full_list.json",
+ "erratum": "P1-3 修正：tier_rule 里 A 的数量曾写 1189（54%），与 tier_counts 的 1399（63%）矛盾，已统一为 1399；分区列表曾截断 12 个，已补全",
+ "canonical_list": "experiments/exp66_pure_chain/r1_full_list.json（18 个，以此为准）"
+}

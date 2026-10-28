@@ -1,0 +1,33 @@
+{
+ "n_videos": 30,
+ "n_truth_internal": 79,
+ "equal_freq_oracle_k": {
+  "f1": 0.5063,
+  "precision": 0.5063,
+  "recall": 0.5063,
+  "TP": 40,
+  "FP": 39,
+  "FN": 39,
+  "med_err_s": 60.0
+ },
+ "equal_freq_matched_k": {
+  "f1": 0.2667,
+  "precision": 0.3902,
+  "recall": 0.2025,
+  "TP": 16,
+  "FP": 25,
+  "FN": 63,
+  "med_err_s": 60.0
+ },
+ "candidate_v2": {
+  "f1": 0.4762,
+  "precision": 0.5147,
+  "recall": 0.443,
+  "TP": 35,
+  "FP": 33,
+  "FN": 44,
+  "med_err_s": 0.0
+ },
+ "k_source": "oracle_k=人工段数（算法不可得）；matched_k=候选方法自己检出的段数",
+ "verdict": "等频基线的优势主要来自 oracle k ⇒ Gate B 的\"输给等频\"需重新表述"
+}

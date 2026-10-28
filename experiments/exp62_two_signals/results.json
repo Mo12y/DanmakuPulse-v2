@@ -1,0 +1,36 @@
+{
+ "meta": {
+  "seed": 20261028,
+  "multi_batch_bvids": 576,
+  "no_roll_pairs": 575
+ },
+ "signal_A_persistent_attraction": {
+  "n_videos": 556,
+  "spearman_median": 0.2774,
+  "share_pos": 0.795,
+  "share_gt_03": 0.478,
+  "interpretation": "rho>0 ⇒ 老的高密度位置继续吸收新弹幕（回访/二刷）；rho≈0 ⇒ 新弹幕与旧峰无关",
+  "debug_vec_nonzero": 556,
+  "status": "有初步支持证据"
+ },
+ "signal_B_shape_completion": {
+  "n_train": 424,
+  "n_test": 106,
+  "prefix": 25,
+  "suffix": 75,
+  "MAE_x1000": {
+   "global_mean_shape": 8.78,
+   "oneNN": 11.57,
+   "ridge": 8.89
+  },
+  "shape_corr_median": {
+   "global_mean_shape": 0.1171,
+   "oneNN": NaN,
+   "ridge": 0.0711
+  },
+  "skill_vs_global": -0.0132,
+  "skill_1NN_vs_global": -0.3183,
+  "status": "无增益（全局均值形状已是最优）",
+  "note": "prefix/suffix 各自归一 ⇒ 与 exp55 路线 C（绝对计数）是不同任务"
+ }
+}

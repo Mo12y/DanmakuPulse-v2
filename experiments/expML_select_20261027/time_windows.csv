@@ -1,0 +1,4 @@
+task,model,n_points,n_videos,macro_auc,pr_auc,brier,delta_vs_neg,neg_lo,neg_hi,delta_vs_M1,M1_lo,M1_hi,delta_vs_M2,M2_lo,M2_hi,n_folds_gt_half,fold_min,fold_max,auc_p10,auc_p50,auc_p90,runtime_s,note
+,,16696,194,,,,,,,,,,,,,,,,,,,,
+,,11092,194,,,,,,,,,,,,,,,,,,,,
+,,5497,189,,,,,,,,,,,,,,,,,,,,

@@ -39,7 +39,7 @@ _PEAK_COLS = ('peak_id, start_sec, end_sec, peak_sec, peak_score, n_repeat, '
               'n_rep_texts, top_danmaku, top_counts, '
               'pos_ratio, neg_ratio, neu_ratio, in_opening, pctl, partition_n')
 _CRIT_COLS = ('seg_id, start_sec, end_sec, critique_score, n_critique, '
-              'top_danmaku, top_counts, neg_ratio')
+              'top_danmaku, top_counts, neg_ratio, method, ml_score')
 
 
 def _q(sql, params=()):
@@ -112,6 +112,9 @@ def _crit_segment(row):
         'n': _i(row.get('n_critique')),
         'top_danmaku': _pairs(row.get('top_danmaku'), row.get('top_counts')),
         'neg_ratio': _f(row.get('neg_ratio')),
+        # 2026-10-20（G2）：来源与弱监督均分。'dict' = 词典命中，'ml' = 弱监督泛化（召回更高、可能误报）
+        'method': row.get('method') or 'dict',
+        'ml_score': _f(row.get('ml_score')),
     }
 
 
@@ -274,6 +277,8 @@ def card(bvid, batch_date=None):
         'critique': {
             'detected': bool(segments),
             'n_segments': len(segments),
+            'n_dict_segments': sum(1 for x in segments if x.get('method') == 'dict'),
+            'n_ml_segments': sum(1 for x in segments if x.get('method') == 'ml'),
             'n_critique_danmaku': _i(fb.get('n_critique')),
             'segments': segments,
         },

@@ -41,8 +41,9 @@ ADMIN_PREFIXES = ('/users', '/api/users',
                    '/api/collect',              # 采集启停：只给管理员
                    '/api/v3/ai/config',          # AI 解读**开关**：只给管理员
                    '/api/v3/ai/limits')         # **计费闸**调整：同样只给管理员
-# ⚠️ 只把「开关」放进来：AI 解读的**状态与用量**（/api/v3/ai/state）与
-#    生成（/api/v3/ai/report）必须让普通用户也能用 —— 否则页面上没法显示"已用量"。
+# ⚠️ 只把「开关」放进来：/api/v3/ai/state 与 /api/v3/ai/report 普通用户也要能访问。
+#    用量 / 累计费用 / 模型名**只给管理员**：state 路由按角色裁剪返回
+#    （非 admin 只回 {enabled, configured}），页面也不渲染用量行（2026-10-20 口径）。
 #    /api/* 整体仍需登录（见 app._gate 中间件）。
 
 # 无需登录的路径（nginx 侧另有静态白名单；这里是 API 侧的，含义一致）
@@ -162,6 +163,17 @@ CREATE TABLE IF NOT EXISTS favorites (
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT uniq_user_bvid UNIQUE (user_id, bvid)
 );
+-- 管理员操作审计（2026-10-22：删除账号必须留痕，谁在什么时候删了谁）
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id          bigserial PRIMARY KEY,
+  ts          timestamptz NOT NULL DEFAULT now(),
+  actor_id    bigint,
+  actor_name  varchar(64),
+  action      varchar(32) NOT NULL,
+  target_id   bigint,
+  target_name varchar(64),
+  detail      text
+);
 """
 
 
@@ -212,6 +224,21 @@ def set_role(uid, role):
 def count_admins():
     r = q1("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'")
     return int(r['n']) if r else 0
+
+
+def delete_user(uid):
+    """删账号。收藏由 favorites.user_id 的 ON DELETE CASCADE 一并清掉。"""
+    q('DELETE FROM users WHERE id = %s', (uid,), fetch=False)
+
+
+def audit(actor, action, target, detail=None):
+    """写一条管理员操作审计。actor/target 传字典（至少含 id/username）。"""
+    actor = actor or {}
+    target = target or {}
+    q('INSERT INTO admin_audit (actor_id, actor_name, action, target_id, target_name, detail) '
+      'VALUES (%s,%s,%s,%s,%s,%s)',
+      (actor.get('id'), actor.get('username'), action,
+       target.get('id'), target.get('username'), detail), fetch=False)
 
 
 def is_last_admin(uid):

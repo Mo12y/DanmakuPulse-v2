@@ -72,7 +72,7 @@
 </div>
 <script src="vendor/echarts.min.js"></script>
 <script src="v3chart.js"></script>
-<script src="v3nav.js"></script>
+<script src="v3nav.js?v=20261021"></script>
 <script>
 var $ = function(s){ return document.querySelector(s); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
@@ -118,9 +118,15 @@ function ctlHTML(st){
         ? esc(st.log_tail.join('\n')) : '（还没有采集日志）') + '</pre></div>' +
   '</div>';
 }
+function fmtElapsed(sec){
+  // 计时也按 mm:ss 显示：跑了两小时还写"已跑 7200 秒"没人读得出来
+  var s = Math.max(0, Math.round(sec || 0));
+  var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  return (h ? h + ':' + String(m).padStart(2,'0') : String(m).padStart(2,'0')) + ':' + String(ss).padStart(2,'0');
+}
 function statusText(st){
   if (!st.available) return '采集脚本没有挂进容器 —— 检查 compose 的 volumes';
-  if (st.running) return '● 正在采集（已跑 ' + st.elapsed_sec + ' 秒，pid ' + st.pid + '）';
+  if (st.running) return '● 正在采集（已跑 ' + fmtElapsed(st.elapsed_sec) + '，pid ' + st.pid + '）';
   if (st.exit_code != null && st.exit_code !== 0) return '上次采集退出码 ' + st.exit_code + '（看日志）';
   return '空闲。最近产物：' + (st.newest_csv || '—') + (st.newest_csv_at ? '（' + st.newest_csv_at + '）' : '');
 }

@@ -1,0 +1,41 @@
+# expD_count run log
+timestamp: 2026-10-27T15:52:00+08:00
+host: molly-VMware-Virtual-Platform
+user: molly
+pwd: /home/molly/projects/danmaku-v2/experiments/expD_count
+python: Python 3.12.3
+protocol_sha256: 0dd4296a1bbfeffe6acb7336a6e3f8474a46e181f591a29116a7b55b55dc7b0e
+
+step1_protocol: WRITTEN
+step2_P0: RUN -> FAILED (rc=2)
+step3_decision: STOP_NO_FIT (hard gate)
+P1_to_P5: NOT RUN
+model_fit: NOT RUN
+metrics: NOT COMPUTED
+D_dev_D_conf: NOT ACCESSED
+exp35_modified: NO
+
+--- P0 stdout ---
+{
+  "passed": false,
+  "decision": "STOP_NO_FIT",
+  "per_batch": {
+    "20260902": {
+      "exists": true,
+      "status": "complete",
+      "n_windows": 0,
+      "pass": false
+    },
+    "20260907": {
+      "exists": true,
+      "status": "complete",
+      "n_windows": 0,
+      "pass": false
+    }
+  },
+  "evidence": "/home/molly/projects/danmaku-v2/experiments/expD_count/p0_evidence.json"
+}
+
+--- frozen refs ---
+0f7c99d1fce7fe9b601670fed9e57b2f9a436b7fe2208d08036fdc03e005fb13  /home/molly/projects/danmaku-v2/docs/exp35_508/35_formal_spec_rc5_candidate.md
+1b972ef7f5f62ae660d932779bf49f4698ebeaa49fc7dfd3aa9b2225f6645401  /home/molly/projects/danmaku-v2/docs/exp35_508/exp35_freeze_registration.md

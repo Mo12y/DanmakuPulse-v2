@@ -1,0 +1,22 @@
+# expML_select_20261027 run log
+timestamp: 2026-10-27T16:19:05+08:00
+host: molly-VMware-Virtual-Platform
+user: molly
+pwd: /home/molly/projects/danmaku-v2/experiments/expML_select_20261027
+python: Python 3.12.3
+command: ~/danmaku-venv/bin/python experiments/expML_select_20261027/run_all.py
+rc: 0
+
+scope: D-train only (20260902/20260907); no D-dev/D-conf
+sample: 5157 points / 134 videos; bvid GroupKFold 5; fold_seed=20261026
+existing_oof_reused: 10 models (5,157 rows each)
+new_fits: LR_L1 + 3 ablation variants (M1/M2 reused)
+grid_search: none
+bootstrap: B=2000, seed=20261026, unit=bvid
+
+direction3_gate: H=2 pass, H=3 pass, H=6 pass
+expD_count: P0 failed (windows empty) -> STOP_NO_FIT
+exp35_modified: NO
+freeze_digest_recheck: e18228ec3690dd81a74db40f9865fc4d6fe75cfa108a06c0c90d4fe41994c1cb (matches registration)
+
+artifacts: results.json metrics.csv time_windows.csv report.md oof/ logs/run.log

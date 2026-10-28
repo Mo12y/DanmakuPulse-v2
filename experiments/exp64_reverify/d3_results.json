@@ -1,0 +1,6 @@
+{
+ "n_pairs": 60,
+ "design": "20 查询 × 3 距离分位（很像/中等/不像），C1 池 232 支",
+ "file": "/home/molly/projects/danmaku-v2/experiments/exp64_reverify/r7_stratified_pairs.csv",
+ "note": "每个 stratum 的对数相等 ⇒ 人工判断可按层统计一致率；评价者看不到 stratum 标签"
+}

@@ -28,7 +28,9 @@ PEAK_COLS = ['bvid', 'batch_date', 'peak_id', 'start_sec', 'end_sec', 'peak_sec'
              'pos_ratio', 'neg_ratio', 'neu_ratio',
              'in_opening', 'pctl', 'partition_n', 'engine_version']
 CRIT_COLS = ['bvid', 'batch_date', 'seg_id', 'start_sec', 'end_sec', 'critique_score',
-             'n_critique', 'top_danmaku', 'top_counts', 'neg_ratio', 'engine_version']
+             'n_critique', 'top_danmaku', 'top_counts', 'neg_ratio',
+             'method', 'ml_score',          # 2026-10-20：dict / ml 并存（G2 弱监督泛化）
+             'engine_version']
 FEEDBACK_COLS = ['bvid', 'batch_date', 'n_danmaku', 'n_herd', 'n_neutral', 'n_critique',
                  'ratio_herd', 'ratio_neutral', 'ratio_critique', 'n_peaks',
                  'resonance_total', 'max_peak_score', 'duration', 'tname',

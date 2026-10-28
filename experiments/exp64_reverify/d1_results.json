@@ -1,0 +1,54 @@
+{
+ "n_pairs": 546,
+ "rho_median": {
+  "self": 0.27,
+  "same_up": 0.0925,
+  "partition": 0.1487
+ },
+ "p10_median": {
+  "self": 0.3,
+  "same_up": 0.2,
+  "partition": 0.2
+ },
+ "self_vs_same_up": {
+  "n": 296,
+  "d_rho_median": 0.1453,
+  "d_rho_mean": 0.1415,
+  "ci95": [
+   0.1106,
+   0.1727
+  ],
+  "share_a_better": 0.672
+ },
+ "self_vs_partition": {
+  "n": 546,
+  "d_rho_median": 0.071,
+  "d_rho_mean": 0.0918,
+  "ci95": [
+   0.0702,
+   0.1138
+  ],
+  "share_a_better": 0.632
+ },
+ "by_pool": {
+  "high(>=600)": {
+   "n": 422,
+   "rho_self_median": 0.2642,
+   "rho_partition_median": 0.1448,
+   "d_rho_ci95": [
+    0.0728,
+    0.1274
+   ]
+  },
+  "low(<600)": {
+   "n": 124,
+   "rho_self_median": 0.2789,
+   "rho_partition_median": 0.1843,
+   "d_rho_ci95": [
+    0.0251,
+    0.1066
+   ]
+  }
+ },
+ "verdict": "self 优于 same_up ⇒ 优势含真实的\"自身形状\"信息"
+}

@@ -1,0 +1,59 @@
+{
+ "seed": 20261027,
+ "K": 4,
+ "n_train_videos": 276,
+ "n_test_videos": 70,
+ "state_edges_train": [
+  20.0,
+  45.0,
+  92.0
+ ],
+ "EA": {
+  "n_test_videos": 70,
+  "n_buckets_test": 2635,
+  "iid_nats_mean": -1.382,
+  "m1_nats_mean": -1.0161,
+  "m2_nats_mean": -0.957,
+  "m1_minus_iid_perbucket": 0.3659,
+  "m1_ci": [
+   0.3076,
+   0.426
+  ],
+  "m2_minus_m1_perbucket": 0.0591,
+  "m2_ci": [
+   0.0434,
+   0.0759
+  ],
+  "gate": "M1 优于 i.i.d.（CI 下界>0 且 >=0.02 nats/桶）"
+ },
+ "EB": {
+  "n_test_transitions": 2565,
+  "acc_majority": 0.232,
+  "acc_M1": 0.5727,
+  "acc_LR": 0.5504,
+  "auc_M1_macro_med": 0.474,
+  "auc_LR_macro_med": 0.6611,
+  "n_videos_auc": 18,
+  "gate": "LR 或 M1 的宏 AUC 中位 >0.5 且 accuracy 超多数类"
+ },
+ "failure_cases": [
+  {
+   "bvid": "BV1D6Jt67ESA",
+   "dur": 2616.0,
+   "got": 2502,
+   "m1_minus_iid": -0.141
+  },
+  {
+   "bvid": "BV1rgpJ62EnU",
+   "dur": 2245.0,
+   "got": 2538,
+   "m1_minus_iid": -0.053
+  },
+  {
+   "bvid": "BV1jkp36XEtz",
+   "dur": 2026.0,
+   "got": 1374,
+   "m1_minus_iid": -0.053
+  }
+ ]
+}

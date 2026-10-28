@@ -1,0 +1,33 @@
+{
+ "n_pure": 151,
+ "n_rolling": 425,
+ "got_median_pure": 603.0,
+ "got_median_rolling": 1200.0,
+ "got_mw_p": 0.0,
+ "duration_median_pure": 327.0,
+ "duration_median_rolling": 410.0,
+ "duration_mw_p": 0.590602,
+ "rho_median_by_overlap_quartile": {
+  "Q1(重合最低)": {
+   "median": -0.058,
+   "n": 140
+  },
+  "Q2": {
+   "median": 0.1833,
+   "n": 139
+  },
+  "Q3": {
+   "median": 0.4816,
+   "n": 139
+  },
+  "Q4(重合最高)": {
+   "median": 0.3928,
+   "n": 140
+  }
+ },
+ "interpretation": "Q1→Q3 随重合度上升、Q4 略回落（**非严格单调**，Q4 n 较大且含中高重合对）；总体方向 = 重合越高信号越强 ⇒ 滚动污染在稀释信号；纯增量子集的选择性需结合 got/时长差异一起读",
+ "n_scored": 558,
+ "n_excluded": 18,
+ "exclusion": "常数 rank（sp 返回 NaN）/ delta.sum()<10 / 缺 got-duration 字段——被过滤后未进入四分位表",
+ "note_quartile_n": "四分位 n 合计 140+139+139+140=558 = n_scored；与 n_pure+n_rolling=576 的差 18 即上列排除项"
+}

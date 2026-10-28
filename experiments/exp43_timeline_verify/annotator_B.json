@@ -1,0 +1,108 @@
+{
+ "annotator": "B",
+ "generated_at": "2026-10-27T12:35:44.011Z",
+ "protocol": "exp41 exploratory 5-video blind segmentation",
+ "notes": "",
+ "items": [
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 110,
+     "category": "opening_gather"
+    },
+    {
+     "start_s": 110,
+     "end_s": 659,
+     "category": "steady_watch"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 300,
+     "category": "steady_watch"
+    },
+    {
+     "start_s": 300,
+     "end_s": 356,
+     "category": "resonance_burst"
+    },
+    {
+     "start_s": 356,
+     "end_s": 464,
+     "category": "tail"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 100,
+     "category": "opening_gather"
+    },
+    {
+     "start_s": 100,
+     "end_s": 229,
+     "category": "steady_watch"
+    },
+    {
+     "start_s": 229,
+     "end_s": 460,
+     "category": "resonance_burst"
+    },
+    {
+     "start_s": 460,
+     "end_s": 1289,
+     "category": "steady_watch"
+    },
+    {
+     "start_s": 1289,
+     "end_s": 1661,
+     "category": "tail"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "no_obvious": true,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 360,
+     "category": "uncertain"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 595,
+     "category": "steady_watch"
+    },
+    {
+     "start_s": 595,
+     "end_s": 678,
+     "category": "resonance_burst"
+    },
+    {
+     "start_s": 678,
+     "end_s": 903,
+     "category": "tail"
+    }
+   ]
+  }
+ ]
+}

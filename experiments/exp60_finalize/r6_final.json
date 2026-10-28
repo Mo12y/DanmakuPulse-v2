@@ -1,0 +1,86 @@
+{
+ "reused_from": "exp55 route_A（逐位复现 exp38）+ exp59 r6（按批/按体量拆解）",
+ "split": {
+  "n_train": 918,
+  "n_test": 395,
+  "bvid_overlap": 0,
+  "rule": "train first_seen<=20261020 / test >=20261021"
+ },
+ "log_scale": {
+  "R2": 0.5607,
+  "MAE": 0.6327,
+  "RMSE": 0.905
+ },
+ "orig_scale": {
+  "MAE": 238.4,
+  "RMSE": 517.7
+ },
+ "baselines": {
+  "persistence_MAE_orig": 814.2,
+  "histmean_MAE_orig": 368.0,
+  "B1_MAE_orig": 277.7
+ },
+ "by_batch": {
+  "20261021": {
+   "n": 81,
+   "mae": 204.3,
+   "re_median": 0.414
+  },
+  "20261022": {
+   "n": 11,
+   "mae": 69.2,
+   "re_median": 0.889
+  },
+  "20261023": {
+   "n": 88,
+   "mae": 239.1,
+   "re_median": 0.363
+  },
+  "20261024": {
+   "n": 133,
+   "mae": 247.5,
+   "re_median": 0.363
+  },
+  "20261026": {
+   "n": 82,
+   "mae": 279.2,
+   "re_median": 0.482
+  }
+ },
+ "by_c0_quintile": {
+  "Q1": {
+   "n": 79,
+   "c0_med": 4.0,
+   "mae": 97.7,
+   "re_median": 0.706
+  },
+  "Q2": {
+   "n": 79,
+   "c0_med": 37.0,
+   "mae": 168.4,
+   "re_median": 0.494
+  },
+  "Q3": {
+   "n": 79,
+   "c0_med": 113.0,
+   "mae": 171.6,
+   "re_median": 0.328
+  },
+  "Q4": {
+   "n": 79,
+   "c0_med": 313.0,
+   "mae": 228.9,
+   "re_median": 0.328
+  },
+  "Q5": {
+   "n": 79,
+   "c0_med": 743.0,
+   "mae": 525.3,
+   "re_median": 0.348
+  }
+ },
+ "batch_spread": 1.17,
+ "p90_ae": 539.4,
+ "median_ae": 117.2,
+ "boundary": "c0<10（Q1 中位 4 条）相对误差中位 0.71 ⇒ 低互动视频不适用；D1=量预测，非阶段识别"
+}

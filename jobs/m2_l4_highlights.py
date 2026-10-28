@@ -321,10 +321,15 @@ def main():
                                                             F.lit(ENGINE_VERSION))
     strict_rdd = mixed.filter(lambda r: r[0] == 'crit_strict').map(lambda r: r[1:])
     relaxed_rdd = mixed.filter(lambda r: r[0] == 'crit_relaxed').map(lambda r: r[1:])
-    strict0 = spark.createDataFrame(strict_rdd, schema=s_crit).withColumn(
-        'engine_version', F.lit(ENGINE_VERSION))
-    relaxed0 = spark.createDataFrame(relaxed_rdd, schema=s_crit).withColumn(
-        'engine_version', F.lit(ENGINE_VERSION))
+    # method/ml_score：与弱监督泛化（m2_l5）共用一张表；词典版写 method='dict'、ml_score=null
+    strict0 = (spark.createDataFrame(strict_rdd, schema=s_crit)
+               .withColumn('engine_version', F.lit(ENGINE_VERSION))
+               .withColumn('method', F.lit('dict'))
+               .withColumn('ml_score', F.lit(None).cast('double')))
+    relaxed0 = (spark.createDataFrame(relaxed_rdd, schema=s_crit)
+                .withColumn('engine_version', F.lit(ENGINE_VERSION))
+                .withColumn('method', F.lit('dict'))
+                .withColumn('ml_score', F.lit(None).cast('double')))
 
     # ── 6) 分区对标：基准 = 每 bvid 取 batch_date 最大那行（去重后 bvid 集合）──
     sc = spark.sparkContext

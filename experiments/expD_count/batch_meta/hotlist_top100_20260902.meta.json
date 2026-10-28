@@ -1,0 +1,14 @@
+{
+  "batch_date": "20260902",
+  "csv": "hotlist_top100_20260902.csv",
+  "list_fetched_at": "2026-08-12",
+  "count": 100,
+  "depth_requested": 100,
+  "status": "complete",
+  "attempted": 100,
+  "ok": 91,
+  "failed": 9,
+  "coverage": "91/100",
+  "windows": [],
+  "note": "历史批次，早于批次清单机制（2026-09-17 引入）。list_fetched_at 为推定日期（原始榜单快照 hotlist_videos.json 已被后续批次覆盖丢失，见 STATUS 坑 15/16 与审计 v2）；windows/started_at 无记录；覆盖度由 CSV status 反推。"
+}

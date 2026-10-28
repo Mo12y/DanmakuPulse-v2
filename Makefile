@@ -26,8 +26,10 @@ SUBMIT_M6 = $(SUBMIT) --py-files /opt/work/jobs/l2_common.py,/opt/work/jobs/m2_l
 SUBMIT_M4 = $(SUBMIT) --py-files /opt/work/jobs/m4_track_common.py,/opt/work/jobs/l2_common.py
 # M2-L4 链（精彩时刻检测，PLAN_HIGHLIGHTS §2.2–2.5）：RDD 逐视频纯函数，闭包依赖 highlight_core
 SUBMIT_L4 = $(SUBMIT) --py-files /opt/work/jobs/highlight_core.py
+# M2-L5（弱监督质疑泛化，G2）：纯 Python 特征 + pyspark.ml LR；闭包依赖 highlight_core
+SUBMIT_L5 = $(SUBMIT) --py-files /opt/work/jobs/highlight_core.py
 
-.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize l2-candidates l2-eval m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build ads-highlights m2-l4-highlights serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
+.PHONY: setup seed-data stage up down ps logs smoke ingest etl parity replay collect cron-install hms goldens dev-etl clean m2-l2 m2-l2-events m2-l2-sync m2-l2-lag m2-l2-novelty m2-l2-finalize l2-candidates l2-eval m2-l1-cluster cluster-kshape m2-l3 m2-l3-hawkes m4 m4-onlist m4-track m4-evolution m4-up ads-build ads-highlights m2-l4-highlights m2-l5-mlcritique m7-gate serve-rebuild m0-daily daily m6 m6-features m6-train m6-panel perf-suite
 
 setup: ## 一次性：下载 pg jdbc jar + disruptor + echarts（国内镜像）
 	mkdir -p lib serve/static/vendor
@@ -205,8 +207,15 @@ m2-l4-highlights: ## 精彩时刻检测 DWS（dws_resonance_peaks / dws_critique
 ads-build: ## 生产链 ADS 导出（11 张表 → PG；覆盖 3 页数据流 + M4）
 	$(SUBMIT) /opt/work/jobs/ads_build.py
 
+m2-l5-mlcritique: ## 弱监督质疑泛化（dws_critique_segments 追加 method='ml'；需先跑 m2-l4-highlights）
+	$(SUBMIT_L5) /opt/work/jobs/m2_l5_mlcritique.py
+
 ads-highlights: ## 精彩时刻 ADS 导出（4 张新表 → PG；需先跑 m2-l4-highlights 产出 DWS）
 	$(SUBMIT) /opt/work/jobs/ads_highlights.py
+
+m7-gate: ## 互动质量 ML 门控（早期弹幕+元数据 → 互动率；特征表 + 评估报告）
+	$(SUBMIT) /opt/work/jobs/m7_gate_features.py
+	$(VENV) jobs/m7_gate_eval.py
 
 serve-rebuild: ## 重建并重启 fastapi 容器（改 serve/ 后执行；静态页 nginx 挂载无需重建）
 	$(COMPOSE) build fastapi && $(COMPOSE) up -d --no-deps fastapi

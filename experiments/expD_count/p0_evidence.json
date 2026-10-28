@@ -1,0 +1,52 @@
+{
+  "check": "P0_batch_meta",
+  "checked_at": "2026-10-27T15:51:35+08:00",
+  "protocol": "experiments/expD_count/protocol.md",
+  "rule": "meta exists AND status==complete AND len(windows)>0",
+  "metas": {
+    "20260902": {
+      "path": "/home/molly/projects/danmaku/data/cli_collected/hotlist_top100_20260902.meta.json",
+      "exists": true,
+      "size_bytes": 547,
+      "mtime": "2026-09-17T19:08:14+08:00",
+      "sha256": "45ef07a05274e1ad3a05b6947d4ebea417f6fc5b07b07bba4dcf87fe3d2c6d5a",
+      "batch_date": "20260902",
+      "csv": "hotlist_top100_20260902.csv",
+      "list_fetched_at": "2026-08-12",
+      "status": "complete",
+      "attempted": 100,
+      "ok": 91,
+      "failed": 9,
+      "coverage": "91/100",
+      "n_windows": 0,
+      "windows": [],
+      "note": "历史批次，早于批次清单机制（2026-09-17 引入）。list_fetched_at 为推定日期（原始榜单快照 hotlist_videos.json 已被后续批次覆盖丢失，见 STATUS 坑 15/16 与审计 v2）；windows/started_at 无记录；覆盖度由 CSV status 反推。",
+      "status_complete": true,
+      "windows_nonempty": false,
+      "pass": false
+    },
+    "20260907": {
+      "path": "/home/molly/projects/danmaku/data/cli_collected/hotlist_top200_20260907.meta.json",
+      "exists": true,
+      "size_bytes": 550,
+      "mtime": "2026-09-17T19:08:14+08:00",
+      "sha256": "a147e9098477fe488274fdc991c23a086cdc3cfbb8693912f0f2fa5eac6222c4",
+      "batch_date": "20260907",
+      "csv": "hotlist_top200_20260907.csv",
+      "list_fetched_at": "2026-09-07",
+      "status": "complete",
+      "attempted": 130,
+      "ok": 118,
+      "failed": 12,
+      "coverage": "118/200",
+      "n_windows": 0,
+      "windows": [],
+      "note": "历史批次，早于批次清单机制（2026-09-17 引入）。list_fetched_at 为推定日期（原始榜单快照 hotlist_videos.json 已被后续批次覆盖丢失，见 STATUS 坑 15/16 与审计 v2）；windows/started_at 无记录；覆盖度由 CSV status 反推。",
+      "status_complete": true,
+      "windows_nonempty": false,
+      "pass": false
+    }
+  },
+  "passed": false,
+  "decision": "STOP_NO_FIT"
+}

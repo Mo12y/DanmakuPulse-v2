@@ -1,0 +1,10 @@
+# exp35 freeze digest recheck (read-only)
+timestamp: 2026-10-27T15:52:19+08:00
+command: ~/danmaku-venv/bin/python jobs/m2_l6_burst_risk.py --stage freeze-digest
+expected_from_registration: e18228ec3690dd81a74db40f9865fc4d6fe75cfa108a06c0c90d4fe41994c1cb
+observed:
+{
+  "n_files": 13,
+  "digest": "e18228ec3690dd81a74db40f9865fc4d6fe75cfa108a06c0c90d4fe41994c1cb",
+  "scheme": "sha256 over sorted 'path:sha256' lines"
+}

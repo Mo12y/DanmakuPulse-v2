@@ -1,0 +1,40 @@
+{
+ "n_units": 2921,
+ "share6_by_got_quintile": {
+  "Q1": {
+   "n": 587,
+   "got_med": 212.0,
+   "share6_med": 0.2077,
+   "share24_med": 0.7173
+  },
+  "Q2": {
+   "n": 706,
+   "got_med": 504.0,
+   "share6_med": 0.1631,
+   "share24_med": 0.6398
+  },
+  "Q3": {
+   "n": 461,
+   "got_med": 852.0,
+   "share6_med": 0.403,
+   "share24_med": 0.8113
+  },
+  "Q4": {
+   "n": 584,
+   "got_med": 1200.0,
+   "share6_med": 0.2368,
+   "share24_med": 0.6896
+  },
+  "Q5": {
+   "n": 583,
+   "got_med": 3019.0,
+   "share6_med": 0.2905,
+   "share24_med": 0.6994
+  }
+ },
+ "spearman_got_share6": 0.0757,
+ "max_rel_hours_median": 45.1,
+ "share6_lowpool_median": 0.2343,
+ "share6_highpool_median": 0.3132,
+ "verdict": "未见明显截断"
+}

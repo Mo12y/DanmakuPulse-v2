@@ -1,0 +1,73 @@
+{
+ "annotator": "B",
+ "generated_at": "2026-10-27T11:52:09.171Z",
+ "protocol": "exp41 exploratory 5-video blind segmentation",
+ "notes": "",
+ "items": [
+  {
+   "bvid": "BV1Lxnn6BENA",
+   "no_obvious": true,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 113,
+     "category": "opening_gather"
+    },
+    {
+     "start_s": 113,
+     "end_s": 2200,
+     "category": "lull"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1pMJv6WEmr",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 591,
+     "category": "steady_watch"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1kLnw6YE6e",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 546,
+     "category": "steady_watch"
+    }
+   ]
+  },
+  {
+   "bvid": "BV1Fjpy6SEvX",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 872,
+     "category": "steady_watch"
+    }
+   ]
+  },
+  {
+   "bvid": "BV15apv6mEiX",
+   "no_obvious": false,
+   "segments": [
+    {
+     "start_s": 0,
+     "end_s": 56,
+     "category": "opening_gather"
+    },
+    {
+     "start_s": 56,
+     "end_s": 1677,
+     "category": "lull"
+    }
+   ]
+  }
+ ]
+}

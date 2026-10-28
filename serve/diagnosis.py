@@ -197,10 +197,16 @@ def _bands(you, p25, p75, med):
 
 
 def _mmss(sec):
+    """时长格式化：<1 小时 mm:ss；≥1 小时 h:mm:ss。
+
+    2026-10-22：长视频（如 25205 秒）原来会显示 420:05，用户读不出这是第几分钟；
+    统一成 7:00:05。前端 diagnosis.html 的 mmss 同口径。
+    """
     if sec is None:
         return None
     s = int(round(sec))
-    return '%02d:%02d' % (s // 60, s % 60)
+    h, m, ss = s // 3600, (s % 3600) // 60, s % 60
+    return ('%d:%02d:%02d' % (h, m, ss)) if h else ('%02d:%02d' % (m, ss))
 
 
 def _curve_block(rec, base, key, snap=None):

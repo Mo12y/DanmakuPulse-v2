@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>C1 阶段盲标 · 探索性 5 支</title>
+<style>
+body{font:14px/1.6 system-ui,sans-serif;margin:0;padding:16px;background:#f5f2ea;color:#222}
+h1{font-size:17px;margin:0 0 4px}
+.tabs button{margin-right:6px;padding:6px 10px;border:1px solid #bbb;background:#fff;border-radius:6px;cursor:pointer}
+.tabs button.on{background:#292723;color:#fff}
+.guide{border:1px solid #ccc;border-radius:8px;padding:10px 14px;margin:10px 0;background:#fffdf6}
+.guide summary{cursor:pointer;font-weight:600}
+.card{border:1px solid #ccc;border-radius:10px;padding:12px;background:#fff}
+.meta{font-size:12px;color:#666;margin-bottom:6px}
+.segbtns{margin:8px 0}
+.segbtns button{margin-right:6px;padding:4px 10px;border:1px solid #999;border-radius:999px;background:#fff;cursor:pointer;font-size:13px}
+.hint{font-size:12px;color:#666;margin:4px 0}
+.foot{margin-top:10px}
+input.name{padding:5px 8px;border:1px solid #999;border-radius:6px;width:120px}
+button.exp{padding:6px 14px;border:0;border-radius:6px;background:#292723;color:#fff;cursor:pointer}
+textarea{width:100%;height:44px;font:13px/1.4 system-ui}
+</style>
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:9;background:#fffdf6;border:1px solid #c93d68;border-radius:8px;padding:8px 12px;margin-bottom:10px">
+<b style="color:#c93d68">标完 5 支后必须从下面导出</b>——另存网页不保存标注！
+代号：<input class="name" id="who" placeholder="A 或 B" oninput="localStorage.setItem('c1_annotator',this.value)">
+<button class="exp" onclick="exportJSON()">⬇ 导出（下载+显示文本）</button>
+<button class="exp" style="background:#888" onclick="copyOut()">复制全文</button>
+<span id="dlhint" style="font-size:12px;color:#666"></span>
+<div class="hint">备注（可选）：<textarea id="note" style="height:30px" placeholder="哪支最难分/哪里犹豫"></textarea></div>
+<textarea id="outbox" style="display:none;width:100%;height:180px;font-size:11px;font-family:monospace"></textarea>
+</div>
+<h1>C1 阶段盲标（探索性 5 支 · 独立标注）</h1>
+<div style="font-size:12px;color:#666">两人分别在自己的浏览器标注并各自导出 JSON；互看结果即失效。先在下方输入你的代号（A/B）。</div>
+
+<details class="guide" open><summary>标注指南（五类 + 两个特殊选项）</summary>
+<p style="margin:6px 0">
+<b>操作</b>：在曲线上<b>点击</b>＝在该位置添加边界；点边界旁的 × 删除；点某个段（两边界之间）再用下方按钮设类别。
+允许整支视频只有一个段（即"无明显分段"），也允许把某段标为「不确定」。<b>不确定＝你看不出该段属于哪类</b>，不是第五类。</p>
+<ul style="margin:4px 0 4px 18px">
+<li><b>开场聚集</b>：片头 0–2 分钟内的爆发式涌入，之后明显回落。</li>
+<li><b>平稳跟看</b>：随视频推进均匀出现的背景性弹幕，强度低且稳。</li>
+<li><b>共振爆发</b>：明显高于前后邻域的密集突起（复读/玩梗/名场面），常伴随强调弹幕或同文本连发。</li>
+<li><b>冷场</b>：接近零弹幕的延续区间（注意：可能只是池里没采到，看到长空白照实标）。</li>
+<li><b>尾部长尾</b>：临近结尾的低强度延续或致谢/催更型文本。</li>
+</ul>
+<p style="margin:4px 0;color:#666">只依据曲线、强调弹幕刻度与窗口高频文本判断。边界位置允许 ±几秒的粗糙度。</p>
+</details>
+
+<div class="tabs" id="tabs"></div>
+<div id="stage"></div>
+
+<script src="material_data.js"></script>
+<script>
+const CATS=[["opening_gather","开场聚集"],["steady_watch","平稳跟看"],["resonance_burst","共振爆发"],["lull","冷场"],["tail","尾部长尾"],["uncertain","不确定"]];
+const COLOR={opening_gather:"#c93d68",steady_watch:"#4a7ddF",resonance_burst:"#b42318",lull:"#9aa0a6",tail:"#6a8f6b",uncertain:"#d9c36a"};
+let ANNOTATOR=localStorage.getItem("c1_annotator")||"";
+let cur=0, SEG={}; // bvid -> {no_obvious, segs:[{s,e,cat}]}
+MATERIAL.items.forEach(it=>SEG[it.bvid]=JSON.parse(JSON.stringify(load(it.bvid)||{no_obvious:false,segs:[{s:0,e:it.duration_s,cat:null}]})));
+function load(bv){try{return JSON.parse(localStorage.getItem("c1seg_"+bv))}catch(e){return null}}
+function save(bv){localStorage.setItem("c1seg_"+bv,JSON.stringify(SEG[bv]))}
+
+function fmt(s){return Math.floor(s/60)+":"+String(Math.round(s%60)).padStart(2,"0")}
+function draw(){
+  const it=MATERIAL.items[cur], segs=SEG[it.bvid].segs;
+  const W=900,H=170,P={l:40,r:12,t:10,b:26};
+  const maxC=Math.max(...it.bins.map(b=>b.c),1);
+  const x=t=>P.l+(t/it.duration_s)*(W-P.l-P.r);
+  const y=c=>H-P.b-(c/maxC)*(H-P.t-P.b);
+  let s=`<div class="card"><div class="meta"><b>${it.bvid}</b> ｜ ${it.title} ｜ ${it.tname} ｜ 时长 ${fmt(it.duration_s)} ｜ 弹幕 ${it.n_danmaku}（池 ${it.danmaku_got}）</div>`;
+  s+=`<svg id="cv" width="${W}" height="${H}" style="background:#fbfaf5;border:1px solid #ddd">`;
+  // 柱
+  const bw=Math.max(1,(W-P.l-P.r)/it.bins.length-0.4);
+  it.bins.forEach((b,i)=>{const t0=i*60;
+    s+=`<rect x="${x(t0)}" y="${y(b.c)}" width="${bw}" height="${H-P.b-y(b.c)}" fill="#88a7d8" opacity="0.85"><title>${fmt(t0)} 强度${b.c} 强调${b.e}</title></rect>`;});
+  // 强调弹幕刻度
+  it.bins.forEach((b,i)=>{if(b.e>0){const h=Math.min(12,3+b.e*3);
+    s+=`<rect x="${x(i*60)}" y="${H-P.b-h}" width="${bw}" height="${h}" fill="#c93d68" opacity="0.7"><title>${fmt(i*60)} 强调弹幕×${b.e}</title></rect>`;}});
+  // 段着色（半透明覆盖）
+  segs.forEach((sg,i)=>{const c=sg.cat?COLOR[sg.cat]:"#ccc";
+    s+=`<rect x="${x(sg.s)}" y="${P.t}" width="${Math.max(1,x(sg.e)-x(sg.s))}" height="${H-P.t-P.b}" fill="${c}" opacity="${sg.cat?0.14:0.05}"/>
+        <text x="${(x(sg.s)+x(sg.e))/2}" y="${P.t+12}" font-size="11" text-anchor="middle" fill="#333" style="cursor:pointer" onclick="pickSeg(${i})">${sg.cat?(CATS.find(c=>c[0]===sg.cat)||["","?"])[1]:"点击设类别"}</text>`;});
+  // 边界线与删除
+  segs.forEach((sg,i)=>{if(i>0){s+=`<line x1="${x(sg.s)}" y1="${P.t}" x2="${x(sg.s)}" y2="${H-P.b}" stroke="#b42318" stroke-width="1.5"/>
+    <text x="${x(sg.s)}" y="${P.t+2}" font-size="11" fill="#b42318" style="cursor:pointer" onclick="delB(${i})">×</text>`;}});
+  // x 轴刻度
+  for(let t=0;t<=it.duration_s;t+=Math.max(60,Math.round(it.duration_s/10/60)*60))
+    s+=`<text x="${x(t)}" y="${H-8}" font-size="10" text-anchor="middle" fill="#666">${fmt(t)}</text>`;
+  s+=`</svg>`;
+  s+=`<div class="segbtns" id="cats">${CATS.map(c=>`<button onclick="setCat('${c[0]}')">${c[1]}</button>`).join("")}
+      <button onclick="setNo()">整支「无明显分段」</button></div>`;
+  const it2=SEG[it.bvid];
+  s+=`<div class="hint">当前 ${it2.segs.length} 段${it2.no_obvious?"（无明显分段已标记）":""}。曲线点击=加边界；段上文字/按钮=设类别；边界 × = 删除。</div>`;
+  // 文本窗口
+  s+=`<details><summary style="cursor:pointer;font-size:12px;color:#666">每 5 分钟窗口高频文本</summary><div style="font-size:12px;max-height:150px;overflow:auto">`;
+  it.windows.forEach(w=>{if(w.top.length)s+=`<div><b>${fmt(w.win_s)}</b> ｜ `+w.top.map(t=>`${t.t}×${t.n}`).join(" ｜ ")+"</div>";});
+  s+=`</div></details></div>`;
+  document.getElementById("stage").innerHTML=s;
+}
+function xs(ev){const it=MATERIAL.items[cur];const r=document.getElementById("cv").getBoundingClientRect();
+  const P={l:40,r:12};const f=(ev.clientX-r.left-P.l)/(r.width-P.l-P.r);
+  return Math.max(0,Math.min(it.duration_s,Math.round(f*it.duration_s)))}
+document.addEventListener("click",ev=>{const cv=ev.target.closest("#cv");if(!cv||ev.target.tagName!=="svg")return;
+  const it=MATERIAL.items[cur];const t=xs(ev);const segs=SEG[it.bvid].segs;
+  for(let i=1;i<segs.length;i++){if(Math.abs(segs[i].s-t)<it.duration_s*0.006)return}
+  for(let i=0;i<segs.length;i++){if(t>segs[i].s&&t<segs[i].e){const a={s:t,e:segs[i].e,cat:null};segs[i].e=t;segs.splice(i+1,0,a);break}}
+  save(it.bvid);draw();});
+function pickSeg(i){window._sel=i;document.querySelectorAll("#cats button").forEach(b=>b.style.outline="");
+  document.querySelectorAll("#cats button")[0].style.outline="2px solid #292723"}
+function setCat(c){const it=MATERIAL.items[cur];const segs=SEG[it.bvid].segs;
+  if(window._sel==null){alert("先点击某个段的文字选中它");return}
+  segs[window._sel].cat=c;save(it.bvid);draw()}
+function setNo(){const it=MATERIAL.items[cur];SEG[it.bvid]={no_obvious:true,segs:[{s:0,e:it.duration_s,cat:"uncertain"}]};save(it.bvid);draw()}
+function delB(i){const it=MATERIAL.items[cur];const segs=SEG[it.bvid].segs;
+  segs[i-1].e=segs[i].e;segs.splice(i,1);window._sel=null;save(it.bvid);draw()}
+function exportJSON(){
+  try{
+    if(window._sel!=null)window._sel=null;
+    const who=(document.getElementById("who").value||"unnamed").trim();
+    const items=MATERIAL.items.map(it=>{const sg=SEG[it.bvid];
+      return {bvid:it.bvid,no_obvious:!!sg.no_obvious,segments:sg.segs.map(s=>({start_s:s.s,end_s:s.e,category:s.cat}))}});
+    const out={annotator:who,generated_at:new Date().toISOString(),
+      protocol:"exp41 exploratory 5-video blind segmentation",
+      notes:document.getElementById("note").value||"",items:items};
+    const txt=JSON.stringify(out,null,1);
+    const box=document.getElementById("outbox");
+    box.style.display="block";box.value=txt;box.focus();box.select();
+    let hint="JSON 已显示在下方文本框——全选复制发我即可。";
+    try{const b=new Blob([txt],{type:"application/json"});const a=document.createElement("a");
+      a.href=URL.createObjectURL(b);a.download="annotator_"+who+".json";document.body.appendChild(a);a.click();a.remove();
+      hint="已尝试下载 annotator_"+who+".json；若下载栏没出现，直接复制下方文本框全文发我。";}catch(e){}
+    document.getElementById("dlhint").textContent=hint;
+  }catch(e){alert("导出出错："+e.message+"\n请截图发我。")}
+}
+function copyOut(){const box=document.getElementById("outbox");
+  if(box.style.display==="none"||!box.value){exportJSON();return}
+  box.focus();box.select();
+  try{navigator.clipboard.writeText(box.value);document.getElementById("dlhint").textContent="已复制到剪贴板。";}
+  catch(e){document.execCommand("copy");document.getElementById("dlhint").textContent="已复制。";}}
+function tabs(){document.getElementById("tabs").innerHTML=MATERIAL.items.map((it,i)=>
+  `<button class="${i===cur?"on":""}" onclick="cur=${i};window._sel=null;draw()">${it.bvid.slice(0,10)}·${it.tname}</button>`).join("")}
+if(ANNOTATOR)document.getElementById("who").value=ANNOTATOR;
+tabs();draw();
+</script>
+</body>
+</html>

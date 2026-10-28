@@ -85,6 +85,25 @@ UID_A=$(curl -s -b $J1 $H/api/users | python3 -c "import json,sys;print([u['id']
 chk "唯一管理员降级" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"role":"user"}' $H/api/users/$UID_A/role)"
 
 echo
+echo "=== ⑦b 删除账号：普通用户可删 / 自己不可删 / 最后管理员不可删 / 越权拒绝 ==="
+DELU="del$(date +%s)"
+curl -s -b $J1 -o /dev/null -X POST -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$DELU\",\"password\":\"pw1234\",\"role\":\"user\"}" $H/api/users
+DID=$(curl -s -b $J1 $H/api/users | python3 -c "import json,sys;print([u['id'] for u in json.load(sys.stdin)['data'] if u['username']=='$DELU'][0])")
+chk "删普通用户" 200 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X DELETE $H/api/users/$DID)"
+has "删除后列表里没有它" "gone" "$(curl -s -b $J1 $H/api/users | python3 -c "import json,sys;print('gone' if not any(u['username']=='$DELU' for u in json.load(sys.stdin)['data']) else 'still')")"
+chk "最后一个管理员删自己" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X DELETE $H/api/users/$UID_A)"
+has "文案说明是最后一个管理员" "最后一个管理员" "$(curl -s -b $J1 -X DELETE $H/api/users/$UID_A)"
+MADM="madm$(date +%s)"
+curl -s -b $J1 -o /dev/null -X POST -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$MADM\",\"password\":\"pw1234\",\"role\":\"admin\"}" $H/api/users
+MID=$(curl -s -b $J1 $H/api/users | python3 -c "import json,sys;print([u['id'] for u in json.load(sys.stdin)['data'] if u['username']=='$MADM'][0])")
+chk "有两个管理员时删自己" 409 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X DELETE $H/api/users/$UID_A)"
+has "文案说明不能删自己" "当前登录的账号" "$(curl -s -b $J1 -X DELETE $H/api/users/$UID_A)"
+chk "删临时管理员（清理）" 200 "$(curl -s -b $J1 -o /dev/null -w '%{http_code}' -X DELETE $H/api/users/$MID)"
+chk "普通用户删账号" 403 "$(curl -s -b $J2 -o /dev/null -w '%{http_code}' -X DELETE $H/api/users/$UID_A)"
+
+echo
 echo "=== ⑧ 收藏：uid 取自会话 + toggle 幂等 + 越权不可传 user_id ==="
 BV=BV12wY96jEAG
 fav() { curl -s -b $J2 "$H/api/favorites/status?bvid=$BV" | python3 -c "import json,sys;print(json.load(sys.stdin)['data']['favorited'])"; }

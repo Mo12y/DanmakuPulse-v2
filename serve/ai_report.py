@@ -17,10 +17,14 @@
   ⚠️ 监控盯的是"累计花费"而不是"进度"——超阈值自动停。
 
 提示词硬约束（写死在 SYSTEM 里，不可放松）：
-  ① 只能基于给出的诊断数据解读，**不添加数据之外的因果推断或数字**；
-  ② 建议用"可参考 / 可尝试"，**禁用**"一定会 / 导致 / 因为…所以建议"；
-  ③ 不编造、不遗漏关键偏离。
+  ① 只能基于给出的检测结果解读，**不添加数据之外的因果推断或数字**；
+  ② 观察点用"可参考"，**禁用**"一定会 / 导致 / 因为…所以建议"；
+  ③ 不判定情绪、不评价内容质量（数据里也没有这些字段）。
   输出后再过一遍禁用词校验：**命中就拒绝展示并记日志**（不许静默换成别的文案）。
+
+数据源（2026-10-20 切换）：输入 = serve/highlights.py 的 hl.card() 载荷（共振峰 / 质疑段 /
+从众-质疑占比 / 分区对标 / 切片建议 / 诚实边界），**不再使用旧诊断卡**（verdict / position /
+deviations / benchmarks）。缓存键带 PROMPT_VERSION，旧口径报告不会被命中。
 '''
 import json
 import os
@@ -32,6 +36,13 @@ try:
     import requests
 except ImportError:            # 容器 .py 依赖见 serve/requirements.txt（已含 requests）
     requests = None
+
+# 提示词/数据源版本：写进缓存键，换口径就换版本，旧缓存自然失效（不改表结构）
+# v3（2026-10-20 用户拍板）：v2 真实冒烟发现模型把字段名 pctl 与统计数字念进正文；
+# 加一条"只许引时间点、禁字段名/统计数字"的约束。
+# v4（2026-10-22 用户拍板）：时间一律写 mm:ss（如 22:30–22:40），不再写「第 1350–1360 秒」；
+# 与前端 rangeText 同口径。换提示词必须换版本，否则旧缓存会被命中。
+PROMPT_VERSION = 'hl-ai-v4'
 
 # ── 三条闸（改这里就是改闸，别在别处再定义一份）──
 # ── 三条闸的**默认值**（用户 2026-10-16 拍板：100 次/日、¥10 上限、单次 600 token）──
@@ -49,7 +60,12 @@ EST_COST_CNY = 0.003                # 单次成本量级（估计值；有 usage
 
 # 禁用词：断言"因果 / 必然"的措辞。命中即拒绝展示并记日志（规格要求，不许改成别的文案）。
 BANNED_WORDS = ('一定会', '必然会', '肯定会', '一定能', '必然导致', '必然', '导致', '造成',
-                '所以建议', '因此建议', '这就说明', '证明了')
+                '所以建议', '因此建议', '这就说明', '证明了',
+                # 2026-10-20：只加**具体断言词**。像「内容质量 / 情绪类型 / 情绪判断」这类
+                # 边界名词**不加**——模型复述"不判定情绪 / 不评价内容质量"时会被误杀；
+                # 边界由 SYSTEM 约束，校验只抓具体断言。
+                '感人', '好笑', '愤怒', '燃', '节奏健康', '没有明显短板',
+                '内容最好', '名场面', '爆款', '一定会火')
 BANNED_RE = re.compile(r'因为[^。！？\n]{0,40}?(所以|因此|故)\s*建议')
 
 DDL = '''
@@ -89,22 +105,24 @@ CREATE TABLE IF NOT EXISTS ai_report (
 );
 '''
 
-SYSTEM = '''你在为一个「B站视频弹幕互动节奏诊断系统」写一段简短说明。
-
-你只会收到一段结构化诊断数据（JSON）。硬约束，不可违反：
-1. 只能基于给定数据，**不得添加数据之外的因果推断或数字**；数据里没有的一律不许出现。
-2. 【报告解读】只写用户在页面上**看不出来的判断**。**禁止复述卡片上已有的数字**——
-   时长、弹幕条数、播放量、排名、百分位、对标视频名称，这些用户自己看得到，不要念一遍。
-   只写 2–3 句，说清这支视频的节奏跟同类**差在哪**。
-3. 【可执行建议】是重点：2–3 条，每条一句话，说清**可以动哪一段、往哪个方向动**；
-   用「可参考 / 可尝试」这类措辞；**禁用**「一定会 / 导致 / 因为…所以建议」等因果或必然断言。
-4. 数据里没有的写「暂无」，不许编。
-
+SYSTEM = '''你在为一个「B站视频弹幕精彩时刻检测」工具写一段简短说明。
+你只会收到一份结构化检测结果（JSON）。硬约束，不可违反：
+1. 只能使用给定数据，不得编造数字、因果或视频内容（没有画面、没有内容标签）。
+2. 不判定情绪：禁止出现「感人 / 好笑 / 愤怒 / 情绪类型 / 这一秒是什么情绪」等标签；数据里也没有这些字段。
+3. 不评价内容质量：禁止「节奏健康 / 没有明显短板 / 内容最好 / 名场面 / 爆款 / 一定会火」等判断。
+4. 不给因果处方：禁止「一定会 / 导致 / 造成 / 因为…所以建议」。
+5. 【报告解读】2–3 句，只讲这支视频的共振峰/质疑段分布有什么值得注意；不要逐项复述页面已有的数字；可引用关键时间点。
+6. 【可参考的观察点】2–3 条，每条一句话：说清「可参考看 22:30–22:40（共振/质疑），那里观众在刷什么、在同类里处于什么位置」；时间一律写成 mm:ss（如 03:05–03:15；不足 1 分钟可写「第 45–50 秒」），**不要写「第 1350–1360 秒」这种需要心算的秒数**；不要建议改内容、不要承诺效果；长视频可点明「可作为切片候选」，但必须补一句「这只是共振最强处，不代表内容更好」。
+7. 数据里没有的写「暂无」，不许编。
+8. 如果原始弹幕文本里出现被禁词，不要直接引用原文，改用「（原文含敏感词，略）」或概括。
+9. 可以引用时间点，但必须是 mm:ss（如 22:30–22:40）；禁止出现任何字段名（pctl、score、n_repeat 等）与统计数字（百分位、样本数、复读条数、得分）；相对强弱用自然语言说（如「共振最强的一段」），不要念原始数值。
 输出格式（严格照此，两种标题必须原样出现）：
 【报告解读】
-2–3 句。只讲判断，不复述任何卡片已有的数字。
-【可执行建议】
-2–3 条，每条一行、一句话，以「可参考…」或「可尝试…」开头，说清动哪一段。'''
+2–3 句。
+【可参考的观察点】
+1. 可参考…
+2. 可参考…
+'''
 
 
 def _dsn():
@@ -264,35 +282,76 @@ def check_output(text):
 
 # ── 提示词与调用 ────────────────────────────────────────────
 
-def diag_payload(d):
-    '''把诊断卡里**给人看的那部分**结构化出来当提示词输入。
+def _pairs(list_, n=3):
+    """top_danmaku 统一成 [{text, n}]；字符串形态也兼容（不喂整段原文以外的结构）"""
+    out = []
+    for it in (list_ or [])[:n]:
+        if isinstance(it, dict):
+            out.append({'text': it.get('text'), 'n': it.get('n')})
+        else:
+            out.append({'text': str(it), 'n': None})
+    return out
 
-    刻意不喂：曲线 101 个点（太长）、tech 层（含口径参数，会诱导模型解释公式）、
-    原始 z 值（容易被模型当成"严重程度"去下结论）。
-    '''
+
+def highlights_payload(d):
+    """把 hl.card()['data'] 里**给人看的那部分**结构化出来当提示词输入。
+
+    刻意不喂：旧诊断卡的 verdict / position / deviations / benchmarks（已换数据源）、
+    曲线 101 个点（太长）、任何情绪字段（数据源里也没有）、tech 层参数。
+    ⚠️ highlights 自己的 `benchmark`（单数，分区共振对标）**必须保留** —— 别和旧卡
+    的 `benchmarks`（复数）搞混，删错就丢了"在同类里处于什么位置"。
+    """
     d = d or {}
-    v = d.get('video') or {}
-    ve = d.get('verdict') or {}
-    po = d.get('position') or {}
+    # 峰：按复读强度取前 5（页面全量 41 个峰时提示词会被数字淹没）
+    peaks = sorted((d.get('peaks') or []),
+                   key=lambda p: (-(p.get('score') or 0), p.get('start_sec') or 0))[:5]
+    crit = d.get('critique') or {}
+    segs = (crit.get('segments') or [])[:3]
+    fb = d.get('feedback') or {}
+    b = d.get('benchmark') or {}
+    picks = (d.get('slice_suggestions') or d.get('highlight_positions') or [])[:3]
     return {
-        'video': {k: v.get(k) for k in ('title', 'up_name', 'tname', 'duration_text',
-                                        'n_danmaku', 'play_text', 'batch_date')},
-        'verdict': {k: ve.get(k) for k in ('tone', 'problem_5s', 'headline', 'detail')},
-        'position': {k: po.get(k) for k in ('rank', 'percentile', 'n_peers', 'main_label',
-                                            'headline', 'detail', 'scope')},
-        'deviations': [{'label': x.get('label'), 'direction': x.get('direction_label'),
-                        'position': x.get('position_text'), 'you': x.get('you_text'),
-                        'peer_median': x.get('median_text'), 'level': x.get('level'),
-                        'compare': x.get('compare_text'), 'advice': x.get('advice')}
-                       for x in (d.get('deviations') or [])],
-        'benchmarks': [{'title': x.get('title'), 'similarity': x.get('similarity_label'),
-                        'like': x.get('like_text'), 'outcome': x.get('outcome_text'),
-                        'learn': x.get('learn_text')}
-                       for x in (d.get('benchmarks') or [])],
-        'curve_summary': (d.get('curve') or {}).get('summary'),
-        'system_actions': [{'text': x.get('text'), 'basis': x.get('basis')}
-                           for x in (ve.get('actions') or [])],
+        'bvid': d.get('bvid'),
+        'title': d.get('title'),
+        'tname': d.get('tname'),
+        'duration': d.get('duration'),
+        'is_long': d.get('is_long'),
+        'peaks': [{'start_sec': p.get('start_sec'), 'end_sec': p.get('end_sec'),
+                   'score': p.get('score'), 'n_repeat': p.get('n_repeat'),
+                   'n_rep_texts': p.get('n_rep_texts'),
+                   'top_danmaku': _pairs(p.get('top_danmaku')),
+                   'pctl': p.get('pctl'), 'in_opening': bool(p.get('in_opening'))}
+                  for p in peaks],
+        'critique': {'detected': crit.get('detected'),
+                     'n_segments': crit.get('n_segments'),
+                     'segments': [{'start_sec': s.get('start_sec'),
+                                   'end_sec': s.get('end_sec'),
+                                   'score': s.get('score'), 'n': s.get('n'),
+                                   'top_danmaku': _pairs(s.get('top_danmaku'))}
+                                  for s in segs]},
+        'feedback': {'herd': fb.get('herd'), 'neutral': fb.get('neutral'),
+                     'critique': fb.get('critique'),
+                     'n_danmaku': fb.get('n_danmaku'), 'n_herd': fb.get('n_herd'),
+                     'n_neutral': fb.get('n_neutral'), 'n_critique': fb.get('n_critique')},
+        'benchmark': {'tname': b.get('tname'), 'partition_n': b.get('partition_n'),
+                      'partition_ok': b.get('partition_ok'),
+                      'resonance_pctl': b.get('resonance_pctl'),
+                      'med': b.get('partition_med')},
+        'picks': [{'start_sec': p.get('start_sec'), 'end_sec': p.get('end_sec'),
+                   'pctl': p.get('pctl'), 'opening_only': bool(p.get('opening_only')),
+                   'top_danmaku': _pairs(p.get('top_danmaku'))}
+                  for p in picks],
+        'caveats': d.get('caveats'),
     }
+
+
+def make_snap_id(batch_date, engine_version, dict_version):
+    """缓存键：版本 + 批次 + 引擎 + 词典。
+
+    ⚠️ **不要**用 meta.generated_at —— hl.card() 里它是每次请求 datetime.now() 生成的，
+    拿它当键会让缓存永不命中（每次都当成新快照重新计费）。
+    """
+    return '%s|%s|%s|%s' % (PROMPT_VERSION, batch_date, engine_version, dict_version)
 
 
 def build_messages(payload):
@@ -336,9 +395,9 @@ def _cost_cny(usage_info):
 
 
 def _split(text):
-    '''按提示词约定的两个标题切出「解读」与「建议」'''
+    '''按提示词约定的两个标题切出「报告解读」与「可参考的观察点」'''
     t = (text or '').strip()
-    m = re.search(r'【可执行建议】|可执行建议\s*[:：]', t)
+    m = re.search(r'【可参考的观察点】|可参考的观察点\s*[:：]', t)
     if not m:
         return re.sub(r'^【报告解读】\s*', '', t).strip(), []
     rep = re.sub(r'^【报告解读】\s*', '', t[:m.start()].strip()).strip()
@@ -348,8 +407,11 @@ def _split(text):
     return rep, items[:3]
 
 
-def generate(bvid, snap_id, batch_date, diag):
-    '''返回 (payload, status)。status ∈ {ok, cached, disabled, unconfigured, limited, blocked}。'''
+def generate(bvid, snap_id, batch_date, hl_data):
+    '''返回 (payload, status)。status ∈ {ok, cached, disabled, unconfigured, limited, blocked}。
+
+    hl_data = highlights.card(bvid)['data']（不是旧诊断卡）。
+    '''
     # ① 未配置密钥：明确说"未配置"，不是报错
     if not configured():
         raise PermissionError('AI 解读未配置：需要在 compose/.env.llm 里放 LLM_API_KEY（不进 git）。')
@@ -371,7 +433,7 @@ def generate(bvid, snap_id, batch_date, diag):
     if reason:
         raise OverflowError('已自动停：' + reason + '（本次不调用，不产生费用）')
 
-    messages = build_messages(diag_payload(diag))
+    messages = build_messages(highlights_payload(hl_data))
     try:
         text, ui, model = _call_llm(messages)
     except Exception as e:
@@ -387,14 +449,14 @@ def generate(bvid, snap_id, batch_date, diag):
         _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
            'VALUES (%s,%s,false,%s,%s,false)',
            (bvid, snap_id, '命禁用词拒绝展示：' + '、'.join(hits), cost), fetch=False)
-        raise ValueError('模型输出命中禁用词（%s），已拒绝展示并记入日志。本次费用 ¥%.4f。'
-                         % ('、'.join(hits), cost))
+        # 报错文案不得包含费用金额（费用只写 ai_call 日志，展示层不露）
+        raise ValueError('模型输出命中禁用词（%s），已拒绝展示并记入日志。' % '、'.join(hits))
 
     report, suggestions = _split(text)
     if not report:
         _q('INSERT INTO ai_call (bvid, cache_key, ok, reason, cost_cny, cached) '
            'VALUES (%s,%s,false,%s,%s,false)', (bvid, snap_id, '输出为空', cost), fetch=False)
-        raise RuntimeError('模型返回空内容。本次费用 ¥%.4f。' % cost)
+        raise RuntimeError('模型返回空内容。')
 
     _q('INSERT INTO ai_report (bvid, snap_id, batch_date, model, report, suggestions) '
        'VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (bvid, snap_id) DO NOTHING',

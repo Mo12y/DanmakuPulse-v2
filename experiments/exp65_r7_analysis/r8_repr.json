@@ -1,0 +1,58 @@
+{
+ "norm_curve": {
+  "n": 60,
+  "spearman_dist_vs_human": -0.7889,
+  "p": 0.0,
+  "dist_median_by_stratum": {
+   "very_similar": 0.15552,
+   "middle": 0.18098,
+   "dissimilar": 0.96252
+  },
+  "separation": 0.807
+ },
+ "feat8": {
+  "n": 60,
+  "spearman_dist_vs_human": -0.7743,
+  "p": 0.0,
+  "dist_median_by_stratum": {
+   "very_similar": 1.95802,
+   "middle": 2.79361,
+   "dissimilar": 7.04825
+  },
+  "separation": 5.09023
+ },
+ "pca4": {
+  "n": 60,
+  "spearman_dist_vs_human": -0.7821,
+  "p": 0.0,
+  "dist_median_by_stratum": {
+   "very_similar": 0.05528,
+   "middle": 0.10405,
+   "dissimilar": 0.94952
+  },
+  "separation": 0.89424
+ },
+ "pca8": {
+  "n": 60,
+  "spearman_dist_vs_human": -0.777,
+  "p": 0.0,
+  "dist_median_by_stratum": {
+   "very_similar": 0.06348,
+   "middle": 0.11491,
+   "dissimilar": 0.95121
+  },
+  "separation": 0.88773
+ },
+ "pca16": {
+  "n": 60,
+  "spearman_dist_vs_human": -0.788,
+  "p": 0.0,
+  "dist_median_by_stratum": {
+   "very_similar": 0.08117,
+   "middle": 0.12652,
+   "dissimilar": 0.95329
+  },
+  "separation": 0.87212
+ },
+ "verdict": "最贴合人工判断的表示 = norm_curve（Spearman -0.7889），最差 = feat8（-0.7743），极差仅 -0.0146 ⇒ 五种表示与人工判断几乎等价，简单表示已足够，表示学习无必要"
+}

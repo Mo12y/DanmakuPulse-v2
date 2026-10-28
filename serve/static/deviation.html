@@ -42,7 +42,7 @@
   </div>
 </div>
 <script src="v3chart.js"></script>
-<script src="v3nav.js"></script>
+<script src="v3nav.js?v=20261021"></script>
 <script>
 var $ = function(s){ return document.querySelector(s); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
@@ -148,7 +148,7 @@ function rowsHTML(rows, nRows){
     ? '<div class="secnote" style="margin-bottom:10px">前 ' + rows.length + ' 支里有 <b>' + topN +
       '</b> 支来自【' + esc(topT) + '】—— 这不是巧合：该分区偏离率 ' +
       (function(){ for (var i=0;i<PARTS.length;i++){ if (PARTS[i].tname === topT) return PARTS[i].rate.toFixed(1) + '%，见 ③'; } return '见 ③'; })() +
-      '。排序榜本身没做「同分区限流」，看到的就是真实排名。</div>'
+      '。排序榜本身没做「按分区限额」，看到的就是真实排名。</div>'
     : '';
   return conc + '<div class="dgrid">' + rows.map(function(r, i){
     return '<div class="dcard" data-bvid="' + esc(r.bvid) + '" tabindex="0" role="link" ' +

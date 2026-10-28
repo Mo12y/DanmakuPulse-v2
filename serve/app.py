@@ -207,6 +207,29 @@ async def api_user_role(uid: int, request: Request, resp: Response):
     return ok(resp, {'id': uid, 'role': role})
 
 
+@app.delete('/api/users/{uid}')
+def api_user_delete(uid: int, request: Request, resp: Response):
+    '''删除账号（仅管理员；门禁在 auth.ADMIN_PREFIXES）。
+
+    两条不可越过的红线：
+      ① **不能删自己**——删完会话还挂着一个不存在的 uid；
+      ② **不能删最后一个管理员**——删完没人能进管理域。
+    先判②再判①：当"自己正好是最后一个管理员"时，先给出的理由应该是"最后一个管理员"，
+    因为那才是真正的风险（人没了比会话失效严重）。删除后写 admin_audit。
+    '''
+    me = getattr(request.state, 'user', None) or {}
+    u = auth.user_by_id(uid)
+    if not u:
+        raise HTTPException(404, '用户不存在')
+    if u['role'] == 'admin' and auth.count_admins() <= 1:
+        raise HTTPException(409, '这是最后一个管理员，不能删除——请先指定另一个管理员')
+    if int(me.get('id') or 0) == int(uid):
+        raise HTTPException(409, '不能删除当前登录的账号')
+    auth.delete_user(uid)
+    auth.audit(me, 'delete_user', u, 'role=%s' % u['role'])
+    return ok(resp, {'deleted': True, 'id': uid, 'username': u['username']})
+
+
 # ── 收藏（登录即可；uid 一律取自会话）──
 
 def _title_of(bvid):
@@ -815,12 +838,19 @@ def api_v3_compare(resp: Response, a: str = Query(..., min_length=6, max_length=
 # ── AI 报告解读（付费闸；闸与提示词约束详见 serve/ai_report.py）──
 
 @app.get('/api/v3/ai/state')
-def api_ai_state(resp: Response):
-    '''AI 解读的开关与**已用量**（三条闸的现值）——页面要能显示已用量。
+def api_ai_state(request: Request, resp: Response):
+    '''AI 解读的开关与用量。
 
-    给所有登录用户（不含任何密钥）；**开启/关闭**是另一个路径，走管理员前缀门禁。
+    管理员拿到全量（含已用量 / 累计花费 / 模型名）；普通用户只拿 {enabled, configured} ——
+    费用、额度、模型名属于运营信息，不给普通用户看（2026-10-20 用户拍板）。
+    **开启/关闭**是另一个路径，走管理员前缀门禁；密钥从不下发。
     '''
-    return ok(resp, ai_report.usage(), cache=False)
+    u = getattr(request.state, 'user', None) or {}
+    st = ai_report.usage()
+    if u.get('role') != 'admin':
+        return ok(resp, {'enabled': bool(st.get('enabled')),
+                         'configured': bool(st.get('configured'))}, cache=False)
+    return ok(resp, st, cache=False)
 
 
 @app.post('/api/v3/ai/limits')
@@ -851,23 +881,29 @@ async def api_ai_config_set(request: Request, resp: Response):
 
 @app.post('/api/v3/ai/report')
 async def api_ai_report(request: Request, resp: Response):
-    '''对一支视频生成（或读缓存）AI 报告解读。
+    '''对一支视频生成（或读缓存）AI 解读。
+
+    数据源 = 精彩时刻检测（hl.card），**不是**旧诊断卡；不在检测快照里就 404，
+    不退回旧诊断（两份口径混着喂模型会写出页面上看不到的结论）。
 
     三道闸 + 缓存：单日 ≤200 次 / 累计 ≤¥10 / 单次 max_tokens ≤600；
-    同 (bvid, 快照) 只解读一次；超限**自动停**；输出过禁用词校验，命中即拒绝展示并记日志。
+    同 (bvid, 版本+批次+引擎+词典) 只解读一次；超限**自动停**；
+    输出过禁用词校验，命中即拒绝展示并记日志。
     '''
     d = await request.json()
     bvid = (d.get('bvid') or '').strip()
     if not bvid:
         raise HTTPException(400, 'bvid 不能为空')
-    snap = diagnosis._load()
-    snap_id = (snap.get('meta') or {}).get('generated_at') or 'unknown'
-    card = diagnosis.diagnose(bvid, str(d['batch_date']) if d.get('batch_date') else None, snap=snap)
+    card = hl.card(bvid, str(d['batch_date']) if d.get('batch_date') else None)
     if not card:
-        raise HTTPException(404, f'{bvid} 不在节奏诊断快照里')
+        raise HTTPException(404, '这支视频不在精彩时刻检测快照里')
+    data, meta = card['data'], (card.get('meta') or {})
+    batch_date = data.get('batch_date')
+    # 缓存键用"版本+批次+引擎+词典"；meta.generated_at 是每次请求 now() 生成的，绝不能当键
+    snap_id = ai_report.make_snap_id(batch_date, meta.get('engine_version'),
+                                     meta.get('dict_version'))
     try:
-        payload, status = ai_report.generate(
-            bvid, snap_id, (card.get('video') or {}).get('batch_date'), card)
+        payload, status = ai_report.generate(bvid, snap_id, str(batch_date), data)
     except PermissionError as e:
         raise HTTPException(409, str(e))
     except OverflowError as e:
@@ -907,3 +943,8 @@ def lifecycle(bvid: str, resp: Response):
     if not r:
         raise HTTPException(404, f'{bvid} 无生命周期数据')
     return ok(resp, r)
+
+
+# ── 任务38：ML 预测卡（D1 余量 + D2 结论稳定度；快照只读，详见 serve/ml_forecast.py）──
+import ml_forecast
+ml_forecast.register(app)

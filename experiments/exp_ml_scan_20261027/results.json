@@ -1,0 +1,96 @@
+{
+  "env": {
+    "seed": 20261027,
+    "B": 2000,
+    "python": "3.12.3",
+    "pandas": "3.0.4",
+    "scope": "daily 1012-1026 + old-ods 0902/0907 (D-train only)"
+  },
+  "D1_volume": {
+    "n_train": 918,
+    "n_test": 395,
+    "test_videos": 354,
+    "bvid_overlap": 0,
+    "R2_baseline_OLS_c0": 0.4532,
+    "R2_OLS6": 0.5624,
+    "R2_HGB": 0.548,
+    "dR2_HGB_vs_OLS1": 0.0947,
+    "ci": [
+      0.0447,
+      0.1443
+    ],
+    "dR2_OLS6_vs_OLS1_secondary": 0.109,
+    "ci_secondary": [
+      0.0718,
+      0.1471
+    ],
+    "verdict": "POSITIVE"
+  },
+  "D2_rcp_stability": {
+    "n_train": 5774,
+    "n_test": 2552,
+    "test_videos": 548,
+    "pos_rate_test": 0.255,
+    "s_d_frozen": {
+      "cold_pct": 19.802,
+      "cv": 0.489,
+      "main_peak_pct": 53.218
+    },
+    "bvid_overlap": 0,
+    "AUC_baseline_logk": 0.7914,
+    "AUC_HGB": 0.8696,
+    "AUC_LR": 0.8506,
+    "AUC_HGB_gkf_oof": 0.8676,
+    "dAUC_HGB_vs_base": 0.0783,
+    "ci": [
+      0.06,
+      0.0964
+    ],
+    "verdict": "POSITIVE"
+  },
+  "D3_count30s": {
+    "n_points": 4702,
+    "n_videos_elig": 127,
+    "dR2": -0.1774,
+    "ci": [
+      -0.7186,
+      0.1407
+    ],
+    "verdict": "INCONCLUSIVE",
+    "R2_model_macro": -0.7966,
+    "R2_base_macro": -0.6192,
+    "sens_lam_gt0": {
+      "n_points": 4541,
+      "n_videos": 127,
+      "R2_model_macro": -0.558,
+      "R2_base_macro": -0.6293
+    }
+  },
+  "D4_calibration": {
+    "n_points": 4862,
+    "n_videos": 182,
+    "pos_rate": 0.381,
+    "models": [
+      {
+        "name": "NegLam+Platt",
+        "brier": 0.2383,
+        "brier_L0": 0.3811,
+        "brier_skill": 0.3747,
+        "cal_slope": -3.283,
+        "cal_intercept": -2.02,
+        "max_decile_gap": 0.177
+      },
+      {
+        "name": "LR6_OOF+Platt",
+        "brier": 0.2321,
+        "brier_L0": 0.3811,
+        "brier_skill": 0.391,
+        "cal_slope": 0.821,
+        "cal_intercept": -0.087,
+        "max_decile_gap": 0.081
+      }
+    ],
+    "verdict": "POSITIVE"
+  },
+  "elapsed_sec": 19.0
+}

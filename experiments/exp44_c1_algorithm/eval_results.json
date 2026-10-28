@@ -1,0 +1,398 @@
+{
+ "algo_version": "e44-v1",
+ "params": {
+  "unit": "60s 桶 log1p",
+  "min_seg": 2,
+  "penalty": "BIC c=1",
+  "seed": 20261027,
+  "note": "一次性运行，无调参"
+ },
+ "reference": "exp43 A/B 共识边界（60s 内匹配对取均值；不一致边界不进参考）",
+ "per_video": [
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "algo": "EqualK3",
+   "n_consensus": 0,
+   "n_pred": 2,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": 2
+  },
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "algo": "SingleCP",
+   "n_consensus": 0,
+   "n_pred": 1,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": 1
+  },
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "algo": "BinsegBIC",
+   "n_consensus": 0,
+   "n_pred": 0,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": 0
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "algo": "EqualK3",
+   "n_consensus": 2,
+   "n_pred": 2,
+   "matched": 1,
+   "recall": 0.5,
+   "precision": 0.5,
+   "med_err": 5.0,
+   "nseg_diff": 0
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "algo": "SingleCP",
+   "n_consensus": 2,
+   "n_pred": 1,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -1
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "algo": "BinsegBIC",
+   "n_consensus": 2,
+   "n_pred": 0,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -2
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "algo": "EqualK3",
+   "n_consensus": 2,
+   "n_pred": 2,
+   "matched": 1,
+   "recall": 0.5,
+   "precision": 0.5,
+   "med_err": 60.0,
+   "nseg_diff": 0
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "algo": "SingleCP",
+   "n_consensus": 2,
+   "n_pred": 1,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -1
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "algo": "BinsegBIC",
+   "n_consensus": 2,
+   "n_pred": 0,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -2
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "algo": "EqualK3",
+   "n_consensus": 1,
+   "n_pred": 2,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": 1
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "algo": "SingleCP",
+   "n_consensus": 1,
+   "n_pred": 1,
+   "matched": 1,
+   "recall": 1.0,
+   "precision": 1.0,
+   "med_err": 10.0,
+   "nseg_diff": 0
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "algo": "BinsegBIC",
+   "n_consensus": 1,
+   "n_pred": 0,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -1
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "algo": "EqualK3",
+   "n_consensus": 3,
+   "n_pred": 2,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -1
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "algo": "SingleCP",
+   "n_consensus": 3,
+   "n_pred": 1,
+   "matched": 1,
+   "recall": 0.333,
+   "precision": 1.0,
+   "med_err": 20.0,
+   "nseg_diff": -2
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "algo": "BinsegBIC",
+   "n_consensus": 3,
+   "n_pred": 0,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "nseg_diff": -3
+  }
+ ],
+ "per_video_detail": [
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "algo": "EqualK3",
+   "consensus": [],
+   "pred": [
+    120,
+    240
+   ],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "algo": "SingleCP",
+   "consensus": [],
+   "pred": [
+    120
+   ],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "algo": "BinsegBIC",
+   "consensus": [],
+   "pred": [],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "algo": "EqualK3",
+   "consensus": [
+    595.0,
+    678.0
+   ],
+   "pred": [
+    300,
+    600
+   ],
+   "matched_err": [
+    5.0
+   ]
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "algo": "SingleCP",
+   "consensus": [
+    595.0,
+    678.0
+   ],
+   "pred": [
+    120
+   ],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "algo": "BinsegBIC",
+   "consensus": [
+    595.0,
+    678.0
+   ],
+   "pred": [],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "algo": "EqualK3",
+   "consensus": [
+    300.0,
+    356.0
+   ],
+   "pred": [
+    120,
+    240
+   ],
+   "matched_err": [
+    60.0
+   ]
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "algo": "SingleCP",
+   "consensus": [
+    300.0,
+    356.0
+   ],
+   "pred": [
+    120
+   ],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "algo": "BinsegBIC",
+   "consensus": [
+    300.0,
+    356.0
+   ],
+   "pred": [],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "algo": "EqualK3",
+   "consensus": [
+    110.0
+   ],
+   "pred": [
+    180,
+    360
+   ],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "algo": "SingleCP",
+   "consensus": [
+    110.0
+   ],
+   "pred": [
+    120
+   ],
+   "matched_err": [
+    10.0
+   ]
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "algo": "BinsegBIC",
+   "consensus": [
+    110.0
+   ],
+   "pred": [],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "algo": "EqualK3",
+   "consensus": [
+    100.0,
+    229.0,
+    460.0
+   ],
+   "pred": [
+    540,
+    1080
+   ],
+   "matched_err": []
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "algo": "SingleCP",
+   "consensus": [
+    100.0,
+    229.0,
+    460.0
+   ],
+   "pred": [
+    120
+   ],
+   "matched_err": [
+    20.0
+   ]
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "algo": "BinsegBIC",
+   "consensus": [
+    100.0,
+    229.0,
+    460.0
+   ],
+   "pred": [],
+   "matched_err": []
+  }
+ ],
+ "summary": {
+  "BinsegBIC": {
+   "recall_med": 0.0,
+   "med_err_overall": NaN,
+   "recall_per_video": {
+    "BV1LAJm6LEoE": 0.0,
+    "BV1ZSp46AEF8": 0.0,
+    "BV1ZjpJ6kEqA": 0.0,
+    "BV1kBpi6aEDP": 0.0,
+    "BV1wAp76yEu1": 0.0
+   },
+   "nseg_diff_med": -2.0
+  },
+  "EqualK3": {
+   "recall_med": 0.0,
+   "med_err_overall": 32.5,
+   "recall_per_video": {
+    "BV1LAJm6LEoE": 0.0,
+    "BV1ZSp46AEF8": 0.5,
+    "BV1ZjpJ6kEqA": 0.5,
+    "BV1kBpi6aEDP": 0.0,
+    "BV1wAp76yEu1": 0.0
+   },
+   "nseg_diff_med": 0.0
+  },
+  "SingleCP": {
+   "recall_med": 0.0,
+   "med_err_overall": 15.0,
+   "recall_per_video": {
+    "BV1LAJm6LEoE": 0.0,
+    "BV1ZSp46AEF8": 0.0,
+    "BV1ZjpJ6kEqA": 0.0,
+    "BV1kBpi6aEDP": 1.0,
+    "BV1wAp76yEu1": 0.333
+   },
+   "nseg_diff_med": -1.0
+  }
+ },
+ "gate": {
+  "BinsegBIC": false,
+  "EqualK3": false,
+  "SingleCP": false
+ },
+ "gate_note": "门槛=任务40 预注册：召回≥0.60 且 匹配误差中位≤15s；n=5 为初步验证"
+}

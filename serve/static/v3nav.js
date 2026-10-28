@@ -17,8 +17,8 @@
 (function () {
   var THEME_KEY = 'v3-theme';
   var GROUPS = [
-    { title: '诊断', core: true, items: [
-      ['diagnosis.html', '视频诊断'],
+    { title: '分析', core: true, items: [
+      ['diagnosis.html', '视频分析'],
       ['compare.html', '双视频对比'],
       ['batch.html', '批量体检']] },
     { title: '追踪', items: [['track.html', '跨批追踪']] },
@@ -64,7 +64,7 @@
     if (!el) return;
     var isAdmin = !!(me && me.role === 'admin');
     var cur = here();
-    var html = '<div class="brand"><span class="dot"></span>弹幕节奏 · 对标诊断</div>';
+    var html = '<div class="brand"><span class="dot"></span>弹幕节奏 · 数据工作台</div>';
     GROUPS.forEach(function (g) {
       if (g.admin && !isAdmin) return;
       html += '<div class="side-group"><div class="side-group-title' + (g.core ? ' core' : '') + '">' +

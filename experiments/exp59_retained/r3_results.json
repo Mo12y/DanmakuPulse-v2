@@ -1,0 +1,20 @@
+{
+ "n_videos": 148,
+ "gini_prog_median": 0.3332,
+ "gini_lag_median": 0.5099,
+ "spearman_gini": 0.0814,
+ "spearman_peak_pos": 0.0248,
+ "partial_spearman_ctrl_dur_volume": 0.16,
+ "per_batch_spearman": {
+  "20261012": 0.0588,
+  "20261015": 0.478,
+  "20261017": 0.3576,
+  "20261019": 0.1912,
+  "20261021": -0.4545,
+  "20261023": -0.1152,
+  "20261024": 0.0243,
+  "20261026": -0.028
+ },
+ "status": "两钟信息不同",
+ "caveat": "send_time 受采集截断；lag≠观看时间；发布后延迟≠传播速度"
+}

@@ -1,0 +1,14 @@
+{
+ "n_videos": 148,
+ "raw_spearman_multi_hhi": -0.3948,
+ "partial_spearman_ctrl_vol_dur": -0.0193,
+ "partial_spearman_ctrl_vol_dur_partition": -0.2639,
+ "multi_vs_volume": 0.3267,
+ "hhi_vs_volume": -0.5354,
+ "multi_boot_ci": [
+  0.1622,
+  0.216
+ ],
+ "status": "分别携带信息",
+ "caveat": "user_hash 覆盖 81.1%（0902/0907 全空）；用户级结论仅限 1012 后批次；相关≠因果"
+}

@@ -1,0 +1,107 @@
+{
+ "n_units": 2167,
+ "n_videos": 1588,
+ "got_dist": {
+  "count": 1588,
+  "mean": 1114,
+  "std": 1222,
+  "min": 2,
+  "25%": 360,
+  "50%": 668,
+  "75%": 1200,
+  "max": 9600
+ },
+ "groups": {
+  "G1_got<600": {
+   "n": 644,
+   "dur_med": 169.0,
+   "dpm_med": 98.77,
+   "got_med": 319,
+   "obs_start_frac_p50": 0.0,
+   "obs_start_frac_p90": 0.002,
+   "full_timeline_share": 0.997,
+   "S1_med": 0.574,
+   "S1_q": [
+    0.407,
+    0.914
+   ],
+   "S2_med": 1.948,
+   "S3_med": 0.0,
+   "share_S1_ge_0p5": 0.569,
+   "share_S1_ge_1p0": 0.215,
+   "n3_med": [
+    130.32,
+    80.0,
+    69.66
+   ]
+  },
+  "G2_got>=600": {
+   "n": 944,
+   "dur_med": 616.0,
+   "dpm_med": 145.56,
+   "got_med": 1200,
+   "obs_start_frac_p50": 0.0,
+   "obs_start_frac_p90": 0.0,
+   "full_timeline_share": 1.0,
+   "S1_med": 0.394,
+   "S1_q": [
+    0.267,
+    0.567
+   ],
+   "S2_med": 1.424,
+   "S3_med": 0.0,
+   "share_S1_ge_0p5": 0.324,
+   "share_S1_ge_1p0": 0.046,
+   "n3_med": [
+    176.96,
+    112.96,
+    100.28
+   ]
+  }
+ },
+ "Q1_S1_meddiff_G2_minus_G1": {
+  "diff": -0.179,
+  "ci": [
+   -0.264,
+   -0.107
+  ]
+ },
+ "Q1_stratified_by_durbin": {
+  "<10min": {
+   "n1": 107,
+   "n2": 189,
+   "med1": 0.516,
+   "med2": 0.436
+  },
+  "10-30min": {
+   "n1": 53,
+   "n2": 346,
+   "med1": 0.573,
+   "med2": 0.389
+  },
+  ">30min": {
+   "n1": 21,
+   "n2": 143,
+   "med1": 1.281,
+   "med2": 0.327
+  }
+ },
+ "tname_top": {
+  "日常": 243,
+  "单机游戏": 139,
+  "搞笑": 86,
+  "手机游戏": 79,
+  "网络游戏": 71
+ },
+ "Q2": {
+  "full_timeline_n": 1586,
+  "full_rich_n": 68,
+  "full_rich_n_05": 321,
+  "obswin_n": 2,
+  "obswin_win_ge300s_n": 2,
+  "obswin_rich_n": 2,
+  "got_ge600_full_share": 1.0,
+  "got_lt600_full_share": 0.997
+ }
+}
+EXP42-DONE → /home/molly/projects/danmaku-v2/experiments/exp42_pool_feasibility

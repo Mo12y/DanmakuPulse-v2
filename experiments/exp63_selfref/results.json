@@ -1,0 +1,90 @@
+{
+ "n_pairs": 427,
+ "self_ref": {
+  "rho_median": 0.284,
+  "p10_median": 0.3
+ },
+ "partition_ref": {
+  "rho_median": 0.1351,
+  "p10_median": 0.2
+ },
+ "paired": {
+  "d_rho_median": 0.1,
+  "d_rho_mean": 0.1217,
+  "ci95": [
+   0.0971,
+   0.1482
+  ],
+  "share_self_better": 0.679,
+  "d_p10_mean": 0.1108,
+  "ci95_p10": [
+   0.0904,
+   0.1302
+  ]
+ },
+ "partition_sizes": {
+  "median": 58.0,
+  "n_partitions": 21
+ },
+ "per_tname": {
+  "人文历史": {
+   "n_others": 80,
+   "d_rho": 0.2564
+  },
+  "出行": {
+   "n_others": 52,
+   "d_rho": 0.051
+  },
+  "单机游戏": {
+   "n_others": 191,
+   "d_rho": 0.1525
+  },
+  "小剧场": {
+   "n_others": 52,
+   "d_rho": 0.1391
+  },
+  "影视剪辑": {
+   "n_others": 80,
+   "d_rho": 0.056
+  },
+  "影视杂谈": {
+   "n_others": 88,
+   "d_rho": 0.2505
+  },
+  "手机游戏": {
+   "n_others": 129,
+   "d_rho": 0.0231
+  },
+  "搞笑": {
+   "n_others": 134,
+   "d_rho": 0.0302
+  },
+  "日常": {
+   "n_others": 316,
+   "d_rho": 0.0689
+  },
+  "电子竞技": {
+   "n_others": 74,
+   "d_rho": 0.1817
+  },
+  "网络游戏": {
+   "n_others": 93,
+   "d_rho": 0.1383
+  }
+ },
+ "fix_note": "P1-1：分区基线改为留一法（排除查询自身）且仅保留 n>=20 的分区（与生产 MIN_PARTITION 一致）",
+ "verdict": "自参照显著优于分区参照",
+ "shape_completion_partition_baseline": {
+  "n_test": 110,
+  "MAE_x1000": {
+   "global_shape": 9.05,
+   "partition": 9.43,
+   "ridge": 9.12
+  },
+  "skill_vs_global": {
+   "partition": -0.0421,
+   "ridge": -0.0076
+  },
+  "note": "补 exp62 缺口：分区形状是否优于全局形状（跨视频信息的下限）"
+ }
+}

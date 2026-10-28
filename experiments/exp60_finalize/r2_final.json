@@ -1,0 +1,30 @@
+{
+ "n_videos": 148,
+ "controls": [
+  "log(1+总弹幕量)",
+  "log(1+时长)",
+  "tname(分区内中心化)"
+ ],
+ "corr_controls": {
+  "vol_dur": 0.4053
+ },
+ "vif": {
+  "vol": 1.197,
+  "dur": 1.197
+ },
+ "tiers": {
+  "unadjusted": -0.3948,
+  "ctrl_vol_dur": -0.0193,
+  "ctrl_vol_dur_partition": -0.1546,
+  "ci95_ctrl_all": [
+   -0.2932,
+   0.0082
+  ]
+ },
+ "individual_vs_volume": {
+  "multi": 0.3267,
+  "hhi": -0.5354
+ },
+ "conclusion": "三档一致：未调整 −0.395 → 控量+时长 −0.019 → 再加分区内中心化 **−0.155**；注意两个不同估计量：exp59 的 −0.264 是\"仅分区内中心化\"（未控量/时长），本轮 −0.155 是\"分区内中心化+控量+时长\"，两者不冲突，引用时必须写明口径",
+ "erratum": "P1-3 修正：conclusion 里 \"−0.26\" 与 ctrl_vol_dur_partition=−0.155 矛盾，已改写为两个估计量并列说明"
+}

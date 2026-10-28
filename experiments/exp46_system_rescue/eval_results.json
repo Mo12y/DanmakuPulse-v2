@@ -1,0 +1,44 @@
+{
+  "as_of": "2026-10-27 21:30+08:00",
+  "D1_future_volume": {
+    "definition": "发布后6h时点预测(6h,30h]弹幕量；时间切(bvid不相交, 训练1012-1020/测试1021-1026批)",
+    "baseline_OLS_c0_R2": 0.4532, "model_OLS6_R2": 0.5607, "model_HGB_R2": 0.548,
+    "primary_dR2_HGB_vs_baseline": 0.0947, "ci95": [0.0447, 0.1443],
+    "ablation": {"n36_recent3h_dR2": 0.069, "duration_dR2": 0.108},
+    "verdict": "POSITIVE（预注册判据通过；线性模型足够）",
+    "evidence": "experiments/exp38_integrate/audit_results.json + exp_ml_scan_20261027/results.json",
+    "production": "快照预计算 + GET /api/ml/forecast（含 insufficient/pending 明确状态）"
+  },
+  "D2_conclusion_stability": {
+    "definition": "t∈{1,3,6,12,24}h 预测三维节奏结论到采集结束是否漂移≤0.25 IQR（s_d 冻结自训练期）",
+    "AUC_baseline_logk": 0.7914, "AUC_HGB": 0.8696, "dAUC": 0.078, "ci95": [0.06, 0.0964],
+    "PR_AUC": [0.5264, 0.7247], "precision_at_30pct": [0.502, 0.6092], "Brier": [0.2547, 0.1197],
+    "groupkfold_oof_auc": 0.8676,
+    "verdict": "POSITIVE（新样本复现历史探索值；时间外部验证成立）",
+    "evidence": "experiments/exp38_integrate/audit_results.json D2_recheck"
+  },
+  "C1_segmentation": {
+    "human_agreement_exp43": {"boundary_agreement": 0.90, "category_agreement": 0.92, "n_videos": 5, "matched_boundary_time_diff_median_s": 0},
+    "algorithm_exp44_e44v1": {"EqualK3_recall_med": 0.0, "SingleCP_recall_med": 0.0, "BinsegBIC_recall_med": 0.0, "gate": "FAIL（3 算法全部未过；BinsegBIC 5 支零分裂）", "root_cause": "构念错配：人工边界多为短事件段起止，非均值变点"},
+    "algorithm_exp45_e45v2": {"recall_med": 0.667, "med_err_s": 31.0, "manual_rb_hits": "3/3", "gate": "召回通过/误差未过（双判据未全过）", "case_300_356": "峰位精确命中300s，区间[240,420]宽2.4倍（阈值穿越滞后）"},
+    "verdict": "自动分段未过门槛（负结果如实记录）；人工标注可行性已证；定位=事件峰位提示+人工确认",
+    "evidence": "experiments/exp43_timeline_verify/agreement_report.md + exp44_c1_algorithm/eval_results.json + exp45_event_detection/eval_results.json"
+  },
+  "rhythm_statistics": {
+    "exp42": {"full_timeline_share_got_ge600": 1.0, "got_threshold_misconception": "got≥600 不必然截断（min_offset 实测推翻滑动窗假设）", "opening_heavy_pattern_G2_dpm": [176.96, 112.96, 100.28]},
+    "exp43": {"qualified_pool_n": 669, "hole3min_share_got_ge600": 0.0074, "first_dm_gap_median_s": 88.5},
+    "production": "快照 rhythm 字段：seg3_dpm / S1 / 事件候选 / 120 点曲线"
+  },
+  "D4_calibration": {
+    "status": "实验产物，未接生产",
+    "train_oof": {"brier_skill": 0.391, "cal_slope": 0.821},
+    "independent_cohort": {"n_points": 51589, "n_videos": 1424, "brier_skill": 0.378, "cal_slope": 0.93, "AUC_LR6": 0.600, "AUC_NegLam": 0.454},
+    "boundary": "时间外推 cohort 验证，非 exp35 D-conf 正式确证"
+  },
+  "system": {
+    "endpoints": ["GET /api/ml/forecast[?bvid=]", "GET /api/ml/forecast/{bvid}", "GET /ml_forecast.html"],
+    "snapshot": {"n_items": 2167, "d1_status": {"ok": 1313, "pending": 706, "insufficient": 148}, "rhythm_fields": ["seg3_dpm", "S1", "events", "curve"]},
+    "pytest": "264 passed / 1 skipped（宿主无 fastapi 的载荷单测）",
+    "deploy": "compose build fastapi + up -d（2026-10-27 20:45 v3：rhythm 字段+三区页面）"
+  }
+}

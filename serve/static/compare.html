@@ -57,7 +57,7 @@
     </div>
   </div>
 </div>
-<script src="v3nav.js"></script>
+<script src="v3nav.js?v=20261021"></script>
 <script>
 var $ = function(s){ return document.querySelector(s); };
 var esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
@@ -71,7 +71,7 @@ var MM = function(s){ if (s == null) return ''; s = Math.round(s);
   return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); };
 
 /* 两支并排曲线：第一支 = --primary 实线，第二支 = --accent 实线；
-   同类中位 = --chart-axis 点线（同分区时只画一条，两区不同则各画一条） */
+   同类中位 = --chart-axis 点线（同一分区时只画一条，两区不同则各画一条） */
 function overlay(d){
   var a = d.a.curve, b = d.b.curve;
   if (!a || !b) return '<div class="secnote">有支视频没有曲线数据，只能看下面的逐维表。</div>';

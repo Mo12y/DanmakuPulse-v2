@@ -1,0 +1,13 @@
+{
+ "n_queries": 20,
+ "queries_very_gt_dissim": 16,
+ "sign_test_p": 0.01182,
+ "wilcoxon_p": 0.0008,
+ "mean_diff": 1.6,
+ "per_annotator_pos": {
+  "A": "16/20",
+  "B": "17/20"
+ },
+ "note": "按查询聚类后 n=20（非 60）；60 对含同一查询 3 次的非独立样本，原 MW p 不成立",
+ "conclusion": "聚类修正后仍显著（p<0.05）⇒ 检索排序与人工判断一致的方向成立"
+}

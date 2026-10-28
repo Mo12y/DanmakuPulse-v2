@@ -1,0 +1,76 @@
+{
+ "n_videos": 2218,
+ "ratio_p10": 0.3989,
+ "ratio_median": 1.0052,
+ "n_ratio_lt_0p5": 318,
+ "n_ratio_ge_0p9": 1399,
+ "spearman_ratio_vs_metric": {
+  "rhythm_entropy": 0.0837,
+  "burst_cv": -0.0916,
+  "opening_5pct": 0.0461,
+  "mid_ratio": -0.0139
+ },
+ "low_vs_high": {
+  "rhythm_entropy": {
+   "med_low": 0.8706,
+   "med_high": 0.9126,
+   "diff": -0.042,
+   "diff_in_mad": -0.773,
+   "n_low": 318,
+   "n_high": 1399
+  },
+  "burst_cv": {
+   "med_low": 1.1994,
+   "med_high": 0.9673,
+   "diff": 0.2321,
+   "diff_in_mad": 0.519,
+   "n_low": 318,
+   "n_high": 1399
+  },
+  "opening_5pct": {
+   "med_low": 0.1053,
+   "med_high": 0.1143,
+   "diff": -0.0091,
+   "diff_in_mad": -0.13,
+   "n_low": 318,
+   "n_high": 1399
+  },
+  "mid_ratio": {
+   "med_low": 0.855,
+   "med_high": 0.8486,
+   "diff": 0.0064,
+   "diff_in_mad": 0.08,
+   "n_low": 318,
+   "n_high": 1399
+  }
+ },
+ "eta2_ratio_by_batch": 0.0275,
+ "partition_baseline_sensitivity": {
+  "rhythm_entropy": {
+   "n_partitions": 89,
+   "median_rel_change": 0.0039,
+   "p90_rel_change": 0.0449,
+   "max_rel_change": 0.1495
+  },
+  "burst_cv": {
+   "n_partitions": 89,
+   "median_rel_change": 0.0698,
+   "p90_rel_change": 0.3026,
+   "max_rel_change": 1.1111
+  },
+  "opening_5pct": {
+   "n_partitions": 89,
+   "median_rel_change": 0.0593,
+   "p90_rel_change": 0.3759,
+   "max_rel_change": 2.62
+  },
+  "mid_ratio": {
+   "n_partitions": 89,
+   "median_rel_change": 0.0083,
+   "p90_rel_change": 0.0735,
+   "max_rel_change": 0.2839
+  }
+ },
+ "quality_flag_note": "quality_flag 仅存在于 dwd_danmaku_clean_min（4 legacy 批，全为 ok）→ 日批不可用，本轮以 got/reported 代替",
+ "status": "待判（见 diff_in_mad 与 median_rel_change）"
+}

@@ -1,0 +1,359 @@
+{
+ "algo_version": "e45-v1",
+ "params": {
+  "bucket_s": 60,
+  "local_window_half": 6,
+  "thr_k": 2,
+  "thr_form": "base + 2*sqrt(base+1)",
+  "min_total_count": 5,
+  "min_excess": 3,
+  "peak": {
+   "smooth": 3,
+   "prominence": 0.5,
+   "distance": 2
+  }
+ },
+ "reference": "exp44 共识边界 + 人工 resonance_burst 段（IoU>0.3）",
+ "per_video": [
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "n_cons": 0,
+   "n_rb_manual": 0,
+   "n_events": 2,
+   "pred_bounds": 2,
+   "matched": 0,
+   "recall": 0.0,
+   "precision": 0.0,
+   "med_err": null,
+   "rb_hit": 0,
+   "rb_hit_iou": []
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "n_cons": 2,
+   "n_rb_manual": 1,
+   "n_events": 4,
+   "pred_bounds": 7,
+   "matched": 2,
+   "recall": 1.0,
+   "precision": 0.286,
+   "med_err": 36.5,
+   "rb_hit": 1,
+   "rb_hit_iou": [
+    0.47
+   ]
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "n_cons": 2,
+   "n_rb_manual": 1,
+   "n_events": 2,
+   "pred_bounds": 4,
+   "matched": 1,
+   "recall": 0.5,
+   "precision": 0.25,
+   "med_err": 60.0,
+   "rb_hit": 1,
+   "rb_hit_iou": [
+    0.31
+   ]
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "n_cons": 1,
+   "n_rb_manual": 0,
+   "n_events": 1,
+   "pred_bounds": 1,
+   "matched": 1,
+   "recall": 1.0,
+   "precision": 1.0,
+   "med_err": 10.0,
+   "rb_hit": 0,
+   "rb_hit_iou": []
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "n_cons": 3,
+   "n_rb_manual": 1,
+   "n_events": 5,
+   "pred_bounds": 10,
+   "matched": 2,
+   "recall": 0.667,
+   "precision": 0.2,
+   "med_err": 25.5,
+   "rb_hit": 1,
+   "rb_hit_iou": [
+    0.78
+   ]
+  }
+ ],
+ "event_detail": [
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "events": [
+    {
+     "start_s": 0,
+     "end_s": 180,
+     "peak_s": 0,
+     "total": 1.556498177579872e+177,
+     "base": 142.0
+    },
+    {
+     "start_s": 240,
+     "end_s": 360,
+     "peak_s": 240,
+     "total": 9.151092805295634e+72,
+     "base": 62.25
+    }
+   ],
+   "manual_rb": [],
+   "rb_hits": []
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "events": [
+    {
+     "start_s": 0,
+     "end_s": 120,
+     "peak_s": 0,
+     "total": Infinity,
+     "base": 411.75
+    },
+    {
+     "start_s": 360,
+     "end_s": 420,
+     "peak_s": 360,
+     "total": 1.167127239054906e+211,
+     "base": 387.0
+    },
+    {
+     "start_s": 540,
+     "end_s": 660,
+     "peak_s": 600,
+     "total": 1.4085597842206858e+293,
+     "base": 370.25
+    },
+    {
+     "start_s": 780,
+     "end_s": 840,
+     "peak_s": 780,
+     "total": 2.5332753623607178e+182,
+     "base": 302.5
+    }
+   ],
+   "manual_rb": [
+    {
+     "start_s": 595,
+     "end_s": 678,
+     "category": "resonance_burst"
+    }
+   ],
+   "rb_hits": [
+    {
+     "pred": [
+      540,
+      660
+     ],
+     "manual": [
+      595,
+      678
+     ],
+     "iou": 0.47
+    }
+   ]
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "events": [
+    {
+     "start_s": 60,
+     "end_s": 120,
+     "peak_s": 60,
+     "total": 2.8930191842539453e+208,
+     "base": 366.0
+    },
+    {
+     "start_s": 240,
+     "end_s": 420,
+     "peak_s": 300,
+     "total": Infinity,
+     "base": 317.0
+    }
+   ],
+   "manual_rb": [
+    {
+     "start_s": 300,
+     "end_s": 356,
+     "category": "resonance_burst"
+    }
+   ],
+   "rb_hits": [
+    {
+     "pred": [
+      240,
+      420
+     ],
+     "manual": [
+      300,
+      356
+     ],
+     "iou": 0.31
+    }
+   ]
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "events": [
+    {
+     "start_s": 0,
+     "end_s": 120,
+     "peak_s": 0,
+     "total": 7.35887351618917e+195,
+     "base": 126.0
+    }
+   ],
+   "manual_rb": [],
+   "rb_hits": []
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "events": [
+    {
+     "start_s": 240,
+     "end_s": 420,
+     "peak_s": 240,
+     "total": Infinity,
+     "base": 489.5
+    },
+    {
+     "start_s": 540,
+     "end_s": 600,
+     "peak_s": 540,
+     "total": 2.7472455659769343e+228,
+     "base": 404.0
+    },
+    {
+     "start_s": 1080,
+     "end_s": 1140,
+     "peak_s": 1080,
+     "total": 3.901467708219257e+131,
+     "base": 256.0
+    },
+    {
+     "start_s": 1320,
+     "end_s": 1440,
+     "peak_s": 1380,
+     "total": 3.8153592203558975e+217,
+     "base": 267.75
+    },
+    {
+     "start_s": 1500,
+     "end_s": 1560,
+     "peak_s": 1500,
+     "total": 3.0020956233632933e+155,
+     "base": 295.5
+    }
+   ],
+   "manual_rb": [
+    {
+     "start_s": 229,
+     "end_s": 460,
+     "category": "resonance_burst"
+    }
+   ],
+   "rb_hits": [
+    {
+     "pred": [
+      240,
+      420
+     ],
+     "manual": [
+      229,
+      460
+     ],
+     "iou": 0.78
+    }
+   ]
+  }
+ ],
+ "comparison_exp44": {
+  "BinsegBIC": {
+   "recall_med": 0.0,
+   "med_err_overall": NaN,
+   "recall_per_video": {
+    "BV1LAJm6LEoE": 0.0,
+    "BV1ZSp46AEF8": 0.0,
+    "BV1ZjpJ6kEqA": 0.0,
+    "BV1kBpi6aEDP": 0.0,
+    "BV1wAp76yEu1": 0.0
+   },
+   "nseg_diff_med": -2.0
+  },
+  "EqualK3": {
+   "recall_med": 0.0,
+   "med_err_overall": 32.5,
+   "recall_per_video": {
+    "BV1LAJm6LEoE": 0.0,
+    "BV1ZSp46AEF8": 0.5,
+    "BV1ZjpJ6kEqA": 0.5,
+    "BV1kBpi6aEDP": 0.0,
+    "BV1wAp76yEu1": 0.0
+   },
+   "nseg_diff_med": 0.0
+  },
+  "SingleCP": {
+   "recall_med": 0.0,
+   "med_err_overall": 15.0,
+   "recall_per_video": {
+    "BV1LAJm6LEoE": 0.0,
+    "BV1ZSp46AEF8": 0.0,
+    "BV1ZjpJ6kEqA": 0.0,
+    "BV1kBpi6aEDP": 1.0,
+    "BV1wAp76yEu1": 0.333
+   },
+   "nseg_diff_med": -1.0
+  }
+ },
+ "peak_baseline": [
+  {
+   "bvid": "BV1LAJm6LEoE",
+   "n_peaks": 1,
+   "peaks_in_manual_rb": 0,
+   "n_manual_rb": 0
+  },
+  {
+   "bvid": "BV1ZSp46AEF8",
+   "n_peaks": 1,
+   "peaks_in_manual_rb": 0,
+   "n_manual_rb": 1
+  },
+  {
+   "bvid": "BV1ZjpJ6kEqA",
+   "n_peaks": 1,
+   "peaks_in_manual_rb": 1,
+   "n_manual_rb": 1
+  },
+  {
+   "bvid": "BV1kBpi6aEDP",
+   "n_peaks": 1,
+   "peaks_in_manual_rb": 0,
+   "n_manual_rb": 0
+  },
+  {
+   "bvid": "BV1wAp76yEu1",
+   "n_peaks": 2,
+   "peaks_in_manual_rb": 1,
+   "n_manual_rb": 1
+  }
+ ],
+ "gate_note": "门槛沿用任务40：召回≥0.60 且 匹配误差中位≤15s；n=5 探索性",
+ "summary": {
+  "event_v1": {
+   "recall_med": 0.667,
+   "med_err": 31.0,
+   "rb_hit_total": 3,
+   "rb_manual_total": 3,
+   "events_total": 14
+  }
+ }
+}
