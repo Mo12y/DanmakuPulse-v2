@@ -1,0 +1,13 @@
+{
+ "n55": 395,
+ "n67": 395,
+ "bvid_sets_equal": true,
+ "bvid_dups_55": 41,
+ "bvid_dups_67": 41,
+ "numeric_multiset_equal": true,
+ "persistence_mae_55": 814.24,
+ "persistence_mae_67": 814.24,
+ "features_c0_maxdiff": 0.0,
+ "features_y_maxdiff": 0.0,
+ "features_dur_maxdiff": 0.0
+}

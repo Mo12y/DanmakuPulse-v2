@@ -1,0 +1,14 @@
+{
+ "model": "B1 (OLS, single feature log1p(c0))",
+ "feature": [
+  "c0"
+ ],
+ "coef": [
+  0.45440345629431883
+ ],
+ "intercept": 3.5838511376738307,
+ "trained_on": "exp55 train: first_seen<=20261020, 918 rows / 649 bvid",
+ "target": "log1p(count(6h<rel<=30h))",
+ "n_train": 918,
+ "note": "saved from the existing exp55 B1 fit; no new model/hyperparameter"
+}

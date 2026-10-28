@@ -1,0 +1,216 @@
+{
+ "primary": {
+  "observed_delta_R2": 0.0289,
+  "boot_ci95": [
+   -0.00518445746928586,
+   0.05778376218403433
+  ],
+  "boot_B": 2000,
+  "delta_MAE": -6.19,
+  "delta_MAE_ci95": [
+   -16.207051196601093,
+   3.805374804010617
+  ]
+ },
+ "controls": {
+  "shuffle_within_batch": {
+   "mean": 0.0143,
+   "p95": 0.031,
+   "p_value": 0.08691308691308691,
+   "B": 1000
+  },
+  "random_structure": {
+   "mean": 0.013,
+   "p95": 0.0229,
+   "p_value": 0.005988023952095809,
+   "B": 500
+  }
+ },
+ "ablation": {
+  "cumulative": {
+   "G0": {
+    "n_features": 1,
+    "R2": 0.5601,
+    "dR2_vs_G0": 0.0
+   },
+   "G0+G1": {
+    "n_features": 13,
+    "R2": 0.5798,
+    "dR2_vs_G0": 0.0197
+   },
+   "+G2": {
+    "n_features": 19,
+    "R2": 0.5844,
+    "dR2_vs_G0": 0.0243
+   },
+   "+G3": {
+    "n_features": 22,
+    "R2": 0.5869,
+    "dR2_vs_G0": 0.0268
+   },
+   "+G4": {
+    "n_features": 25,
+    "R2": 0.5871,
+    "dR2_vs_G0": 0.027
+   },
+   "+G5": {
+    "n_features": 29,
+    "R2": 0.5891,
+    "dR2_vs_G0": 0.0289
+   }
+  },
+  "alone": {
+   "G1": {
+    "n_features": 13,
+    "R2": 0.5798,
+    "dR2_vs_G0": 0.0197
+   },
+   "G2": {
+    "n_features": 7,
+    "R2": 0.562,
+    "dR2_vs_G0": 0.0019
+   },
+   "G3": {
+    "n_features": 4,
+    "R2": 0.5613,
+    "dR2_vs_G0": 0.0012
+   },
+   "G4": {
+    "n_features": 4,
+    "R2": 0.5573,
+    "dR2_vs_G0": -0.0029
+   },
+   "G5": {
+    "n_features": 5,
+    "R2": 0.5628,
+    "dR2_vs_G0": 0.0026
+   }
+  },
+  "structure_beyond_static": {
+   "R2_G0G1": 0.5798,
+   "R2_G0G1_struct": 0.5891,
+   "dR2": 0.0092,
+   "n_extra_features": 16
+  }
+ },
+ "sensitivity": {
+  "n6_lt10": {
+   "n": 55,
+   "R2_main": 0.2574,
+   "R2_G0": 0.1518,
+   "dR2": 0.1057
+  },
+  "n6_ge10": {
+   "n": 340,
+   "R2_main": 0.521,
+   "R2_G0": 0.5082,
+   "dR2": 0.0129
+  },
+  "got_low": {
+   "n": 201,
+   "R2_main": 0.3651,
+   "R2_G0": 0.3025,
+   "dR2": 0.0626
+  },
+  "got_high": {
+   "n": 194,
+   "R2_main": 0.4611,
+   "R2_G0": 0.4396,
+   "dR2": 0.0215
+  },
+  "age_low": {
+   "n": 196,
+   "R2_main": 0.5834,
+   "R2_G0": 0.5294,
+   "dR2": 0.054
+  },
+  "age_high": {
+   "n": 199,
+   "R2_main": 0.5844,
+   "R2_G0": 0.5702,
+   "dR2": 0.0142
+  },
+  "tname_top7": {
+   "n": 170,
+   "R2_main": 0.6567,
+   "R2_G0": 0.6273,
+   "dR2": 0.0295
+  },
+  "tname_other": {
+   "n": 225,
+   "R2_main": 0.5536,
+   "R2_G0": 0.5249,
+   "dR2": 0.0287
+  },
+  "by_batch": {
+   "20261021": {
+    "n": 67,
+    "R2_main": 0.5555,
+    "R2_G0": 0.6098,
+    "dR2": -0.0543
+   },
+   "20261022": {
+    "n": 8,
+    "dR2": null
+   },
+   "20261023": {
+    "n": 74,
+    "R2_main": 0.6854,
+    "R2_G0": 0.6258,
+    "dR2": 0.0595
+   },
+   "20261024": {
+    "n": 141,
+    "R2_main": 0.5893,
+    "R2_G0": 0.5463,
+    "dR2": 0.043
+   },
+   "20261026": {
+    "n": 105,
+    "R2_main": 0.5027,
+    "R2_G0": 0.4722,
+    "dR2": 0.0306
+   }
+  },
+  "cutoffs": {
+   "got_median_train": 858.0,
+   "age_median_train": 53.70458333333333,
+   "top7": [
+    "日常",
+    "搞笑",
+    "单机游戏",
+    "网络游戏",
+    "影视剪辑",
+    "人文历史",
+    "出行"
+   ]
+  }
+ },
+ "feature_vs_c0_spearman": {
+  "G2": {
+   "entropy_norm": 0.63,
+   "burst_cv": -0.387,
+   "peak_pos": -0.27,
+   "peak_share": -0.411,
+   "zero_bin_share": -0.856,
+   "gini_bins": -0.47
+  },
+  "G3": {
+   "mean_text_len": 0.088,
+   "long_share": 0.057,
+   "colored_share": 0.011
+  },
+  "G4": {
+   "user_hhi": -0.94,
+   "user_top1_share": -0.794,
+   "user_unique_share": -0.675
+  },
+  "G5": {
+   "multi_user_second_share": 0.824,
+   "repeat_user_row_share": 0.642,
+   "progress_gini": 0.239,
+   "second_top1_share": -0.977
+  }
+ },
+ "note": "p_value = (1+#null>=obs)/(1+B); primary = main(G0+G1..G5) vs G0-only calibration."
+}

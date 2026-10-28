@@ -1,0 +1,243 @@
+{
+ "files": {
+  "/home/molly/projects/danmaku-v2/experiments/exp67_evidence_audit/d1_units.csv": "10ba1090610d4c5f",
+  "/home/molly/projects/danmaku-v2/experiments/exp55_route_abc_verify/results.json": "ee074eaab47d3b14",
+  "/home/molly/projects/danmaku-v2/experiments/exp60_finalize/r6_final.json": "a3b91722cf381f33",
+  "/home/molly/projects/danmaku-v2/experiments/exp67_evidence_audit/d1_audit.json": "e76a046fa12e1e51",
+  "/home/molly/projects/danmaku-v2/experiments/exp68_d1_residual_bridge/d1_repro.json": "7b0d7a3e5c713280",
+  "/home/molly/projects/danmaku-v2/experiments/exp68_d1_residual_bridge/results.json": "9b55f375ac874b11",
+  "/home/molly/projects/danmaku-v2/experiments/exp38_integrate/models/d1_ols.json": "637b61e6b754c0db"
+ },
+ "sample": {
+  "rows_total": 1313,
+  "videos_total": 1003,
+  "train_rows": 918,
+  "train_videos": 649,
+  "test_rows": 395,
+  "test_videos": 354,
+  "bvid_overlap": 0,
+  "test_dup_bvid_rows": 41,
+  "test_dup_key_rows": 0,
+  "missing": {
+   "bvid": 0,
+   "batch": 0,
+   "fs": 0,
+   "n01": 0,
+   "n13": 0,
+   "n36": 0,
+   "c0": 0,
+   "y": 0,
+   "dur": 0,
+   "age": 0
+  },
+  "age_test": {
+   "min": 31.41777777777778,
+   "q05": 35.966944444444444,
+   "median": 54.23611111111112,
+   "q95": 117.07538888888887,
+   "max": 156.80666666666667
+  }
+ },
+ "metrics": {
+  "persistence_4xc0": {
+   "R2": -0.0358,
+   "MAE_orig": 814.24,
+   "RMSE_orig": 1486.35,
+   "n": 395
+  },
+  "B1": {
+   "R2": 0.4532,
+   "MAE_orig": 277.69,
+   "RMSE_orig": 572.39,
+   "n": 395
+  },
+  "OLS6": {
+   "R2": 0.5607,
+   "MAE_orig": 238.39,
+   "RMSE_orig": 517.74,
+   "n": 395
+  }
+ },
+ "b1_coef": {
+  "coef": 0.45440345629431883,
+  "intercept": 3.5838511376738307
+ },
+ "ols6_coef": {
+  "coef": [
+   0.3943253552737083,
+   0.17009155564023473,
+   0.0425225187342072,
+   -0.2132920648002574,
+   0.12756903690602822,
+   0.277884627665869
+  ],
+  "intercept": 2.1387338034596355
+ },
+ "production_vs_eval": {
+  "max_abs_coef_diff": 0.08366306862126627,
+  "max_abs_logpred_diff": 0.1588379786230405,
+  "production_on_test": {
+   "R2": 0.5663,
+   "MAE_orig": 239.19,
+   "RMSE_orig": 518.79,
+   "n": 395
+  },
+  "eval_on_test": {
+   "R2": 0.5607,
+   "MAE_orig": 238.39,
+   "RMSE_orig": 517.74,
+   "n": 395
+  },
+  "production_features": [
+   "c0",
+   "n36",
+   "n13",
+   "n01",
+   "slope",
+   "dur"
+  ],
+  "production_name": "OLS-5f(renamed from OLS-6; 5 feature columns)"
+ },
+ "ratio_baseline": {
+  "train_median_y_over_c0": 2.3841,
+  "R2": 0.0025,
+  "MAE_orig": 449.31,
+  "RMSE_orig": 807.81,
+  "n": 395
+ },
+ "dedup_test": {
+  "n": 354,
+  "n_videos": 354,
+  "persistence": {
+   "R2": -0.0422,
+   "MAE_orig": 832.86,
+   "RMSE_orig": 1535.21,
+   "n": 354
+  },
+  "B1": {
+   "R2": 0.452,
+   "MAE_orig": 279.69,
+   "RMSE_orig": 587.58,
+   "n": 354
+  },
+  "OLS6": {
+   "R2": 0.5596,
+   "MAE_orig": 242.83,
+   "RMSE_orig": 534.55,
+   "n": 354
+  }
+ },
+ "c0_drift": {
+  "n_bvids": 240,
+  "median": 0.0,
+  "p05": -0.6927,
+  "p95": 0.0,
+  "share_abs_gt_1pct": 0.338
+ },
+ "exp68_match": {
+  "n_pred": 395,
+  "n_meta": 395,
+  "n_features_test": 395,
+  "key_sets_equal": true,
+  "key_meta_minus_te": 0,
+  "key_te_minus_meta": 0,
+  "bvid_overlap_train_test": 0,
+  "max_abs_y_diff": 0.0,
+  "max_abs_pred_vs_eval": 0.0,
+  "pred_te_r2": 0.5607,
+  "oof_zeros": 0,
+  "oof_r2": 0.5494,
+  "full_r2": 0.556,
+  "max_abs_oof_vs_full": 0.3353739735614294,
+  "n_train_pred": 918,
+  "Xte0_vs_pred": 0.0,
+  "Xtr0_vs_oof": 0.0,
+  "oof_fold_counts": {
+   "0": 190,
+   "1": 180,
+   "2": 186,
+   "3": 179,
+   "4": 183
+  },
+  "oof_nan_folds": 0,
+  "oof_unique_bvids": 649,
+  "pred_vs_prod_maxdiff": 0.1588379786230405,
+  "features_c0_maxdiff": 0.0,
+  "features_y_maxdiff": 0.0,
+  "features_dur_maxdiff": 0.0
+ },
+ "exp68_result": {
+  "primary": {
+   "observed_delta_R2": 0.0289,
+   "boot_ci95": [
+    -0.00518445746928586,
+    0.05778376218403433
+   ],
+   "boot_B": 2000,
+   "delta_MAE": -6.19,
+   "delta_MAE_ci95": [
+    -16.207051196601093,
+    3.805374804010617
+   ]
+  },
+  "controls": {
+   "shuffle_within_batch": {
+    "mean": 0.0143,
+    "p95": 0.031,
+    "p_value": 0.08691308691308691,
+    "B": 1000
+   },
+   "random_structure": {
+    "mean": 0.013,
+    "p95": 0.0229,
+    "p_value": 0.005988023952095809,
+    "B": 500
+   }
+  },
+  "ablation": {
+   "R2_G0G1": 0.5798,
+   "R2_G0G1_struct": 0.5891,
+   "dR2": 0.0092,
+   "n_extra_features": 16
+  },
+  "prereg_verdict": {
+   "delta_ge_0p02": true,
+   "ci_lower_gt_0": false,
+   "shuffle_p_lt_0p05": false,
+   "rhythm_beyond_static": 0.0092,
+   "verdict": "negative (not established)",
+   "rule": "all three required: delta>=0.02, CI lower>0, shuffle p<0.05"
+  },
+  "metrics": {
+   "raw_D1": {
+    "R2": 0.5607,
+    "MAE_orig": 238.39,
+    "RMSE_orig": 517.74
+   },
+   "G0_only": {
+    "R2": 0.5601,
+    "MAE_orig": 238.39,
+    "RMSE_orig": 518.46
+   },
+   "main": {
+    "R2": 0.5891,
+    "MAE_orig": 232.2,
+    "RMSE_orig": 494.96
+   }
+  },
+  "delta": {
+   "R2_vs_G0": 0.0289,
+   "R2_vs_raw": 0.0283,
+   "MAE_vs_G0": -6.19
+  }
+ },
+ "exp55_rowset": {
+  "n": 395,
+  "bvid_unique": 354,
+  "bvid_dups": 41,
+  "numeric_multiset_equal": true,
+  "persistence_mae": 814.24,
+  "bvid_sets_equal": true,
+  "note": "rebuilt exp55 loop without batch; numeric columns fs/n01/n13/n36/c0/y/dur multiset equals exp67 test table"
+ }
+}

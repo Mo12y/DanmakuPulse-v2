@@ -1,5 +1,5 @@
 {
-  "model": "OLS-5f(renamed from OLS-6; 5 feature columns)",
+  "model": "OLS-6 (6 features: c0,n36,n13,n01,slope,dur; production full-window refit)",
   "features": [
     "c0",
     "n36",

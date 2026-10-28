@@ -1,0 +1,16 @@
+{
+ "n_pairs_pure": 112,
+ "n_with_partition_ref": 112,
+ "rho_self_median": 0.3963,
+ "paired": {
+  "n": 112,
+  "d_rho_median": 0.1908,
+  "d_rho_mean": 0.2057,
+  "ci95": [
+   0.1633,
+   0.2469
+  ],
+  "share_self_better": 0.848
+ },
+ "verdict": "纯增量口径下自参照仍显著优于分区"
+}

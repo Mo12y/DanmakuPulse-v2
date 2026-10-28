@@ -1,0 +1,76 @@
+{
+ "n_train": 918,
+ "n_test": 395,
+ "bvid_overlap": 0,
+ "OLS6": {
+  "R2": 0.5607,
+  "MAE_orig": 238.39,
+  "RMSE_orig": 517.74
+ },
+ "B1": {
+  "R2": 0.4532,
+  "MAE_orig": 277.69,
+  "RMSE_orig": 572.39
+ },
+ "OOF_R2": 0.5494,
+ "expected": {
+  "R2": 0.5607,
+  "MAE": 238.4,
+  "B1_MAE": 277.7
+ },
+ "reproduction_ok": {
+  "R2": true,
+  "MAE": true,
+  "B1_MAE": true
+ },
+ "production": {
+  "max_coef_diff_vs_full_refit": 0.0,
+  "features": [
+   "c0",
+   "n36",
+   "n13",
+   "n01",
+   "slope",
+   "dur"
+  ],
+  "snapshot_ok": 1313,
+  "snapshot_pending": 706,
+  "age_ok_median": 53.9,
+  "age_pending_median": 21.45
+ },
+ "age_train": {
+  "q05": 33.862125,
+  "median": 53.70458333333333,
+  "q95": 123.54802777777779
+ },
+ "age_test": {
+  "q05": 35.966944444444444,
+  "median": 54.23611111111112,
+  "q95": 117.07538888888887
+ },
+ "feature_missing": {
+  "train": 0,
+  "test": 0
+ },
+ "n6_lt2_test": 10,
+ "zero_variance_dropped": [
+  "part_count_bin",
+  "user_cov"
+ ],
+ "split_rule": "first_seen<=20261020 train / >=20261021 test; bvid disjoint",
+ "bootstrap": {
+  "r2_ci95": [
+   0.486,
+   0.6254
+  ],
+  "mae_ci95": [
+   198.3,
+   287.7
+  ],
+  "B": 2000,
+  "seed": 20261028,
+  "cluster": "bvid"
+ },
+ "unavailable_test_units": 0,
+ "unavailable_reason": "none: all 395 test rows have age>=31h and matched first-6h features"
+}

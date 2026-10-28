@@ -51,7 +51,7 @@ def test_d1_predict_roundtrip():
 
 
 def test_d1_feature_contract():
-    """生产特征列序必须与 exp38 训练口径（OLS-5f）一致。"""
+    """生产特征列序必须与 exp38 训练口径（OLS-6，6 特征）一致。"""
     assert jb.D1_FEATS == ["c0", "n36", "n13", "n01", "slope", "dur"]
 
 

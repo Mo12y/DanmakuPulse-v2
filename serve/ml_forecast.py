@@ -5,7 +5,7 @@
 快照候选路径：/data-out/ml_forecast_snapshot.json（fastapi 容器挂载）→ <repo>/data-out/ml_forecast/ml_snapshot.json（host/pytest）。
 端点：GET /api/ml/forecast[?bvid=] ；GET /api/ml/forecast/{bvid}。均被 app.py 全局登录中间件保护。
 语义边界（写死，防包装）：
-  d1 = 「发布后 6h 时点、对 (6h,30h] 弹幕量的预测」，不是播放量/热度/质量预测；
+  d1 = 「头 6h 计数（来自 age≥31h 累计快照的回溯）对 (6h,30h] 弹幕量的预测」，不是 6h 在线预测/播放量/热度/质量预测；
   d2.p_stable = 「当前节奏结论到采集结束不漂移(≤0.25 IQR)的模型概率」，不是高光/热度预测；
   d2.stable_measured = 全量对照的实测稳定性，与模型概率并列展示、严格区分。
 """

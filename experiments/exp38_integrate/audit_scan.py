@@ -232,7 +232,7 @@ log("[D4-cohort]", json.dumps(R["D4_independent_cohort"]))
 # ---------- 4) 生产工件 D1/D2 ----------
 ols_prod = LinearRegression().fit(mats(u, STEPS[-1]), np.log1p(u.y.values))
 res_log = np.log1p(u.y.values) - ols_prod.predict(mats(u, STEPS[-1]))
-d1_art = dict(model="OLS-5f(renamed from OLS-6; 5 feature columns)", features=STEPS[-1],
+d1_art = dict(model="OLS-6 (6 features: c0,n36,n13,n01,slope,dur; production full-window refit)", features=STEPS[-1],
               coef=[float(x) for x in ols_prod.coef_], intercept=float(ols_prod.intercept_),
               resid_log_q=dict(p10=round(float(np.quantile(res_log, .1)), 4), p50=round(float(np.median(res_log)), 4),
                                p90=round(float(np.quantile(res_log, .9)), 4)),

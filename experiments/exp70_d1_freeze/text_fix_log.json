@@ -1,0 +1,183 @@
+{
+ "applied_at": "2026-10-28",
+ "repo_head": "500c7c7",
+ "edits": [
+  {
+   "file": "serve/ml_forecast.py",
+   "old": "  d1 = 「发布后 6h 时点、对 (6h,30h] 弹幕量的预测」，不是播放量/热度/质量预测；",
+   "new": "  d1 = 「头 6h 计数（来自 age≥31h 累计快照的回溯）对 (6h,30h] 弹幕量的预测」，不是 6h 在线预测/播放量/热度/质量预测；",
+   "count": 1,
+   "sha256": "63445e82ba95f6b5ec1fc941c59842f0d628ceb836920e56e01e490ec5ca6d73"
+  },
+  {
+   "file": "serve/static/ml_forecast.html",
+   "old": "    ④ D1 = 发布后 6h 时点对 (6h,30h] 弹幕量的预测（OLS-5f，时间切 ΔR²=+0.095 [0.045,0.144]）；",
+   "new": "    ④ D1 = 头 6h 计数（age≥31h 快照回溯）对 (6h,30h] 弹幕量的预测（OLS-6，时间切相对 B1 ΔR²=+0.108 [0.071,0.148]）；不是 6h 在线预测；",
+   "count": 1,
+   "sha256": "1e40608250df961706950ee9d8210264b6a6175b2a7f02049aaf44027f3d04a6"
+  },
+  {
+   "file": "experiments/exp38_integrate/models/d1_ols.json",
+   "old": "  \"model\": \"OLS-5f(renamed from OLS-6; 5 feature columns)\",",
+   "new": "  \"model\": \"OLS-6 (6 features: c0,n36,n13,n01,slope,dur; production full-window refit)\",",
+   "count": 1,
+   "sha256": "6facc356edb497d2db995b1d2ccfb6bf621d1757de21b6b9a72dda5d4bce9ddb"
+  },
+  {
+   "file": "experiments/exp38_integrate/audit_scan.py",
+   "old": "d1_art = dict(model=\"OLS-5f(renamed from OLS-6; 5 feature columns)\", features=STEPS[-1],",
+   "new": "d1_art = dict(model=\"OLS-6 (6 features: c0,n36,n13,n01,slope,dur; production full-window refit)\", features=STEPS[-1],",
+   "count": 1,
+   "sha256": "e9174fd35beb4402e75dec02d2ca9e315c9f6deb9f42f046bdad5e83b8be6cc7"
+  },
+  {
+   "file": "tests/test_ml_forecast.py",
+   "old": "    \"\"\"生产特征列序必须与 exp38 训练口径（OLS-5f）一致。\"\"\"",
+   "new": "    \"\"\"生产特征列序必须与 exp38 训练口径（OLS-6，6 特征）一致。\"\"\"",
+   "count": 1,
+   "sha256": "09c26ac226b1d393b28eb3b20ec58153ae59643fccde571411424c56d54458c5"
+  },
+  {
+   "file": "docs/exp38_integrate/thesis_evidence_pack.md",
+   "old": "- **任务定义**：在视频发布后 6h 的决策时点，用此前已可观测的弹幕到达计数，预测 (6h, 30h] 窗口（\"未来 24 小时\"）的弹幕总量。样本单元 = (视频, 批次快照)，要求快照时龄 ≥31h（标签窗完整可观测）。",
+   "new": "- **任务定义**：用头 6h（0≤rel<6h）的弹幕到达计数，预测 (6h, 30h] 窗口（\"未来 24 小时\"）的弹幕总量。**这是 age≥31h 累计快照的回溯重建，不是 6h 当时快照，也不是 6h 在线预测。** 样本单元 = (视频, 批次快照)，要求快照时龄 ≥31h（标签窗完整可观测）。",
+   "count": 1,
+   "sha256": "b585737ec8d41933c6f3ed0f1217d6bd7368d8e77155b81c9fff5eafbc1231dc"
+  },
+  {
+   "file": "docs/exp38_integrate/thesis_evidence_pack.md",
+   "old": "训练窗（first_seen ≤1019 批）918 单元",
+   "new": "训练窗（first_seen ≤1020 批）918 单元",
+   "count": 1,
+   "sha256": "0f3a094171a2272fe4f95b2c20da7b8b3feab3c47152f21513c660fd9ce38acf"
+  },
+  {
+   "file": "docs/exp38_integrate/thesis_evidence_pack.md",
+   "old": "exp38（D1 ΔR²=+0.095 / D2 ΔAUC=+0.078，时间切）",
+   "new": "exp38（D1 OLS-6 vs B1 ΔR²=+0.108；HGB 主判据 +0.095；D2 ΔAUC=+0.078，时间切）",
+   "count": 1,
+   "sha256": "5a75bf5d628ebfe17b527273e8a64043fc05cc596fc56d11ae52795a4b7c07d3"
+  },
+  {
+   "file": "docs/exp38_integrate/thesis_evidence_pack.md",
+   "old": "> 总纪律：训练/评估只用 ≤20261026 批次与 0902/0907 旧批；未触碰 exp35 的 D-dev(0914/0917)/D-conf(1027+) 与任何冻结产物。",
+   "new": "> 总纪律：训练/评估只用 ≤20261026 批次与 0902/0907 旧批；未触碰 exp35 的 D-dev(0914/0917)/D-conf(1027+) 与任何冻结产物。\n>\n> **2026-10-28 修订**：D1 的“6h 决策时点”改为“头 6h 计数回溯（快照 age≥31h）”，不是 6h ",
+   "count": 1,
+   "sha256": "31ec2ab0593f39584878b4159b77794d49f3fe54f64755ae6e2071ca8148e77b"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "发布后 6h 时点预测",
+   "new": "头 6h 计数（age≥31h 快照回溯）预测",
+   "count": 1,
+   "sha256": "0abf5a6aa1f6ccf22c50ed11376368692f23711a8f31bec6e95d7ec38b79b05e"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "| 基线 | 持久性 4×c0、历史均值 |",
+   "new": "| 基线 | 4×c0 未校准外推、历史均值、B1 |",
+   "count": 1,
+   "sha256": "efee49f620fc2f89841d8f7d721401f70852baab11e9a7cee202308bf850c550"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "| 相对基线增益 | vs 持久性 **−72% MAE_orig**；vs 历史均值 −35% |",
+   "new": "| 相对基线增益 | vs 4×c0 未校准 **−71% MAE_orig**；vs B1 −14%；vs 历史均值 −35% |",
+   "count": 1,
+   "sha256": "96b566851bf2acc18577ec7b7f02463d2ad48c1eaa0c722990f028be59662b80"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "  MAE_orig：OLS-6 238 < B1 278 < 历史均值 368 < 持久性 814——**OLS-6 比持久性基线好 3.4 倍**。",
+   "new": "  MAE_orig：OLS-6 238.4 < B1 277.7 < 历史均值 368.0 < 4×c0 814.2——**OLS-6 比 4×c0 未校准外推低 71% MAE；相对同口径 B1 低 14%。3.4× 不再作为公平基线表述（2026-10-28 修订）。**",
+   "count": 1,
+   "sha256": "50955682beec08b40628d1c02943c5c8515006889c38ed34ed1c40f86bf8ca48"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "限定语＝日批热榜视频、6h 决策时点、(6h,30h] 窗口。",
+   "new": "限定语＝日批热榜视频、头 6h 计数回溯（快照 age≥31h）、(6h,30h] 窗口；不是 6h 在线预测。",
+   "count": 1,
+   "sha256": "308c409efd4565f5dd20b0cebb368e4491ad426b75b2e5f31b0c358ea18f8dd6"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "明确 D1 的适用边界（日批热榜、6h 时点、量预测≠阶段识别）",
+   "new": "明确 D1 的适用边界（日批热榜、头 6h 计数回溯、量预测≠阶段识别；不是 6h 在线）",
+   "count": 1,
+   "sha256": "75fc2fb8f3791737d085005c1cdd0527cf75c3d0625c8a818eae442fc5d513eb"
+  },
+  {
+   "file": "experiments/exp55_route_abc_verify/REPORT.md",
+   "old": "> → `experiments/exp55_route_abc_verify/results.json`。运行：`~/danmaku-venv/bin/python experiments/exp55_route_abc_verify.py`（约 4 分钟）。",
+   "new": "> → `experiments/exp55_route_abc_verify/results.json`。运行：`~/danmaku-venv/bin/python experiments/exp55_route_abc_verify.py`（约 4 分钟）。\n>\n> **2026-10-28 修订**：撤回“3.4",
+   "count": 1,
+   "sha256": "f48081e5ff05056ad9d56ae7af92e114e0e3b3a523705daffa43cb1d9b2a11e4"
+  },
+  {
+   "file": "experiments/exp60_finalize/REPORT.md",
+   "old": "原始 MAE **238.4** vs 持久性 **814.2**；跨批 1.17×",
+   "new": "原始 MAE **238.4** vs 4×c0 **814.2**（未校准，不作公平基线；vs B1 277.7 低 14%）；跨首见日 1.17×",
+   "count": 1,
+   "sha256": "7f5399bf5c64309a41d333a642938d76d82ac6f759215b811a08247b1a6426f3"
+  },
+  {
+   "file": "experiments/exp60_finalize/REPORT.md",
+   "old": "6. D1 量预测有效且跨批稳定（R² 0.561、原始 MAE 238、优于持久性 3.4 倍）。",
+   "new": "6. D1 量预测有效且跨首见日队列稳定（R² 0.561、原始 MAE 238、相对 B1 低 14%；4×c0 814.2 仅算术参照）。",
+   "count": 1,
+   "sha256": "aff1e583b0cb51bddd979b2db97de1da6d573ae742bd975051e67a73f4b88bfb"
+  },
+  {
+   "file": "experiments/exp60_finalize/REPORT.md",
+   "old": "> 复跑：`~/danmaku-venv/bin/python experiments/exp60_finalize.py`（seed=20261028，约 3 分钟）。",
+   "new": "> 复跑：`~/danmaku-venv/bin/python experiments/exp60_finalize.py`（seed=20261028，约 3 分钟）。\n>\n> **2026-10-28 修订**：R6 的“814.2 持久性”“3.4×”“跨批 1.17×”已更正为“4×c0 未校准参照”“相对 B",
+   "count": 1,
+   "sha256": "a5db294a51154947c43e7411407bd37914744abe72cff1e994721cd96d0a93ab"
+  },
+  {
+   "file": "experiments/exp60_finalize/r6.md",
+   "old": "| 基线（原始 MAE） | 持久性 4×c0 | **814.2**（OLS-6 好 3.4 倍） |",
+   "new": "| 基线（原始 MAE） | 4×c0 未校准外推 | **814.2**（仅算术参照；公平基线 B1 277.7，OLS-6 低 14%） |",
+   "count": 1,
+   "sha256": "a728422ce529b57bdbf164676f76523a45ee3cda0e2fd7261f31e5258233075f"
+  },
+  {
+   "file": "experiments/exp60_finalize/r6.md",
+   "old": "| | B1 单特征 | 277.7 |",
+   "new": "| | B1 单特征（公平基线） | 277.7 |",
+   "count": 1,
+   "sha256": "3686d1c0e327768823576714cbe94c84cb021e9dd9b6bb09b10a7f936311a711"
+  },
+  {
+   "file": "experiments/exp60_finalize/r6.md",
+   "old": "**跨批稳定性**：测试批 MAE 69–279，**spread 1.17×**（1022 批 n=11 仅参考）。",
+   "new": "**跨首见日队列稳定性**：首见日 MAE 69–279，**spread 1.17×**（1022 组 n=11 仅参考；不是按快照批次）。",
+   "count": 1,
+   "sha256": "7127765e72200b59c315be2425580e0452e12d08d397ae7d481bfc8c9d842ad4"
+  },
+  {
+   "file": "experiments/exp60_finalize/r6.md",
+   "old": "**切分核验**：训练 918 / 测试 395，`first_seen ≤20261020` vs `≥20261021`，**bvid 交集 = 0**（代码 assert）。",
+   "new": "**切分核验**：训练 918 / 测试 395，`first_seen ≤20261020` vs `≥20261021`，**bvid 交集 = 0**（代码 assert）。\n> **2026-10-28 修订**：4×c0 只作未校准算术参照；公平基线 B1=277.7；跨批改为跨首见日。",
+   "count": 1,
+   "sha256": "b45ed6eaaaf2633eb30018334b1828fd42e00e8394903a3170cafb4e4ec3c2f1"
+  },
+  {
+   "file": "experiments/exp67_evidence_audit/D1_D2_AUDIT.md",
+   "old": "ΔR²=+0.1076（CI [0.0711,0.1200]）",
+   "new": "ΔR²=+0.1076（CI [0.0711,0.1484]）",
+   "count": 1,
+   "sha256": "a69bb9753c60ea199692d177beb80fdf9f0404a323f4188a76a5e41fc8764b9d"
+  }
+ ],
+ "d1_ols": {
+  "before_sha256": "637b61e6b754c0dbfd42774242b59f403b42e9cfbae4158504d1a79ca4c83dbf",
+  "after_sha256": "6facc356edb497d2db995b1d2ccfb6bf621d1757de21b6b9a72dda5d4bce9ddb",
+  "coef_unchanged": true,
+  "intercept_unchanged": true,
+  "features_unchanged": true,
+  "before_model": "OLS-5f(renamed from OLS-6; 5 feature columns)",
+  "after_model": "OLS-6 (6 features: c0,n36,n13,n01,slope,dur; production full-window refit)"
+ }
+}

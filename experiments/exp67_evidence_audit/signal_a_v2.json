@@ -1,0 +1,20 @@
+{
+ "n_pairs_total": 576,
+ "overlap_distribution": {
+  "pure(>=0.999)": 151,
+  "0.9-1.0": 203,
+  "0.7-0.9": 50,
+  "<0.7": 172
+ },
+ "n_pure_increment": 139,
+ "spearman_median": 0.3929,
+ "ci95_median": [
+  0.3282,
+  0.4297
+ ],
+ "share_pos": 0.993,
+ "share_gt_03": 0.662,
+ "verdict": "纯增量口径下信号 A 成立（老位置持续吸收新弹幕）",
+ "wording": "正确表述：早期形状与后续新增分布的关联（纯增量对）；机制（回访/新观众/推荐）不可分",
+ "caveat": "用户删除弹幕会被误判为滚动，无法区分；纯增量判定基于 (cid,send_time,offset,text) 身份交集"
+}

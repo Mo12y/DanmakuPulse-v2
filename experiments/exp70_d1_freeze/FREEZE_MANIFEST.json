@@ -1,0 +1,173 @@
+{
+ "freeze_id": "D1-FREEZE-20261028",
+ "status": "FROZEN-LIMITED (documentation + hash manifest; NOT committed)",
+ "repo_head": "500c7c7",
+ "created_at": "2026-10-28",
+ "frozen_claim": "头 6h 计数（age≥31h 快照回溯）→ (6h,30h] 弹幕量延续；R² 0.5607 / MAE 238.39；vs B1 ΔR² 0.1076 [0.0711,0.1484]、MAE −14.1%。不是 6h 在线预测。",
+ "not_frozen": [
+  "6h 在线预测",
+  "3.4× 公平基线",
+  "生产模型已验证",
+  "R7 独立人工盲评",
+  "节奏结构解释 D1 残差"
+ ],
+ "verification": {
+  "b1_rows": 395,
+  "b1_bvid": 354,
+  "duplicate_bvid_rows": 41,
+  "keys_equal_exp55": true,
+  "d1_ols_coef_unchanged": true,
+  "d1_predict_unchanged": true,
+  "tests": "pytest tests/test_ml_forecast.py -q -> 11 passed, 2 skipped",
+  "metrics": {
+   "persistence_4xc0": {
+    "R2": -0.0358,
+    "MAE_orig": 814.24,
+    "RMSE_orig": 1486.35,
+    "n": 395
+   },
+   "B1": {
+    "R2": 0.4532,
+    "MAE_orig": 277.69,
+    "RMSE_orig": 572.39,
+    "n": 395
+   },
+   "OLS6": {
+    "R2": 0.5607,
+    "MAE_orig": 238.39,
+    "RMSE_orig": 517.74,
+    "n": 395
+   }
+  }
+ },
+ "files": {
+  "experiments/exp70_d1_freeze/b1_coef.json": {
+   "role": "B1 coefficients (existing exp55 fit, persisted)",
+   "sha256": "54fa4161cfd57b97d780a7503096d693a796007e581529ac3ecbd968eb0d9b6b",
+   "bytes": 354
+  },
+  "experiments/exp70_d1_freeze/ols6_eval_coef.json": {
+   "role": "OLS-6 evaluation-model coefficients (train-only)",
+   "sha256": "8b1ffbcd27eaf0c2d3f91f5bc7d24099909563a4188fddeed7e9014fbfee7599",
+   "bytes": 521
+  },
+  "experiments/exp70_d1_freeze/d1_test_predictions_395.csv": {
+   "role": "395-row B1/OLS6/persistence predictions",
+   "sha256": "7634d1801388235c1e830a26ebee3c294bccdb8d209379cb32cb8a306dbb547f",
+   "bytes": 79217
+  },
+  "experiments/exp70_d1_freeze/exp55_test_rowkeys_395.csv": {
+   "role": "395 (bvid,batch) keys from exp55 loop",
+   "sha256": "73cb1d0bd65caac205d603c0aa4251b049713d4f40f90a068ba2db50360c6cea",
+   "bytes": 21123
+  },
+  "experiments/exp70_d1_freeze/artifact_manifest.json": {
+   "role": "artifact metrics/keys/manifest",
+   "sha256": "7a9aa33375dc9a60b2fdbc87ce24adff4792495a8f5742c64ed4326c7e088cb3",
+   "bytes": 2639
+  },
+  "experiments/exp70_d1_freeze/text_fix_log.json": {
+   "role": "text/metadata edit log",
+   "sha256": "56ca637976456f8ea6f4e6c998ed40c8ebec4b34e080a7ecba7cb0799146acb5",
+   "bytes": 10456
+  },
+  "experiments/exp70_d1_freeze/D1_FREEZE.md": {
+   "role": "freeze record",
+   "sha256": "4c8b1e4ae330bb4a8c4d2eaa2ca1a75aaeb178fbc4529fc3ba746ed26742971e",
+   "bytes": 5599
+  },
+  "experiments/exp70_d1_freeze/TEXT_ERRATA.md": {
+   "role": "text/metadata errata",
+   "sha256": "9cb22b3d737f8242e5f228e5f39b31c4091213c44e11f773e1d6a55a27441541",
+   "bytes": 4666
+  },
+  "experiments/exp38_integrate/models/d1_ols.json": {
+   "role": "production D1 artifact (model string fixed; coef unchanged)",
+   "sha256": "6facc356edb497d2db995b1d2ccfb6bf621d1757de21b6b9a72dda5d4bce9ddb",
+   "bytes": 584
+  },
+  "experiments/exp38_integrate/audit_scan.py": {
+   "role": "production D1 artifact generator (string fixed)",
+   "sha256": "e9174fd35beb4402e75dec02d2ca9e315c9f6deb9f42f046bdad5e83b8be6cc7",
+   "bytes": 12931
+  },
+  "serve/ml_forecast.py": {
+   "role": "D1 API semantic boundary text",
+   "sha256": "63445e82ba95f6b5ec1fc941c59842f0d628ceb836920e56e01e490ec5ca6d73",
+   "bytes": 4357
+  },
+  "serve/static/ml_forecast.html": {
+   "role": "D1 prediction card text",
+   "sha256": "1e40608250df961706950ee9d8210264b6a6175b2a7f02049aaf44027f3d04a6",
+   "bytes": 15905
+  },
+  "tests/test_ml_forecast.py": {
+   "role": "D1 feature-contract test docstring",
+   "sha256": "09c26ac226b1d393b28eb3b20ec58153ae59643fccde571411424c56d54458c5",
+   "bytes": 9351
+  },
+  "docs/exp38_integrate/thesis_evidence_pack.md": {
+   "role": "thesis evidence pack D1 text",
+   "sha256": "986e1fc0699ac7f79b583af44ed26f8cdfcb5f0ce0673ed41db2402479f18429",
+   "bytes": 38474
+  },
+  "experiments/exp55_route_abc_verify/REPORT.md": {
+   "role": "exp55 D1 report (3.4x/6h retracted)",
+   "sha256": "a3735c7cf20d94585dc00e1bb67c02882b6161b4378827f9e8f222741264b340",
+   "bytes": 5536
+  },
+  "experiments/exp60_finalize/REPORT.md": {
+   "role": "exp60 R6 summary (814.2/cross-batch corrected)",
+   "sha256": "a5db294a51154947c43e7411407bd37914744abe72cff1e994721cd96d0a93ab",
+   "bytes": 6171
+  },
+  "experiments/exp60_finalize/r6.md": {
+   "role": "exp60 R6 detail (814.2/cross-batch corrected)",
+   "sha256": "b45ed6eaaaf2633eb30018334b1828fd42e00e8394903a3170cafb4e4ec3c2f1",
+   "bytes": 1599
+  },
+  "experiments/exp67_evidence_audit/D1_D2_AUDIT.md": {
+   "role": "prior audit CI typo fixed",
+   "sha256": "a69bb9753c60ea199692d177beb80fdf9f0404a323f4188a76a5e41fc8764b9d",
+   "bytes": 10802
+  },
+  "experiments/exp68_d1_residual_bridge/d1_repro.json": {
+   "role": "exp68 D1 reproduction",
+   "sha256": "7b0d7a3e5c71328005982df564dd5b4f05e7d7c5a79d097a8e4ff343543a7539",
+   "bytes": 1306
+  },
+  "experiments/exp68_d1_residual_bridge/results.json": {
+   "role": "exp68 negative result",
+   "sha256": "9b55f375ac874b116a34fb8eae55f45397e0eb5bbb9579d8cc680d09b5b788f8",
+   "bytes": 6122
+  },
+  "experiments/exp69_d1_metric_audit/D1_METRIC_LEDGER.md": {
+   "role": "D1 metric ledger",
+   "sha256": "bc816b187d7bd6310da80c8da3db29426bccd5bb2640e66d478515cf6592a16e",
+   "bytes": 14218
+  },
+  "experiments/exp69_d1_metric_audit/D1_AUDIT_REPORT.md": {
+   "role": "D1 audit report",
+   "sha256": "b6951d3e0a28421ee4af6efe3b8d7d624d4940aede028454308a01f6eeefcd37",
+   "bytes": 12076
+  },
+  "experiments/exp69_d1_metric_audit/d1_metric_audit.json": {
+   "role": "D1 audit machine-readable",
+   "sha256": "f81a29ceb6f822371cda254eba48a0671ea9b5517f7f31124366d06d8c43f4c2",
+   "bytes": 5236
+  },
+  "experiments/exp69_d1_metric_audit/rowset_check.json": {
+   "role": "exp55/exp67 rowset check",
+   "sha256": "48f1d74fbe1d409d75607ed8223d3a4e8b3f2f2ee94c4155d97bcc0a51f8496b",
+   "bytes": 278
+  }
+ },
+ "external_working_tree_changes": [
+  "M serve/static/diagnosis.html",
+  "M tests/test_ml_critique_contract.py",
+  "M tests/test_v3_ai_highlights.py",
+  "?? docs/design/",
+  "?? screenshots/"
+ ],
+ "note": "No commit. External changes pre-existed/arrived during audit; not touched."
+}

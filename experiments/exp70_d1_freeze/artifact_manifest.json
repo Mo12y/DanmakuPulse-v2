@@ -1,0 +1,95 @@
+{
+ "created_at": "2026-10-28",
+ "source_flow": "experiments/exp55_route_abc_verify.py Part A (same loop, batch key retained)",
+ "repo_head": "500c7c7",
+ "n_total": 1313,
+ "n_train": 918,
+ "n_test": 395,
+ "n_train_bvid": 649,
+ "n_test_bvid": 354,
+ "test_dup_bvid_rows": 41,
+ "bvid_overlap": 0,
+ "keys_equal_exp67": true,
+ "metrics": {
+  "persistence_4xc0": {
+   "R2": -0.0358,
+   "MAE_orig": 814.24,
+   "RMSE_orig": 1486.35,
+   "n": 395
+  },
+  "B1": {
+   "R2": 0.4532,
+   "MAE_orig": 277.69,
+   "RMSE_orig": 572.39,
+   "n": 395
+  },
+  "OLS6": {
+   "R2": 0.5607,
+   "MAE_orig": 238.39,
+   "RMSE_orig": 517.74,
+   "n": 395
+  }
+ },
+ "metrics_expected": {
+  "persistence_MAE": 814.2,
+  "B1_MAE": 277.7,
+  "OLS6_MAE": 238.4
+ },
+ "b1_coef": {
+  "model": "B1 (OLS, single feature log1p(c0))",
+  "feature": [
+   "c0"
+  ],
+  "coef": [
+   0.45440345629431883
+  ],
+  "intercept": 3.5838511376738307,
+  "trained_on": "exp55 train: first_seen<=20261020, 918 rows / 649 bvid",
+  "target": "log1p(count(6h<rel<=30h))",
+  "n_train": 918,
+  "note": "saved from the existing exp55 B1 fit; no new model/hyperparameter"
+ },
+ "ols6_eval_coef": {
+  "model": "OLS-6 (evaluation model; train-only)",
+  "features": [
+   "c0",
+   "n36",
+   "n13",
+   "n01",
+   "slope",
+   "dur"
+  ],
+  "coef": [
+   0.3943253552737083,
+   0.17009155564023473,
+   0.0425225187342072,
+   -0.2132920648002574,
+   0.12756903690602822,
+   0.277884627665869
+  ],
+  "intercept": 2.1387338034596355,
+  "trained_on": "exp55 train: first_seen<=20261020, 918 rows / 649 bvid",
+  "target": "log1p(count(6h<rel<=30h))",
+  "n_train": 918,
+  "note": "evaluation model; differs from production d1_ols.json full-window refit"
+ },
+ "files": {
+  "b1_coef.json": {
+   "path": "/home/molly/projects/danmaku-v2/experiments/exp70_d1_freeze/b1_coef.json",
+   "sha256": "54fa4161cfd57b97d780a7503096d693a796007e581529ac3ecbd968eb0d9b6b"
+  },
+  "ols6_eval_coef.json": {
+   "path": "/home/molly/projects/danmaku-v2/experiments/exp70_d1_freeze/ols6_eval_coef.json",
+   "sha256": "8b1ffbcd27eaf0c2d3f91f5bc7d24099909563a4188fddeed7e9014fbfee7599"
+  },
+  "d1_test_predictions_395.csv": {
+   "path": "/home/molly/projects/danmaku-v2/experiments/exp70_d1_freeze/d1_test_predictions_395.csv",
+   "sha256": "7634d1801388235c1e830a26ebee3c294bccdb8d209379cb32cb8a306dbb547f"
+  },
+  "exp55_test_rowkeys_395.csv": {
+   "path": "/home/molly/projects/danmaku-v2/experiments/exp70_d1_freeze/exp55_test_rowkeys_395.csv",
+   "sha256": "73cb1d0bd65caac205d603c0aa4251b049713d4f40f90a068ba2db50360c6cea"
+  }
+ },
+ "note": "No model/split/hyperparameter change. B1/OLS6 are the same fits exp55 already performs; only persisted."
+}

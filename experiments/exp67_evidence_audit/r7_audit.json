@@ -1,0 +1,258 @@
+{
+ "rows_master": 60,
+ "rows_A": 60,
+ "rows_B": 60,
+ "same_pair_set": true,
+ "dup_pair_id": {
+  "A": 0,
+  "B": 0
+ },
+ "missing_scores": {
+  "A": 0,
+  "B": 0
+ },
+ "score_domain": {
+  "A": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "B": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "note_counts": {
+  "A": 29,
+  "B": 29
+ },
+ "n_pairs": 60,
+ "n_queries": 20,
+ "strata_per_query": {
+  "3": 20
+ },
+ "pairs_per_query": {
+  "3": 20
+ },
+ "candidate_reuse": {
+  "distinct_bvid_b": 40,
+  "max_times_one_candidate": 17,
+  "n_candidates_used_more_than_once": 5
+ },
+ "query_equals_candidate": 0,
+ "bvid_b_distinct_within_query": 0,
+ "order": {
+  "same_order_A_master": false,
+  "same_order_B_master": false,
+  "same_order_A_B": false,
+  "spearman_order_A_B": 0.113
+ },
+ "adjacent_same_query_A": 1,
+ "stratum_means": {
+  "dissimilar": 1.35,
+  "middle": 2.7,
+  "very_similar": 2.95
+ },
+ "stratum_means_A": {
+  "dissimilar": 1.4,
+  "middle": 2.8,
+  "very_similar": 3.0
+ },
+ "stratum_means_B": {
+  "dissimilar": 1.3,
+  "middle": 2.6,
+  "very_similar": 2.9
+ },
+ "share_very_ge4": 0.25,
+ "share_dissim_le2": 0.85,
+ "spearman_A_B": 0.9411,
+ "spearman_A_B_p": 5.342717702764255e-29,
+ "exact_agreement": 0.8,
+ "within1_agreement": 1.0,
+ "per_query": [
+  {
+   "query": "BV117eF68ErS",
+   "very": 4.0,
+   "middle": 3.0,
+   "dissim": 1.0,
+   "diff": 3.0
+  },
+  {
+   "query": "BV12Hbj6PEsm",
+   "very": 2.0,
+   "middle": 2.0,
+   "dissim": 1.0,
+   "diff": 1.0
+  },
+  {
+   "query": "BV14Meu6tEiC",
+   "very": 2.0,
+   "middle": 1.0,
+   "dissim": 1.0,
+   "diff": 1.0
+  },
+  {
+   "query": "BV1BLnE6qExU",
+   "very": 3.0,
+   "middle": 4.0,
+   "dissim": 1.0,
+   "diff": 2.0
+  },
+  {
+   "query": "BV1GZnA6XE6r",
+   "very": 3.0,
+   "middle": 2.5,
+   "dissim": 1.0,
+   "diff": 2.0
+  },
+  {
+   "query": "BV1Jspq6cEPV",
+   "very": 3.5,
+   "middle": 4.0,
+   "dissim": 1.0,
+   "diff": 2.5
+  },
+  {
+   "query": "BV1MCu86ZEhX",
+   "very": 2.5,
+   "middle": 2.0,
+   "dissim": 2.5,
+   "diff": 0.0
+  },
+  {
+   "query": "BV1Vhnn6NEzn",
+   "very": 3.5,
+   "middle": 4.0,
+   "dissim": 1.0,
+   "diff": 2.5
+  },
+  {
+   "query": "BV1Zwn96AEbm",
+   "very": 2.0,
+   "middle": 1.0,
+   "dissim": 1.0,
+   "diff": 1.0
+  },
+  {
+   "query": "BV1bKJX6mEnY",
+   "very": 2.0,
+   "middle": 2.0,
+   "dissim": 2.5,
+   "diff": -0.5
+  },
+  {
+   "query": "BV1bgpE6ZE5n",
+   "very": 4.0,
+   "middle": 3.0,
+   "dissim": 1.0,
+   "diff": 3.0
+  },
+  {
+   "query": "BV1h9pC6vEQz",
+   "very": 4.0,
+   "middle": 4.0,
+   "dissim": 1.0,
+   "diff": 3.0
+  },
+  {
+   "query": "BV1jGJ96YEXE",
+   "very": 3.0,
+   "middle": 3.5,
+   "dissim": 1.0,
+   "diff": 2.0
+  },
+  {
+   "query": "BV1nbt66XEwN",
+   "very": 3.5,
+   "middle": 3.5,
+   "dissim": 1.0,
+   "diff": 2.5
+  },
+  {
+   "query": "BV1r2JY6UESq",
+   "very": 2.0,
+   "middle": 2.5,
+   "dissim": 1.0,
+   "diff": 1.0
+  },
+  {
+   "query": "BV1rVJq6oEx8",
+   "very": 2.0,
+   "middle": 1.0,
+   "dissim": 2.0,
+   "diff": 0.0
+  },
+  {
+   "query": "BV1sgnp64EA2",
+   "very": 3.0,
+   "middle": 3.0,
+   "dissim": 1.0,
+   "diff": 2.0
+  },
+  {
+   "query": "BV1uenE6xEvf",
+   "very": 2.0,
+   "middle": 1.5,
+   "dissim": 4.0,
+   "diff": -2.0
+  },
+  {
+   "query": "BV1yNnr6kEh8",
+   "very": 4.0,
+   "middle": 3.5,
+   "dissim": 1.0,
+   "diff": 3.0
+  },
+  {
+   "query": "BV1yTpg6ZEHs",
+   "very": 4.0,
+   "middle": 3.0,
+   "dissim": 1.0,
+   "diff": 3.0
+  }
+ ],
+ "n_queries_very_gt_dissim": 16,
+ "sign_test_p": 0.01182,
+ "wilcoxon_p": 0.0008,
+ "friedman_3level_p": 0.001142,
+ "mean_diff": 1.6,
+ "median_diff": 2.0,
+ "mean_diff_ci": [
+  0.975,
+  2.15
+ ],
+ "n_queries_monotone": 11,
+ "per_annotator_queries_positive": {
+  "A": "16/20",
+  "B": "17/20"
+ },
+ "pool_size": 232,
+ "stratum_rank_check": {
+  "dissimilar": {
+   "n": 20,
+   "median_rank": 230.0,
+   "p10": 230.0,
+   "p90": 230.0
+  },
+  "middle": {
+   "n": 20,
+   "median_rank": 116.0,
+   "p10": 116.0,
+   "p90": 116.0
+  },
+  "very_similar": {
+   "n": 20,
+   "median_rank": 47.0,
+   "p10": 47.0,
+   "p90": 47.0
+  }
+ },
+ "expected_ranks": {
+  "very_similar": 46,
+  "middle": 116,
+  "dissimilar": 230
+ }
+}

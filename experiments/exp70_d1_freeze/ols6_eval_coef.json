@@ -1,0 +1,24 @@
+{
+ "model": "OLS-6 (evaluation model; train-only)",
+ "features": [
+  "c0",
+  "n36",
+  "n13",
+  "n01",
+  "slope",
+  "dur"
+ ],
+ "coef": [
+  0.3943253552737083,
+  0.17009155564023473,
+  0.0425225187342072,
+  -0.2132920648002574,
+  0.12756903690602822,
+  0.277884627665869
+ ],
+ "intercept": 2.1387338034596355,
+ "trained_on": "exp55 train: first_seen<=20261020, 918 rows / 649 bvid",
+ "target": "log1p(count(6h<rel<=30h))",
+ "n_train": 918,
+ "note": "evaluation model; differs from production d1_ols.json full-window refit"
+}

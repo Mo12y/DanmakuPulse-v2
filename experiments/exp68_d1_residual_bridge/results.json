@@ -1,0 +1,353 @@
+{
+ "meta": {
+  "seed": 20261028,
+  "alpha": 1.0,
+  "n_folds": 5,
+  "n_train": 918,
+  "n_test": 395,
+  "n_features": 29,
+  "feature_names": [
+   "pred_log",
+   "log_dur",
+   "pub_hour_sin",
+   "pub_hour_cos",
+   "pub_dow_sin",
+   "pub_dow_cos",
+   "tname_0",
+   "tname_1",
+   "tname_2",
+   "tname_3",
+   "tname_4",
+   "tname_5",
+   "tname_6",
+   "entropy_norm",
+   "burst_cv",
+   "peak_pos",
+   "peak_share",
+   "zero_bin_share",
+   "gini_bins",
+   "mean_text_len",
+   "long_share",
+   "colored_share",
+   "user_hhi",
+   "user_top1_share",
+   "user_unique_share",
+   "multi_user_second_share",
+   "repeat_user_row_share",
+   "progress_gini",
+   "second_top1_share"
+  ],
+  "groups": [
+   "G0",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G1",
+   "G2",
+   "G2",
+   "G2",
+   "G2",
+   "G2",
+   "G2",
+   "G3",
+   "G3",
+   "G3",
+   "G4",
+   "G4",
+   "G4",
+   "G5",
+   "G5",
+   "G5",
+   "G5"
+  ],
+  "zero_variance_dropped": [
+   "part_count_bin",
+   "user_cov"
+  ],
+  "split": "first_seen<=20261020 / >=20261021",
+  "primary_metric": "delta R2 (main - G0-only) on log1p(y_test)"
+ },
+ "metrics": {
+  "raw_D1": {
+   "R2": 0.5607,
+   "MAE_orig": 238.39,
+   "RMSE_orig": 517.74
+  },
+  "G0_only": {
+   "R2": 0.5601,
+   "MAE_orig": 238.39,
+   "RMSE_orig": 518.46
+  },
+  "main": {
+   "R2": 0.5891,
+   "MAE_orig": 232.2,
+   "RMSE_orig": 494.96
+  }
+ },
+ "delta": {
+  "R2_vs_G0": 0.0289,
+  "R2_vs_raw": 0.0283,
+  "MAE_vs_G0": -6.19
+ },
+ "coef": {
+  "pred_log": 0.1068,
+  "log_dur": -0.0932,
+  "pub_hour_sin": 0.0885,
+  "pub_hour_cos": 0.1921,
+  "pub_dow_sin": -0.0336,
+  "pub_dow_cos": -0.0108,
+  "tname_0": 0.0135,
+  "tname_1": 0.0197,
+  "tname_2": 0.0225,
+  "tname_3": -0.0083,
+  "tname_4": -0.0137,
+  "tname_5": 0.0584,
+  "tname_6": 0.0432,
+  "entropy_norm": -0.1757,
+  "burst_cv": -0.5076,
+  "peak_pos": 0.015,
+  "peak_share": 0.0254,
+  "zero_bin_share": 0.0136,
+  "gini_bins": 0.3649,
+  "mean_text_len": 0.0923,
+  "long_share": -0.0782,
+  "colored_share": -0.0045,
+  "user_hhi": 0.2702,
+  "user_top1_share": -0.1989,
+  "user_unique_share": -0.0471,
+  "multi_user_second_share": -0.0284,
+  "repeat_user_row_share": 0.0462,
+  "progress_gini": -0.0765,
+  "second_top1_share": -0.1399
+ },
+ "note": "p_value = (1+#null>=obs)/(1+B); primary = main(G0+G1..G5) vs G0-only calibration.",
+ "primary": {
+  "observed_delta_R2": 0.0289,
+  "boot_ci95": [
+   -0.00518445746928586,
+   0.05778376218403433
+  ],
+  "boot_B": 2000,
+  "delta_MAE": -6.19,
+  "delta_MAE_ci95": [
+   -16.207051196601093,
+   3.805374804010617
+  ]
+ },
+ "controls": {
+  "shuffle_within_batch": {
+   "mean": 0.0143,
+   "p95": 0.031,
+   "p_value": 0.08691308691308691,
+   "B": 1000
+  },
+  "random_structure": {
+   "mean": 0.013,
+   "p95": 0.0229,
+   "p_value": 0.005988023952095809,
+   "B": 500
+  }
+ },
+ "ablation": {
+  "cumulative": {
+   "G0": {
+    "n_features": 1,
+    "R2": 0.5601,
+    "dR2_vs_G0": 0.0
+   },
+   "G0+G1": {
+    "n_features": 13,
+    "R2": 0.5798,
+    "dR2_vs_G0": 0.0197
+   },
+   "+G2": {
+    "n_features": 19,
+    "R2": 0.5844,
+    "dR2_vs_G0": 0.0243
+   },
+   "+G3": {
+    "n_features": 22,
+    "R2": 0.5869,
+    "dR2_vs_G0": 0.0268
+   },
+   "+G4": {
+    "n_features": 25,
+    "R2": 0.5871,
+    "dR2_vs_G0": 0.027
+   },
+   "+G5": {
+    "n_features": 29,
+    "R2": 0.5891,
+    "dR2_vs_G0": 0.0289
+   }
+  },
+  "alone": {
+   "G1": {
+    "n_features": 13,
+    "R2": 0.5798,
+    "dR2_vs_G0": 0.0197
+   },
+   "G2": {
+    "n_features": 7,
+    "R2": 0.562,
+    "dR2_vs_G0": 0.0019
+   },
+   "G3": {
+    "n_features": 4,
+    "R2": 0.5613,
+    "dR2_vs_G0": 0.0012
+   },
+   "G4": {
+    "n_features": 4,
+    "R2": 0.5573,
+    "dR2_vs_G0": -0.0029
+   },
+   "G5": {
+    "n_features": 5,
+    "R2": 0.5628,
+    "dR2_vs_G0": 0.0026
+   }
+  },
+  "structure_beyond_static": {
+   "R2_G0G1": 0.5798,
+   "R2_G0G1_struct": 0.5891,
+   "dR2": 0.0092,
+   "n_extra_features": 16
+  }
+ },
+ "sensitivity": {
+  "n6_lt10": {
+   "n": 55,
+   "R2_main": 0.2574,
+   "R2_G0": 0.1518,
+   "dR2": 0.1057
+  },
+  "n6_ge10": {
+   "n": 340,
+   "R2_main": 0.521,
+   "R2_G0": 0.5082,
+   "dR2": 0.0129
+  },
+  "got_low": {
+   "n": 201,
+   "R2_main": 0.3651,
+   "R2_G0": 0.3025,
+   "dR2": 0.0626
+  },
+  "got_high": {
+   "n": 194,
+   "R2_main": 0.4611,
+   "R2_G0": 0.4396,
+   "dR2": 0.0215
+  },
+  "age_low": {
+   "n": 196,
+   "R2_main": 0.5834,
+   "R2_G0": 0.5294,
+   "dR2": 0.054
+  },
+  "age_high": {
+   "n": 199,
+   "R2_main": 0.5844,
+   "R2_G0": 0.5702,
+   "dR2": 0.0142
+  },
+  "tname_top7": {
+   "n": 170,
+   "R2_main": 0.6567,
+   "R2_G0": 0.6273,
+   "dR2": 0.0295
+  },
+  "tname_other": {
+   "n": 225,
+   "R2_main": 0.5536,
+   "R2_G0": 0.5249,
+   "dR2": 0.0287
+  },
+  "by_batch": {
+   "20261021": {
+    "n": 67,
+    "R2_main": 0.5555,
+    "R2_G0": 0.6098,
+    "dR2": -0.0543
+   },
+   "20261022": {
+    "n": 8,
+    "dR2": null
+   },
+   "20261023": {
+    "n": 74,
+    "R2_main": 0.6854,
+    "R2_G0": 0.6258,
+    "dR2": 0.0595
+   },
+   "20261024": {
+    "n": 141,
+    "R2_main": 0.5893,
+    "R2_G0": 0.5463,
+    "dR2": 0.043
+   },
+   "20261026": {
+    "n": 105,
+    "R2_main": 0.5027,
+    "R2_G0": 0.4722,
+    "dR2": 0.0306
+   }
+  },
+  "cutoffs": {
+   "got_median_train": 858.0,
+   "age_median_train": 53.70458333333333,
+   "top7": [
+    "日常",
+    "搞笑",
+    "单机游戏",
+    "网络游戏",
+    "影视剪辑",
+    "人文历史",
+    "出行"
+   ]
+  }
+ },
+ "feature_vs_c0_spearman": {
+  "G2": {
+   "entropy_norm": 0.63,
+   "burst_cv": -0.387,
+   "peak_pos": -0.27,
+   "peak_share": -0.411,
+   "zero_bin_share": -0.856,
+   "gini_bins": -0.47
+  },
+  "G3": {
+   "mean_text_len": 0.088,
+   "long_share": 0.057,
+   "colored_share": 0.011
+  },
+  "G4": {
+   "user_hhi": -0.94,
+   "user_top1_share": -0.794,
+   "user_unique_share": -0.675
+  },
+  "G5": {
+   "multi_user_second_share": 0.824,
+   "repeat_user_row_share": 0.642,
+   "progress_gini": 0.239,
+   "second_top1_share": -0.977
+  }
+ },
+ "prereg_verdict": {
+  "delta_ge_0p02": true,
+  "ci_lower_gt_0": false,
+  "shuffle_p_lt_0p05": false,
+  "rhythm_beyond_static": 0.0092,
+  "verdict": "negative (not established)",
+  "rule": "all three required: delta>=0.02, CI lower>0, shuffle p<0.05"
+ }
+}
