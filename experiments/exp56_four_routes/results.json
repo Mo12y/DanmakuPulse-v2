@@ -1,0 +1,248 @@
+{
+ "meta": {
+  "seed": 20261028,
+  "n_units": 2218,
+  "n_c1_pool": 232
+ },
+ "route_A": {
+  "n_pool": 232,
+  "queries": [
+   "BV15Xe768Enh",
+   "BV117eF68ErS",
+   "BV1ZHnF6SEp5",
+   "BV19Rn26CEMf",
+   "BV1D6pU6UE1C",
+   "BV1UxnA6yEdw",
+   "BV1Syn16aErc",
+   "BV12fJe6bESf",
+   "BV18vpg6zEWF",
+   "BV1gsn26NEHC"
+  ],
+  "inter_metric_top10_jaccard": {
+   "raw~norm": 0.1594,
+   "raw~dtw": 0.1357,
+   "raw~feat": 0.0569,
+   "norm~dtw": 0.2165,
+   "norm~feat": 0.0989,
+   "dtw~feat": 0.1153
+  },
+  "magnitude_confound_spearman_with_dlog_got": {
+   "raw": -0.2182,
+   "norm": -0.0472,
+   "feat": -0.0871
+  },
+  "external_human_eval": "缺失（无成对相似性人工判断；C1 只是阶段边界标注）",
+  "status": "尚不能判断（定义可复现、内部一致性已量化；缺独立人工评价）"
+ },
+ "route_D": {
+  "pca_top10_overlap_with_curve": {
+   "PCA4": 0.32,
+   "PCA8": 0.43,
+   "PCA16": 0.49,
+   "feat8_vs_curve_top10_overlap": 0.17
+  },
+  "supervision": "无监督信号（无相似性配对标签）；30 支仅边界标注、非相似性判断",
+  "status": "尚不能判断（缺独立评价；见 A 的外部评价缺口）"
+ },
+ "route_B": {
+  "n_videos": 30,
+  "n_peaks": 37,
+  "human_B_segments": 36,
+  "head_bursts": 22,
+  "interior_bursts": 14,
+  "head_burst_share": 0.611,
+  "interior_recall": 0.643,
+  "head_unmeasurable_note": "片头 B 段（起于 bucket 0-1）无峰前历史、且局部极大需 ±2 窗，结构上不可检测/不可测峰前过程",
+  "human_ref": "C1 裁决 B 段（爆发段）±1 桶",
+  "precision": 0.2432,
+  "recall": 0.25,
+  "tp": 9,
+  "fp": 28,
+  "fn": 27,
+  "lifecycle_median": {
+   "rise": 2.0,
+   "width_half": 1.0,
+   "decay": 0.0,
+   "post10": 61.0,
+   "peak": 19.0,
+   "base": 8.0
+  },
+  "rebound_share": 0.892,
+  "robustness_grid": {
+   "s1_k1.5": {
+    "n_peaks": 39,
+    "per_video_med": 0.0
+   },
+   "s1_k2.0": {
+    "n_peaks": 37,
+    "per_video_med": 0.0
+   },
+   "s1_k2.5": {
+    "n_peaks": 29,
+    "per_video_med": 0.0
+   },
+   "s3_k1.5": {
+    "n_peaks": 39,
+    "per_video_med": 0.0
+   },
+   "s3_k2.0": {
+    "n_peaks": 37,
+    "per_video_med": 0.0
+   },
+   "s3_k2.5": {
+    "n_peaks": 29,
+    "per_video_med": 0.0
+   },
+   "s5_k1.5": {
+    "n_peaks": 39,
+    "per_video_med": 0.0
+   },
+   "s5_k2.0": {
+    "n_peaks": 37,
+    "per_video_med": 0.0
+   },
+   "s5_k2.5": {
+    "n_peaks": 29,
+    "per_video_med": 0.0
+   }
+  },
+  "peak_count_cv_across_grid": 0.123,
+  "window_adequacy": {
+   "peaks_with_5_buckets_each_side": 28,
+   "total": 37,
+   "share": 0.757
+  },
+  "pre_registered": "smooth=3, thr_k=2.0, min_dist=3, half=6（见文件头 PRE）",
+  "status": "待判（检测可靠性可测；生命周期指标稳定性见 robustness）"
+ },
+ "route_C": {
+  "n_videos": 2218,
+  "metrics": [
+   "rhythm_entropy",
+   "burst_cv",
+   "opening_5pct",
+   "mid_ratio"
+  ],
+  "by": {
+   "tname": {
+    "n": 1710,
+    "n_groups": 21,
+    "rhythm_entropy": {
+     "eta2": 0.1514,
+     "ci": [
+      0.1077,
+      0.2165
+     ]
+    },
+    "burst_cv": {
+     "eta2": 0.1162,
+     "ci": [
+      0.0839,
+      0.1809
+     ]
+    },
+    "opening_5pct": {
+     "eta2": 0.0971,
+     "ci": [
+      0.0745,
+      0.1526
+     ]
+    },
+    "mid_ratio": {
+     "eta2": 0.0915,
+     "ci": [
+      0.0721,
+      0.1437
+     ]
+    },
+    "log_got_eta2_reference": 0.1073,
+    "partial_eta2_controlling_log_got": {
+     "rhythm_entropy": 0.1331,
+     "burst_cv": 0.117,
+     "opening_5pct": 0.0945,
+     "mid_ratio": 0.0904
+    }
+   },
+   "duration": {
+    "n": 2218,
+    "n_groups": 3,
+    "rhythm_entropy": {
+     "eta2": 0.0043,
+     "ci": [
+      0.0009,
+      0.0114
+     ]
+    },
+    "burst_cv": {
+     "eta2": 0.1085,
+     "ci": [
+      0.0911,
+      0.1298
+     ]
+    },
+    "opening_5pct": {
+     "eta2": 0.0357,
+     "ci": [
+      0.0205,
+      0.0541
+     ]
+    },
+    "mid_ratio": {
+     "eta2": 0.0529,
+     "ci": [
+      0.039,
+      0.0719
+     ]
+    },
+    "log_got_eta2_reference": 0.3568,
+    "partial_eta2_controlling_log_got": {
+     "rhythm_entropy": 0.0727,
+     "burst_cv": 0.094,
+     "opening_5pct": 0.0658,
+     "mid_ratio": 0.0689
+    }
+   },
+   "rank": {
+    "n": 2009,
+    "n_groups": 3,
+    "rhythm_entropy": {
+     "eta2": 0.0003,
+     "ci": [
+      0.0,
+      0.0041
+     ]
+    },
+    "burst_cv": {
+     "eta2": 0.0008,
+     "ci": [
+      0.0001,
+      0.0054
+     ]
+    },
+    "opening_5pct": {
+     "eta2": 0.0007,
+     "ci": [
+      0.0001,
+      0.0064
+     ]
+    },
+    "mid_ratio": {
+     "eta2": 0.0012,
+     "ci": [
+      0.0001,
+      0.0067
+     ]
+    },
+    "log_got_eta2_reference": 0.0182,
+    "partial_eta2_controlling_log_got": {
+     "rhythm_entropy": 0.0012,
+     "burst_cv": 0.0006,
+     "opening_5pct": 0.0018,
+     "mid_ratio": 0.0017
+    }
+   }
+  },
+  "correction": "Bonferroni 15 检验 α=0.05/15=0.0033（η² 无 p 值，用 bootstrap CI 是否含 0 判读）",
+  "status": "待判（效应量与 CI 已给；注意 log_got 参照）"
+ }
+}
