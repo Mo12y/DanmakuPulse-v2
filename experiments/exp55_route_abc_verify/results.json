@@ -1,0 +1,188 @@
+{
+ "meta": {
+  "seed": 20261027,
+  "engine": "exp55-route-abc-verify"
+ },
+ "route_A": {
+  "n_train": 918,
+  "n_test": 395,
+  "bvid_overlap": 0,
+  "B1_log1p_c0": {
+   "model": "B1 OLS(log1p c0)",
+   "R2_log1p": 0.4532,
+   "MAE_log1p": 0.7301,
+   "RMSE_log1p": 1.0097,
+   "MAE_orig": 277.7,
+   "RMSE_orig": 572.4,
+   "n_test": 395
+  },
+  "OLS6": {
+   "model": "OLS-6(生产特征)",
+   "R2_log1p": 0.5607,
+   "MAE_log1p": 0.6327,
+   "RMSE_log1p": 0.905,
+   "MAE_orig": 238.4,
+   "RMSE_orig": 517.7,
+   "n_test": 395
+  },
+  "HGB": {
+   "model": "HGB depth3",
+   "R2_log1p": 0.5391,
+   "MAE_log1p": 0.6574,
+   "RMSE_log1p": 0.9269,
+   "MAE_orig": 239.8,
+   "RMSE_orig": 494.6,
+   "n_test": 395
+  },
+  "persistence_4x_c0": {
+   "model": "持久性 ŷ=4×c0",
+   "R2_log1p": -0.0358,
+   "MAE_log1p": 1.145,
+   "RMSE_log1p": 1.3896,
+   "MAE_orig": 814.2,
+   "RMSE_orig": 1486.3,
+   "n_test": 395
+  },
+  "hist_mean": {
+   "model": "历史均值(训练集均值)",
+   "R2_log1p": -0.0004,
+   "MAE_log1p": 1.0019,
+   "RMSE_log1p": 1.3657,
+   "MAE_orig": 368.0,
+   "RMSE_orig": 705.7,
+   "n_test": 395
+  },
+  "verification": {
+   "B1_expect": 0.4532,
+   "OLS6_expect": 0.5607,
+   "HGB_expect": 0.5391,
+   "B1_ok": true,
+   "OLS6_ok": true,
+   "HGB_ok": true
+  }
+ },
+ "route_B": {
+  "n_points": 51589,
+  "n_videos": 1424,
+  "pos_rate": 0.3597,
+  "AUC_LR6": 0.6001,
+  "PR_AUC_LR6": 0.4553,
+  "AUC_NegLam": 0.4538,
+  "AUC_majority": 0.5,
+  "at_thr_0p5": {
+   "precision": 0.5364,
+   "recall": 0.1856,
+   "f1": 0.2758,
+   "n_pred_pos": 6422
+  },
+  "rule_persistence_burst": {
+   "precision": 0.3875,
+   "recall": 0.6247,
+   "f1": 0.4783,
+   "n_pred_pos": 29914
+  },
+  "majority": {
+   "always_negative": true,
+   "accuracy": 0.6403,
+   "F1_pos": 0.0
+  },
+  "verification": {
+   "AUC_LR6_expect": 0.6001,
+   "AUC_NegLam_expect": 0.4538,
+   "AUC_LR6_ok": true,
+   "AUC_NegLam_ok": true
+  }
+ },
+ "route_C": {
+  "n_test_videos": 70,
+  "horizon": 10,
+  "step": 5,
+  "min_hist": 15,
+  "split": "视频级 80/20（exp48.1 seed=20261027 随机切分，无视频重叠）",
+  "overall": {
+   "persist": {
+    "MAE": 19.19,
+    "curve_MAE": 19.19,
+    "skill_vs_persist": 0.0
+   },
+   "recmean": {
+    "MAE": 16.74,
+    "curve_MAE": 16.74,
+    "skill_vs_persist": 0.1274
+   },
+   "histmean": {
+    "MAE": 66.26,
+    "curve_MAE": 66.26,
+    "skill_vs_persist": -2.4527
+   },
+   "ols": {
+    "MAE": 18.71,
+    "curve_MAE": 18.71,
+    "skill_vs_persist": 0.0252
+   }
+  },
+  "per_horizon_MAE": {
+   "0": {
+    "persist": 15.08,
+    "recmean": 13.87,
+    "histmean": 64.64,
+    "ols": 15.93
+   },
+   "1": {
+    "persist": 18.51,
+    "recmean": 14.48,
+    "histmean": 66.71,
+    "ols": 17.99
+   },
+   "2": {
+    "persist": 18.82,
+    "recmean": 16.17,
+    "histmean": 64.4,
+    "ols": 17.32
+   },
+   "3": {
+    "persist": 20.15,
+    "recmean": 17.14,
+    "histmean": 67.11,
+    "ols": 19.81
+   },
+   "4": {
+    "persist": 19.49,
+    "recmean": 16.62,
+    "histmean": 65.25,
+    "ols": 18.95
+   },
+   "5": {
+    "persist": 18.43,
+    "recmean": 16.69,
+    "histmean": 65.4,
+    "ols": 17.58
+   },
+   "6": {
+    "persist": 18.86,
+    "recmean": 14.92,
+    "histmean": 65.5,
+    "ols": 16.44
+   },
+   "7": {
+    "persist": 20.93,
+    "recmean": 19.09,
+    "histmean": 67.58,
+    "ols": 19.89
+   },
+   "8": {
+    "persist": 18.84,
+    "recmean": 17.27,
+    "histmean": 66.7,
+    "ols": 20.19
+   },
+   "9": {
+    "persist": 22.79,
+    "recmean": 21.19,
+    "histmean": 69.27,
+    "ols": 22.97
+   }
+  },
+  "note": "计数为重尾分布，MAE 原始尺度受高活跃视频主导；同时看 skill_vs_persist（曲线 MAE 相对持久性基线的下降比例）"
+ }
+}
