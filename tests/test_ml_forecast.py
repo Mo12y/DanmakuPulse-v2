@@ -80,6 +80,11 @@ def test_snapshot_file_schema():
         assert it["d1"]["status"] in ("ok", "pending", "insufficient")
         for pt in it["d2"]["points"]:
             assert 0.0 <= pt["p_stable"] <= 1.0 and pt["t"] in (1, 3, 6, 12, 24)
+        # 节奏卡必备字段：弹幕规模 / 分钟桶 / 零桶数（页面「观测」区与覆盖度告警依赖）
+        rh = it["rhythm"]
+        assert isinstance(rh["n_danmaku"], int) and rh["n_danmaku"] > 0
+        assert isinstance(rh["n_buckets"], int) and rh["n_buckets"] >= 1
+        assert 0 <= rh["n_zero_buckets"] <= rh["n_buckets"]
 
 
 def test_real_model_artifact():

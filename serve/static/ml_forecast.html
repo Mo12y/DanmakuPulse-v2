@@ -57,7 +57,11 @@ h1{font-size:18px;margin:0 0 4px}
     ④ D1 = 发布后 6h 时点对 (6h,30h] 弹幕量的预测（OLS-5f，时间切 ΔR²=+0.095 [0.045,0.144]）；
     D2.p_stable = 当前节奏结论到采集结束不漂移（≤0.25 IQR）的模型概率（HGB，时间切 ΔAUC=+0.078 [0.060,0.096]）；
     D2.stable_measured 是实测值，与模型概率严格区分。二者是<b>辅助预测</b>，不等于互动节奏识别。<br>
-    ⑤ 训练数据窗 20261012–1026，多 P 已知视频剔除；pending = 标签窗口尚未完全观测。
+    ⑤ 训练数据窗 20261012–1026，多 P 已知视频剔除；pending = 标签窗口尚未完全观测。<br>
+    ⑥ <b>离线评估的切分</b>：D1/D2 均按首批日期做时间切——训练用 <b>首批 ≤ 20261020</b>、测试用 <b>首批 ≥ 20261021</b>，
+    两侧 bvid 不相交（防同视频跨集泄漏）。D1 可评分样本 <b>1,313 个视频-批次</b>（视频时龄 ≥ 31h 才闭合标签窗口）；
+    D2 训练样本 <b>8,326 个 (视频, t) 点</b>。指标 ΔR² / ΔAUC 均在该时间切上计算，
+    <b>不是</b>随机切分结果，也不代表跨月滚动复验（未做）。
   </div>
 </div>
 <script>
@@ -92,6 +96,20 @@ function matrixHtml(stt){
   }
   h += '</tbody></table>';
   h += `<div class="hint">行=上一分钟状态、列=下一分钟状态；<b>百分数=训练集转移概率（276 支）</b>，角标数字=本视频实际转移次数；蓝色深浅对应概率。当前状态行已加粗下划线。</div>`;
+  // 直观解释：对角线自持率 + 最强跨状态转移（均取自训练矩阵，与本视频无关）
+  let diag = 0, best = {p: -1, i: 0, j: 0};
+  for (let i = 0; i < K; i++) {
+    diag += (stt.trans[i] || [])[i] || 0;
+    for (let j = 0; j < K; j++) {
+      if (i === j) continue;
+      const p = (stt.trans[i] || [])[j] || 0;
+      if (p > best.p) best = {p: p, i: i, j: j};
+    }
+  }
+  diag = diag / K;
+  h += `<div class="hint">读法：<b>同状态延续（对角线）平均 ${(diag * 100).toFixed(0)}%</b>，强度等级有明显黏性；
+    最强跨状态跳转是 <b>S${best.i}→S${best.j} ${(best.p * 100).toFixed(1)}%</b>，通常落在相邻等级之间，
+    即强度逐级爬升/回落，而不是跳变。<span style="color:var(--text-tertiary)">两项都只是训练矩阵的性质，不构成预测能力证据（exp48.1）。</span></div>`;
   if(total < 10){
     h += `<div class="warnbox">本视频仅 <b>${total}</b> 次分钟级转移（序列 ${(stt.seq||[]).length} 桶）——单视频转移频次样本不足，<b>不可把其中的数值当作规律</b>，只能看训练矩阵的量级。</div>`;
   }
@@ -149,7 +167,9 @@ function card(it){
       ${band}
     </svg>
     <div class="hint">【观测】折线=逐分钟弹幕量（等距抽样，最多 120 点）｜ 下带=逐分钟状态（灰 S0 冷 / 蓝 S1 温 / 橙 S2 热 / 红 S3 爆）｜ 前/中/后段密度：${(rh.seg3_dpm||[]).join(' / ')} 条每分 ｜ S1：${rh.S1??'—'}（≥1.0 视为段间波动明显）</div>`
-      + coverageHtml(stt?stt.coverage:null);
+      + coverageHtml(stt?stt.coverage:(rh.n_buckets?{
+          n_buckets: rh.n_buckets, n_zero: rh.n_zero_buckets||0,
+          zero_share: (rh.n_zero_buckets||0)/rh.n_buckets, tail_blank: 0}:null));
   }
 
   /* 【状态】当前状态 + 下一分钟概率 + 转移矩阵 */
@@ -178,7 +198,9 @@ function card(it){
   }
 
   return `<div class="card"><h3>${esc(it.title||it.bvid)}</h3>
-    <div class="meta">${esc(it.bvid)} ｜ ${esc(it.tname||'')} ｜ ${it.duration_min}min ｜ 采集时龄 ${it.age_h}h ｜ 批次 ${it.batch}</div>
+    <div class="meta">${esc(it.bvid)} ｜ ${esc(it.tname||'')} ｜ ${it.duration_min}min ｜ 采集时龄 ${it.age_h}h ｜ 批次 ${it.batch}${
+      rh.n_danmaku!=null?` ｜ 弹幕 <b>${rh.n_danmaku}</b> 条`:''}${
+      rh.n_buckets?` ｜ 分钟桶 ${rh.n_buckets}`:''}</div>
     <div class="row"><span class="k">【观测】弹幕曲线</span><span>${rhr}</span></div>
     ${stBlock}
     ${evr}
