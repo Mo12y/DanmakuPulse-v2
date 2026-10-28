@@ -1,0 +1,263 @@
+{
+ "meta": {
+  "n_videos": 30,
+  "n_segments": 109,
+  "generated_by": "experiments/exp52_c1_structure_probe.py"
+ },
+ "q1_segment_lengths": {
+  "n_segments": 109,
+  "len_mean": 5.33,
+  "len_median": 3.0,
+  "len_p10": 1.0,
+  "len_p90": 8.0,
+  "cv_overall": 1.765,
+  "by_cat_median": {
+   "L": 4.5,
+   "R": 3.0,
+   "H": 4.5,
+   "B": 1.0,
+   "D": 4.5,
+   "X": 5.0
+  },
+  "per_video_cv": [
+   {
+    "bvid": "BV123nw6PEgi",
+    "k": 9,
+    "n": 34,
+    "mean_len": 3.78,
+    "cv_obs": 1.135,
+    "cv_uniform_ref": 0.485
+   },
+   {
+    "bvid": "BV1FoJ26JEpv",
+    "k": 2,
+    "n": 9,
+    "mean_len": 4.5,
+    "cv_obs": 0.778,
+    "cv_uniform_ref": 0.333
+   },
+   {
+    "bvid": "BV118nd6QEZq",
+    "k": 7,
+    "n": 124,
+    "mean_len": 17.71,
+    "cv_obs": 1.163,
+    "cv_uniform_ref": 0.22
+   },
+   {
+    "bvid": "BV16uJy6CEuX",
+    "k": 5,
+    "n": 18,
+    "mean_len": 3.6,
+    "cv_obs": 0.737,
+    "cv_uniform_ref": 0.471
+   },
+   {
+    "bvid": "BV1EHpv6sEtp",
+    "k": 4,
+    "n": 13,
+    "mean_len": 3.25,
+    "cv_obs": 0.549,
+    "cv_uniform_ref": 0.48
+   },
+   {
+    "bvid": "BV12fJe6bESf",
+    "k": 10,
+    "n": 38,
+    "mean_len": 3.8,
+    "cv_obs": 0.694,
+    "cv_uniform_ref": 0.487
+   },
+   {
+    "bvid": "BV11nnh6QERV",
+    "k": 6,
+    "n": 29,
+    "mean_len": 4.83,
+    "cv_obs": 0.67,
+    "cv_uniform_ref": 0.415
+   },
+   {
+    "bvid": "BV14ZnS6uEmT",
+    "k": 5,
+    "n": 16,
+    "mean_len": 3.2,
+    "cv_obs": 0.637,
+    "cv_uniform_ref": 0.5
+   },
+   {
+    "bvid": "BV19tpg6VE8z",
+    "k": 2,
+    "n": 8,
+    "mean_len": 4.0,
+    "cv_obs": 0.5,
+    "cv_uniform_ref": 0.354
+   },
+   {
+    "bvid": "BV11dpz6mEkt",
+    "k": 2,
+    "n": 5,
+    "mean_len": 2.5,
+    "cv_obs": 0.6,
+    "cv_uniform_ref": 0.447
+   },
+   {
+    "bvid": "BV11Znm6hEPr",
+    "k": 2,
+    "n": 68,
+    "mean_len": 34.0,
+    "cv_obs": 0.941,
+    "cv_uniform_ref": 0.121
+   },
+   {
+    "bvid": "BV12vpQ6SEYu",
+    "k": 2,
+    "n": 8,
+    "mean_len": 4.0,
+    "cv_obs": 0.0,
+    "cv_uniform_ref": 0.354
+   },
+   {
+    "bvid": "BV13GJi6zEN6",
+    "k": 9,
+    "n": 28,
+    "mean_len": 3.11,
+    "cv_obs": 0.685,
+    "cv_uniform_ref": 0.535
+   },
+   {
+    "bvid": "BV13enn6AEKg",
+    "k": 3,
+    "n": 14,
+    "mean_len": 4.67,
+    "cv_obs": 1.111,
+    "cv_uniform_ref": 0.378
+   },
+   {
+    "bvid": "BV171pm64EUP",
+    "k": 2,
+    "n": 5,
+    "mean_len": 2.5,
+    "cv_obs": 0.2,
+    "cv_uniform_ref": 0.447
+   },
+   {
+    "bvid": "BV13inR6fERD",
+    "k": 3,
+    "n": 8,
+    "mean_len": 2.67,
+    "cv_obs": 0.884,
+    "cv_uniform_ref": 0.5
+   },
+   {
+    "bvid": "BV14nJo69E6w",
+    "k": 3,
+    "n": 6,
+    "mean_len": 2.0,
+    "cv_obs": 0.408,
+    "cv_uniform_ref": 0.577
+   },
+   {
+    "bvid": "BV1HapC6SEMS",
+    "k": 8,
+    "n": 23,
+    "mean_len": 2.88,
+    "cv_obs": 0.767,
+    "cv_uniform_ref": 0.552
+   },
+   {
+    "bvid": "BV163HV6ZE5X",
+    "k": 3,
+    "n": 9,
+    "mean_len": 3.0,
+    "cv_obs": 0.544,
+    "cv_uniform_ref": 0.471
+   },
+   {
+    "bvid": "BV18vpg6zEWF",
+    "k": 2,
+    "n": 12,
+    "mean_len": 6.0,
+    "cv_obs": 0.667,
+    "cv_uniform_ref": 0.289
+   },
+   {
+    "bvid": "BV16Up663EuJ",
+    "k": 2,
+    "n": 7,
+    "mean_len": 3.5,
+    "cv_obs": 0.714,
+    "cv_uniform_ref": 0.378
+   },
+   {
+    "bvid": "BV18tp764En4",
+    "k": 3,
+    "n": 12,
+    "mean_len": 4.0,
+    "cv_obs": 0.612,
+    "cv_uniform_ref": 0.408
+   },
+   {
+    "bvid": "BV1EEnF6XEyq",
+    "k": 3,
+    "n": 9,
+    "mean_len": 3.0,
+    "cv_obs": 0.544,
+    "cv_uniform_ref": 0.471
+   },
+   {
+    "bvid": "BV1BSJQ6bE6q",
+    "k": 3,
+    "n": 6,
+    "mean_len": 2.0,
+    "cv_obs": 0.408,
+    "cv_uniform_ref": 0.577
+   },
+   {
+    "bvid": "BV144ps63Eb7",
+    "k": 4,
+    "n": 39,
+    "mean_len": 9.75,
+    "cv_obs": 1.437,
+    "cv_uniform_ref": 0.277
+   }
+  ],
+  "note": "cv_uniform_ref：把 n 个桶均匀切成 k 段时段长的期望变异系数（二项近似 sd=sqrt(mu*(1-1/k))，mu=n/k；是\"边界完全随机等距\"的参照，非精确解析式）"
+ },
+ "q2_boundary_vs_strength_change": {
+  "n_boundaries": 57,
+  "n_nonboundary": 245,
+  "boundary_delta_med": 0.993,
+  "nonboundary_delta_med": 0.405,
+  "boundary_delta_p90": 2.064,
+  "auc_delta_pred_boundary": 0.8337,
+  "note": "AUC=0.5 ⇒ 边界处强度变化与非边界无异（构念错配的定量证据）；AUC>0.7 ⇒ 边界确实落在强度跳变处"
+ },
+ "q3_next_category_probe": {
+  "n_pairs": 63,
+  "n_videos": 25,
+  "next_class_dist": {
+   "L": 24,
+   "R": 1,
+   "H": 13,
+   "B": 14,
+   "D": 11
+  },
+  "majority_class": "L",
+  "acc_majority": 0.381,
+  "acc_transition_loo": 0.4762,
+  "acc_lr_probe_loo": 0.5714,
+  "macro_f1_majority": 0.1103,
+  "macro_f1_transition_loo": 0.2608,
+  "macro_f1_lr_probe_loo": 0.3675,
+  "lr_vs_transition": {
+   "n": 63,
+   "diff_acc": 0.0952,
+   "note": "差异置信区间用成对 bootstrap（视频级，B=2000，seed=20261028）",
+   "ci": [
+    -0.0556,
+    0.2174
+   ]
+  },
+  "note": "LOO=留一视频；next/cur 为 X 的对已剔除；探针特征=当前类别 one-hot+段长+位置占比，仅 LOO 逻辑回归（无未来信息；特征不含被测段的任何后缀信息）"
+ }
+}
