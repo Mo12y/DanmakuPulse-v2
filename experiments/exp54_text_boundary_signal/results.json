@@ -1,0 +1,139 @@
+{
+ "meta": {
+  "n_videos": 30,
+  "n_internal_truth": 79,
+  "n_text_rows": 11557,
+  "seed": 20261028,
+  "feature_sets": {
+   "S1": "count-only(=exp53)",
+   "S2": "text-only",
+   "S3": "count+text"
+  }
+ },
+ "results": {
+  "S1": {
+   "f1": 0.5874,
+   "precision": 0.6562,
+   "recall": 0.5316,
+   "TP": 42,
+   "FP": 22,
+   "FN": 37,
+   "med_err_s": 0.0,
+   "n_pred": 64
+  },
+  "S2": {
+   "f1": 0.5909,
+   "precision": 0.7358,
+   "recall": 0.4937,
+   "TP": 39,
+   "FP": 14,
+   "FN": 40,
+   "med_err_s": 0.0,
+   "n_pred": 53
+  },
+  "S3": {
+   "f1": 0.5821,
+   "precision": 0.7091,
+   "recall": 0.4937,
+   "TP": 39,
+   "FP": 16,
+   "FN": 40,
+   "med_err_s": 0.0,
+   "n_pred": 55
+  }
+ },
+ "paired_bootstrap_S3_vs_S1": {
+  "d_recall": {
+   "diff": -0.0358,
+   "ci": [
+    -0.1132,
+    0.0682
+   ]
+  },
+  "d_f1": {
+   "diff": -0.0054,
+   "ci": [
+    -0.0714,
+    0.0796
+   ]
+  }
+ },
+ "category_text_profile": {
+  "median": {
+   "L": {
+    "n": 2.0,
+    "uniq": 1.0,
+    "mean_len": 6.0,
+    "exclam": 0.0,
+    "ques": 0.0,
+    "laugh": 0.0,
+    "emotive": 0.0,
+    "second": 0.0,
+    "first": 0.0
+   },
+   "R": {
+    "n": 23.0,
+    "uniq": 1.0,
+    "mean_len": 8.68,
+    "exclam": 0.053,
+    "ques": 0.105,
+    "laugh": 0.0,
+    "emotive": 0.0,
+    "second": 0.0,
+    "first": 0.087
+   },
+   "H": {
+    "n": 26.0,
+    "uniq": 1.0,
+    "mean_len": 10.075,
+    "exclam": 0.04,
+    "ques": 0.097,
+    "laugh": 0.0,
+    "emotive": 0.0,
+    "second": 0.04,
+    "first": 0.1
+   },
+   "B": {
+    "n": 49.5,
+    "uniq": 0.937,
+    "mean_len": 8.405,
+    "exclam": 0.042,
+    "ques": 0.098,
+    "laugh": 0.01,
+    "emotive": 0.0,
+    "second": 0.041,
+    "first": 0.082
+   },
+   "D": {
+    "n": 33.0,
+    "uniq": 1.0,
+    "mean_len": 9.88,
+    "exclam": 0.037,
+    "ques": 0.074,
+    "laugh": 0.028,
+    "emotive": 0.0,
+    "second": 0.049,
+    "first": 0.076
+   },
+   "X": {
+    "n": 0.0,
+    "uniq": 0.0,
+    "mean_len": 0.0,
+    "exclam": 0.0,
+    "ques": 0.0,
+    "laugh": 0.0,
+    "emotive": 0.0,
+    "second": 0.0,
+    "first": 0.0
+   }
+  },
+  "n_segments": {
+   "L": 340,
+   "R": 3,
+   "H": 70,
+   "B": 52,
+   "D": 55,
+   "X": 61
+  }
+ }
+}
