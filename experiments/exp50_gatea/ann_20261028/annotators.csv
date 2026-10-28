@@ -1,0 +1,3 @@
+﻿role,name,student_or_id,relation_to_project,algo_access,conflict_note,practice_done,started_at,finished_at
+A,,,项目作者（学生本人）,true,看过 exp44/exp45 算法输出与评估结果（协议 v1.0 §0 已披露）；标注期间不得查看任何算法分段输出,false,,
+B,,,,false,,false,,

@@ -1,0 +1,440 @@
+{
+ "gate": {
+  "metric": "F1@60s",
+  "value": 0.8561,
+  "threshold": 0.7,
+  "verdict": "PASS",
+  "precision": 0.7847,
+  "recall": 0.9417,
+  "TP": 113,
+  "FP": 31,
+  "FN": 7,
+  "med_err_buckets": 0.0,
+  "ci95": [
+   0.8333,
+   0.8763
+  ],
+  "boot": 2000,
+  "seed": 20261028,
+  "category_agreement": 0.8152,
+  "n_videos": 30,
+  "n_truth_bounds": 120,
+  "n_pred_bounds": 144
+ },
+ "per_video": {
+  "BV117eF68ErS": {
+   "hits": 2,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 2
+  },
+  "BV118nd6QEZq": {
+   "hits": 6,
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.8571428571428571,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 6,
+   "n_pred": 8
+  },
+  "BV11Znm6hEPr": {
+   "hits": 2,
+   "precision": 0.5,
+   "recall": 1.0,
+   "f1": 0.6666666666666666,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 4
+  },
+  "BV11dpz6mEkt": {
+   "hits": 2,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 3
+  },
+  "BV11nnh6QERV": {
+   "hits": 6,
+   "precision": 0.8571428571428571,
+   "recall": 1.0,
+   "f1": 0.923076923076923,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 6,
+   "n_pred": 7
+  },
+  "BV11yn86jEuN": {
+   "hits": 2,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 3
+  },
+  "BV123nw6PEgi": {
+   "hits": 8,
+   "precision": 0.8,
+   "recall": 1.0,
+   "f1": 0.888888888888889,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 8,
+   "n_pred": 10
+  },
+  "BV12Hbj6PEsm": {
+   "hits": 2,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 2
+  },
+  "BV12fJe6bESf": {
+   "hits": 9,
+   "precision": 0.8181818181818182,
+   "recall": 1.0,
+   "f1": 0.9,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 9,
+   "n_pred": 11
+  },
+  "BV12vpQ6SEYu": {
+   "hits": 2,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 3
+  },
+  "BV13GJi6zEN6": {
+   "hits": 8,
+   "precision": 0.8,
+   "recall": 1.0,
+   "f1": 0.888888888888889,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 8,
+   "n_pred": 10
+  },
+  "BV13enn6AEKg": {
+   "hits": 2,
+   "precision": 0.5,
+   "recall": 1.0,
+   "f1": 0.6666666666666666,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 4
+  },
+  "BV13inR6fERD": {
+   "hits": 3,
+   "precision": 1.0,
+   "recall": 0.75,
+   "f1": 0.8571428571428571,
+   "errors": [
+    0,
+    0,
+    0
+   ],
+   "n_truth": 4,
+   "n_pred": 3
+  },
+  "BV144ps63Eb7": {
+   "hits": 4,
+   "precision": 0.8,
+   "recall": 1.0,
+   "f1": 0.888888888888889,
+   "errors": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 4,
+   "n_pred": 5
+  },
+  "BV14Meu6tEiC": {
+   "hits": 2,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 2
+  },
+  "BV14ZnS6uEmT": {
+   "hits": 4,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 4,
+   "n_pred": 6
+  },
+  "BV14nJo69E6w": {
+   "hits": 2,
+   "precision": 1.0,
+   "recall": 0.5,
+   "f1": 0.6666666666666666,
+   "errors": [
+    0,
+    1
+   ],
+   "n_truth": 4,
+   "n_pred": 2
+  },
+  "BV163HV6ZE5X": {
+   "hits": 3,
+   "precision": 0.75,
+   "recall": 1.0,
+   "f1": 0.8571428571428571,
+   "errors": [
+    0,
+    0,
+    0
+   ],
+   "n_truth": 3,
+   "n_pred": 4
+  },
+  "BV16Up663EuJ": {
+   "hits": 2,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 3
+  },
+  "BV16uJy6CEuX": {
+   "hits": 6,
+   "precision": 0.8571428571428571,
+   "recall": 1.0,
+   "f1": 0.923076923076923,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 6,
+   "n_pred": 7
+  },
+  "BV171pm64EUP": {
+   "hits": 2,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 3
+  },
+  "BV18tp764En4": {
+   "hits": 4,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "errors": [
+    0,
+    0,
+    1,
+    0
+   ],
+   "n_truth": 4,
+   "n_pred": 4
+  },
+  "BV18vpg6zEWF": {
+   "hits": 2,
+   "precision": 0.5,
+   "recall": 1.0,
+   "f1": 0.6666666666666666,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 4
+  },
+  "BV19tpg6VE8z": {
+   "hits": 3,
+   "precision": 1.0,
+   "recall": 0.75,
+   "f1": 0.8571428571428571,
+   "errors": [
+    0,
+    0,
+    0
+   ],
+   "n_truth": 4,
+   "n_pred": 3
+  },
+  "BV1BSJQ6bE6q": {
+   "hits": 4,
+   "precision": 1.0,
+   "recall": 0.8,
+   "f1": 0.888888888888889,
+   "errors": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 5,
+   "n_pred": 4
+  },
+  "BV1CKbs6jE5y": {
+   "hits": 2,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "errors": [
+    0,
+    0
+   ],
+   "n_truth": 2,
+   "n_pred": 2
+  },
+  "BV1EEnF6XEyq": {
+   "hits": 4,
+   "precision": 0.6666666666666666,
+   "recall": 1.0,
+   "f1": 0.8,
+   "errors": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 4,
+   "n_pred": 6
+  },
+  "BV1EHpv6sEtp": {
+   "hits": 5,
+   "precision": 1.0,
+   "recall": 0.7142857142857143,
+   "f1": 0.8333333333333333,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 7,
+   "n_pred": 5
+  },
+  "BV1FoJ26JEpv": {
+   "hits": 3,
+   "precision": 0.6,
+   "recall": 1.0,
+   "f1": 0.7499999999999999,
+   "errors": [
+    0,
+    0,
+    0
+   ],
+   "n_truth": 3,
+   "n_pred": 5
+  },
+  "BV1HapC6SEMS": {
+   "hits": 7,
+   "precision": 0.7777777777777778,
+   "recall": 1.0,
+   "f1": 0.8750000000000001,
+   "errors": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "n_truth": 7,
+   "n_pred": 9
+  }
+ },
+ "note": "口径=docs/c1_annotation_protocol.md v1.0 §6；门槛是预设候选门槛，不是结果"
+}
