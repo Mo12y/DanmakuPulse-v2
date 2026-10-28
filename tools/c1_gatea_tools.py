@@ -241,11 +241,11 @@ def dispatch():
     for who in ('A', 'B'):
         dst = f'{C1}/dispatch/annotator_{who}'
         os.makedirs(dst, exist_ok=True)
-        # 数据文件（两人一致）
+        # 数据文件（两人一致；utf-8-sig + CRLF，保证 Excel 双击打开中文不乱码）
         for src in (f'{C1}/sample30_csv', f'{C1}/curves_csv'):
             name = os.path.basename(src).replace('_csv', '.csv')
             rows = _read_one_csv(src)
-            cols = sorted(rows[0].keys())
+            cols = list(rows[0].keys())
             with open(f'{dst}/{name}', 'w', newline='', encoding='utf-8-sig') as f:
                 w = csv.DictWriter(f, fieldnames=cols)
                 w.writeheader()
