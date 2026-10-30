@@ -14,3 +14,11 @@ compose/assets/tls/
 # ⚠️ compose/.env 是被 git 跟踪的，所以密钥单独放这个文件，由 fastapi 服务的
 #    env_file（required: false）注入；见 compose/docker-compose.b0.yml 的 fastapi 段。
 compose/.env.llm
+
+# ── 本地保留文档、不入库（2026-10-30）──
+docs/
+screenshots/
+*.md
+*.docx
+*.pdf
+*.zip
