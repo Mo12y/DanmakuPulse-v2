@@ -7,7 +7,8 @@
   页面会显示"两条线一样"，看起来像功能没做 —— 所以把链路钉成断言：
     ① 作业参数不许手填：K/elasticNet/regParam 走网格 + 5 折 CV；阈值由正样本分位数算
     ② 落表带 method/ml_score：DWS → ADS → API 三处列名一致
-    ③ 前端必须标注"虚线 = 弱监督泛化（召回更高、可能误报）"（诚实边界不能只写在报告里）
+    ③ 2026-10-28 诊断页重建后主视图不再展开质疑层；API 契约不变，
+       这里反向钉住旧虚线图例没有被带回前端。
 
 判据全部对着源码查（宿主 venv 不装 pyspark/psycopg，不能 import 作业）。
 用法：cd ~/projects/danmaku-v2 && ~/danmaku-venv/bin/python -m pytest tests/ -q
@@ -54,8 +55,13 @@ def test_table_columns_carry_method():
         'API 载荷必须给 method 与两种段数'
 
 
-def test_frontend_marks_weak_supervision():
+def test_frontend_does_not_reintroduce_weak_supervision_layer():
+    """2026-10-28 诊断页重建：主视图不再展开质疑段。
+
+    API 仍必须带 method / ml_score（由 test_table_columns_carry_method 守住）；
+    这里反向钉住旧虚线图例与来源标签没有随旧页面被带回来。
+    """
     html = _src('serve', 'static', 'diagnosis.html')
-    assert '虚线 = 弱监督泛化（召回更高、可能误报）' in html, '图例必须写清可能误报'
-    assert "s.method === 'ml'" in html, '前端要按 method 区分实线/虚线'
-    assert '（弱监督）' in html and '（词典）' in html, 'chip / 面板要标来源'
+    assert '弱监督' not in html
+    assert '质疑段' not in html
+    assert "s.method === 'ml'" not in html

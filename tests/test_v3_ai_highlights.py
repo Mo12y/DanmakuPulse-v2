@@ -130,9 +130,14 @@ def test_state_route_crops_for_normal_user():
     assert "'enabled'" in body and "'configured'" in body, '普通用户只回 {enabled, configured}'
 
 
-def test_frontend_usage_line_admin_only():
+def test_frontend_has_no_ai_usage_surface():
+    """2026-10-28 诊断页重建：AI 按钮与面板已删除。
+
+    后端 AI 端点与按角色裁剪仍由 test_state_route_crops_for_normal_user 守住；
+    这里反过来钉住前端不再出现任何用量/费用入口，避免旧面板被顺手带回来。
+    """
     html = io.open(os.path.join(ROOT, 'serve', 'static', 'diagnosis.html'),
                    encoding='utf-8').read()
-    assert 'function aiUsageLine' in html
-    assert 'if (!AIADMIN) return' in html, '用量行必须先判管理员，否则普通用户会看到费用/模型'
-    assert "role === 'admin'" in html, 'AIADMIN 用 V3.ready 的 me.role 判定'
+    assert 'aiUsageLine' not in html
+    assert 'AI 解读' not in html
+    assert 'spent_cny' not in html

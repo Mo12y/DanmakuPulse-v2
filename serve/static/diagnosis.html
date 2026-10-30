@@ -1,2024 +1,739 @@
 <!DOCTYPE html>
 <html lang="zh" data-theme="dark">
-<script>/* 默认深色，与全站一致；切过以 localStorage 为准。放在这里避免首帧闪一下浅色 */try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
+<script>try{var _t=localStorage.getItem("v3-theme");if(_t)document.documentElement.setAttribute("data-theme",_t);}catch(e){}</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>精彩时刻检测 · 视频节奏分析工作台</title>
+<title>视频分析 · 弹幕节奏</title>
 <link rel="icon" href="data:,">
-<script src="vendor/echarts.min.js"></script>
-<script src="vendor/html2canvas.min.js"></script>
-<script src="v3chart.js"></script>
-<script src="v3nav.js?v=20261021"></script>
 <link rel="stylesheet" href="v3.css">
 <style>
-/* 页面专有样式（共用外壳见 v3.css） */
-#shot{padding:0}
-.poshero{font-size:17px;font-weight:700;margin-bottom:4px}
-.possub{font-size:13px;color:var(--text-secondary);margin-bottom:16px}
-.posrow{display:grid;grid-template-columns:96px 1fr 96px 150px;gap:12px;align-items:center;
-  padding:7px 0;font-size:13px}
-.posrow+.posrow{border-top:1px dashed var(--border)}
-.poslab{font-weight:600;font-size:13px}
-.postrack{position:relative;height:7px;background:var(--surface-soft);border-radius:4px}
-.postrack i{position:absolute;top:-3px;width:3px;height:13px;border-radius:2px;background:var(--accent)}
-.postrack b{position:absolute;left:50%;top:-2px;width:1px;height:11px;background:var(--text-tertiary)}
-.posval{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
-.poshuman{color:var(--text-secondary);font-size:12.5px}
-#chart{height:400px;width:100%}
-.chartcap{font-size:13.5px;color:var(--text);background:var(--accent-soft);border-radius:10px;
-  padding:10px 14px;margin-top:6px}
-.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);margin-bottom:8px}
-.legend i{display:inline-block;width:22px;height:0;border-top-width:3px;border-top-style:solid;
-  vertical-align:middle;margin-right:6px}
-.legend .sw{display:inline-block;width:16px;height:10px;border-radius:3px;vertical-align:middle;margin-right:6px}
-.peaks{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.chip{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;cursor:pointer;
-  background:var(--card);transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
-.chip:hover,.chip.on{border-color: var(--accent-ink);color: var(--accent-ink);background:var(--accent-soft)}
-.dmpanel{margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-soft)}
-.dmpanel h4{font-size:13px;margin-bottom:8px;font-weight:700}
-.dmpanel ul{margin-left:18px;font-size:13px;color:var(--text)}
-.dmpanel li{margin:2px 0}
-.dev{border:1px solid var(--border);border-radius:13px;padding:15px 17px;margin-bottom:11px;background:var(--card);
-  cursor:pointer;transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
-.dev:hover{border-color: var(--accent-ink);box-shadow:var(--shadow)}
-.dev.dim{border-color: var(--accent-ink);background:var(--accent-soft)}
-.devtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
-.devname{font-size:15px;font-weight:700}
-.cmp{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:center;margin:7px 0;font-size:12.5px}
-.cmp>span:last-child{display:block;background:var(--surface-soft);border-radius:5px;height:16px;overflow:hidden}
-.cmp .b{display:block;height:16px;border-radius:5px;min-width:3px}
-.cmp .bl{color:var(--text-secondary);text-align:right}
-.cmp .mid{background:var(--text-secondary);opacity:.45}
-.cmp .you{background:var(--accent)}
-.devtext{font-size:14px;margin:8px 0 6px}
-.devadv{font-size:13.5px;color:var(--text);background:var(--surface-soft);border-left:3px solid var(--accent);
-  border-radius:0 9px 9px 0;padding:9px 13px;margin-top:8px}
-.devadv b{color: var(--accent-ink)}
-.devfoot{font-size:12px;color:var(--text-tertiary);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
-.bench{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-.bcard{border:1px solid var(--border);border-radius:13px;padding:15px 16px;background:var(--card);
-  display:flex;flex-direction:column;cursor:pointer;transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease}
-.bcard:hover{border-color: var(--accent-ink);box-shadow:var(--shadow)}
-.bcard.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-.btitle{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:7px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.bsim{font-size:12px;color: var(--accent-ink);font-weight:700;margin-bottom:8px}
-.blike{font-size:13px;color:var(--text);margin-bottom:9px;flex:1}
-.bout{font-size:13.5px;font-weight:700;color:var(--success)}
-.bout.none{color:var(--text-tertiary);font-weight:500;font-size:12.5px}
-.blearn{font-size:12.5px;color:var(--text-secondary);border-top:1px dashed var(--border);padding-top:9px;margin-top:9px}
-.bgo{font-size:12.5px;color: var(--accent-ink);font-weight:700;margin-top:9px}
-.act{display:flex;gap:13px;padding:12px 0}
-.act+.act{border-top:1px dashed var(--border)}
-.actn{flex:0 0 26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:13px;
-  font-weight:700;display:flex;align-items:center;justify-content:center}
-.actt{flex:1;font-size:14.5px;line-height:1.6}
-.actb{font-size:12.5px;color:var(--text-tertiary);margin-top:4px}
-.caveat{font-size:12.5px;color:var(--text-secondary);background:var(--surface-soft);border-radius:10px;
-  padding:11px 14px;margin-top:14px}
-/* 可点关键词：结论 → 证据 */
-.jump{color: var(--accent-ink);cursor:pointer;border-bottom:1px dashed var(--accent);transition: color .12s ease, border-color .12s ease}
-.jump:hover{background:var(--accent-soft);border-radius:4px}
-.vproblem .jump{border-bottom-width:2px}
-.jumphint{font-size:12.5px;color:var(--text-tertiary);margin-top:6px}
-/* 在线诊断徽章（库外视频）：把"这是现采的、与库内差在哪"摆在最上面 */
-.livebar{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:8px;
-  padding:10px 14px;font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.7}
-.ltag{display:inline-block;background:var(--accent);color:var(--on-accent);font-size:11px;
-  font-weight:700;border-radius:999px;padding:2px 8px;margin-right:8px;vertical-align:1px}
-.livenotes{margin:0 0 12px;padding:0 0 0 18px;font-size:12px;color:var(--text-secondary);line-height:1.85}
-.livenotes li{margin-bottom:2px}
-/* 对标细节面板：贴着对标区，不占用下面的弹幕证据位 */
-.bdpanel{margin-top:12px;border:1px solid var(--accent-line);border-radius:8px;
-  background:var(--accent-soft);padding:12px 14px;font-size:13px;line-height:1.85}
-.bdhead{font-weight:600;margin-bottom:6px}
-.bdrow{color:var(--text-secondary)}
-.bdk{display:inline-block;min-width:64px;color:var(--text-tertiary);font-size:12px}
-.bdnote{color:var(--text-tertiary);font-size:12px;margin-left:10px}
-
-/* 点击互动：滚过去的区块闪一下，让"跳到哪了"看得见（§1.2.3 C4：只动 opacity/背景，不动布局） */
-.flash{border-radius:8px;animation:v3flash 1.4s ease-out}
-@keyframes v3flash{
-  0%,26%{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-line)}
-  100%{background:transparent;box-shadow:0 0 0 0 transparent}
+.wrap{max-width:1320px}
+body.page-focus .sidebar .side-group:has(.ml){display:none}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:2px 0 0;margin-bottom:4px}
+.pagesub{background:none;border:0;border-radius:0;padding:0;margin:0;font-size:12px;color:var(--text-tertiary);letter-spacing:.02em}
+.pagesub b{font-size:13px;color:var(--text);font-weight:700}
+.tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tools input{width:216px;padding:6px 9px;font-size:12.5px;background:transparent;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text)}
+.tools input::placeholder{color:var(--text-tertiary)}
+.tools .toolbtn{background:none;border:0;border-bottom:1px solid transparent;color:var(--text-secondary);font-family:inherit;font-size:12.5px;padding:5px 1px;cursor:pointer;transition:color .15s ease,border-color .15s ease}
+.tools .toolbtn:hover{color:var(--accent-ink);border-bottom-color:var(--accent-line)}
+.hint{min-height:16px;font-size:12px;color:var(--text-tertiary);margin:0 0 2px}
+.hero{padding:14px 0 10px;border-bottom:1px solid var(--border)}
+.hero-kicker{font-size:11.5px;color:var(--text-tertiary);letter-spacing:.04em;margin-bottom:8px}
+.hero-kicker::before{content:'';display:inline-block;width:16px;height:2px;background:var(--accent);margin-right:8px;vertical-align:middle}
+.hero-title{font-size:clamp(22px,2.5vw,32px);line-height:1.2;font-weight:800;letter-spacing:-.02em;max-width:1180px}
+.hero-facts{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--text-secondary)}
+.hero-facts b{font-size:14px;color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
+.hero-sep{color:var(--text-tertiary)}
+.bili{font-size:12px;color:var(--text-tertiary);text-decoration:underline;text-underline-offset:3px}
+.kn-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0 0}
+.kn{background:var(--surface-soft);border-radius:10px;padding:9px 11px;min-width:0}
+.kn span{display:block;font-size:11px;color:var(--text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kn b{display:block;margin-top:3px;font-size:19px;line-height:1.1;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kn small{font-size:11px;color:var(--text-secondary);font-weight:600}
+.sec{padding:20px 0 18px;border-bottom:1px solid var(--border-subtle)}
+.sec:last-of-type{border-bottom:0}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sec-head h2{font-size:17px;font-weight:800;letter-spacing:-.015em;display:flex;align-items:baseline;gap:8px}
+.sec-head .no{font-size:10.5px;font-weight:700;color:var(--accent-ink);letter-spacing:.06em}
+.sec-meta{font-size:11.5px;color:var(--text-tertiary)}
+.chart-host{position:relative;min-width:0}
+.chart-wrap{position:relative;height:320px;touch-action:none}
+.chart-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.band-below{fill:var(--danger-soft,rgba(255,99,99,.16))}
+.band-above{fill:var(--accent-soft)}
+.peer-band{fill:var(--chart-fill-secondary,rgba(120,140,255,.14))}
+.peer-line{fill:none;stroke:var(--text-tertiary);stroke-width:1.4;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.you-area{fill:var(--chart-fill-primary)}
+.you-line{fill:none;stroke:var(--primary);stroke-width:2.2;vector-effect:non-scaling-stroke}
+.overlay-line{fill:none;stroke:var(--accent-ink);stroke-width:1.8;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.base-line{stroke:var(--chart-split);stroke-width:1;vector-effect:non-scaling-stroke}
+.peak-line{stroke:var(--accent-line);stroke-width:1;stroke-dasharray:3 5;vector-effect:non-scaling-stroke}
+.peak-dot{fill:var(--accent);stroke:var(--bg);stroke-width:1.4;vector-effect:non-scaling-stroke}
+.peak-sel{fill:var(--accent-soft)}
+.peak-tag{fill:var(--accent-ink);font-size:13px;font-weight:800;font-family:inherit}
+.hover-line{stroke:var(--text-tertiary);stroke-width:1;vector-effect:non-scaling-stroke}
+.hover-dot{fill:var(--accent);stroke:var(--bg);stroke-width:1.2}
+.brush-rect{fill:var(--accent-soft);stroke:var(--accent-line);stroke-width:1}
+.chart-hit{fill:transparent;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:11.5px;line-height:1.45;color:var(--text);box-shadow:0 6px 18px rgba(0,0,0,.22);white-space:nowrap;opacity:0;transform:translate(-50%,-110%);transition:opacity .08s ease}
+.tip b{font-variant-numeric:tabular-nums}
+.legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--text-secondary);margin:2px 0 6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.legend .i-you{background:var(--primary)}
+.legend .i-med{background:var(--text-tertiary)}
+.legend .i-band{background:var(--chart-fill-secondary,rgba(120,140,255,.2));height:10px}
+.legend .i-over{background:var(--accent-ink)}
+.legend .i-peak{width:2px;height:12px;background:var(--accent)}
+.x-axis{position:relative;height:18px;margin-top:2px;font-size:10.5px;color:var(--text-tertiary)}
+.tick{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tick.first{transform:none}.tick.last{transform:translateX(-100%)}
+.band-strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--text-secondary)}
+.band-chip{border:1px solid var(--border-subtle);border-radius:999px;padding:2px 8px;font-variant-numeric:tabular-nums}
+.band-chip b{color:var(--accent-ink)}
+.dev-list{display:grid;gap:8px}
+.dev-row{display:grid;grid-template-columns:210px minmax(0,1fr) 190px;gap:14px;align-items:center;background:var(--surface-soft);border-radius:10px;padding:9px 12px}
+.dev-name{font-size:13px;font-weight:700}
+.dev-name small{display:block;font-weight:600;font-size:11px;color:var(--text-tertiary);margin-top:2px}
+.dev-svg{display:block;width:100%;height:46px}
+.dev-axis{stroke:var(--border);stroke-width:1}
+.dev-med{stroke:var(--text-tertiary);stroke-width:1.4;stroke-dasharray:3 3}
+.dev-dot{fill:var(--accent);stroke:var(--bg);stroke-width:1.2}
+.dev-label{font-size:10.5px;fill:var(--text-tertiary);font-family:inherit}
+.dev-nums{font-size:11.5px;color:var(--text-secondary);line-height:1.5}
+.dev-nums b{color:var(--text);font-variant-numeric:tabular-nums}
+.dev-nums .n{color:var(--text-tertiary)}
+.peak-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.peak-tile{display:block;width:100%;border:0;border-radius:10px;background:var(--surface-soft);color:var(--text);font-family:inherit;text-align:left;padding:10px 11px;cursor:pointer;min-width:0;transition:background-color .15s ease}
+.peak-tile:hover{background:var(--surface-hover)}
+.peak-tile.on{background:var(--accent-soft)}
+.pt-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.pt-time{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.pt-rank{font-size:10px;color:var(--text-tertiary);border:1px solid var(--border-subtle);border-radius:999px;padding:1px 6px;white-space:nowrap}
+.pt-nums{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin:7px 0 6px;font-size:11px;color:var(--text-secondary)}
+.pt-nums b{color:var(--text);font-variant-numeric:tabular-nums}
+.pt-phrase{display:block;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt-phrase b{color:var(--accent-ink)}
+.peak-panel{margin-top:12px;border-top:1px dashed var(--border);padding-top:12px;display:grid;grid-template-columns:minmax(0,.62fr) minmax(0,1.38fr);gap:22px}
+.peak-panel[hidden]{display:none}
+.pp-nums{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pp-k{background:var(--surface-soft);border-radius:8px;padding:7px 9px}
+.pp-k span{display:block;font-size:10.5px;color:var(--text-tertiary)}
+.pp-k b{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums}
+.pp-list{max-height:220px;overflow:auto;display:grid;gap:4px}
+.pp-line{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;font-size:12px;color:var(--text-secondary)}
+.pp-t{color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.dim-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.dim-card{background:var(--surface-soft);border-radius:10px;padding:8px 10px;min-width:0}
+.dim-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dim-svg{display:block;width:100%;height:34px;margin-top:4px}
+.dim-foot{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-tertiary);margin-top:2px}
+.dim-foot b{color:var(--text);font-variant-numeric:tabular-nums}
+.sim-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sim-card{background:var(--surface-soft);border-radius:10px;padding:10px 11px;min-width:0}
+.sim-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.sim-pct{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.sim-pct small{font-size:11px;color:var(--text-tertiary);font-weight:600}
+.sim-title{font-size:13px;font-weight:700;margin-top:4px;line-height:1.35}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.chip{font-size:10.5px;border:1px solid var(--border-subtle);border-radius:999px;padding:1px 7px;color:var(--text-secondary)}
+.chip.diff{color:var(--accent-ink);border-color:var(--accent-line)}
+.sim-outcome{font-size:11.5px;color:var(--text-secondary);margin-top:6px}
+.sim-outcome b{color:var(--text)}
+.sim-spark{display:block;height:42px;margin-top:6px}
+.sim-actions{display:flex;justify-content:space-between;align-items:center;margin-top:7px}
+.sim-actions a{font-size:11.5px;color:var(--text-tertiary);text-decoration:underline;text-underline-offset:3px}
+.sim-actions button{background:none;border:1px solid var(--border-subtle);border-radius:8px;color:var(--text-secondary);font-family:inherit;font-size:11.5px;padding:3px 8px;cursor:pointer}
+.sim-actions button.on{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-line)}
+.pagefoot{padding:14px 0 30px;font-size:11.5px;color:var(--text-tertiary);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.state{padding:60px 0}
+.state h1{font-size:26px;margin-bottom:8px}
+.loading{color:var(--text-tertiary)}
+@media (max-width:1180px){
+  .kn-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dim-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .peak-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:900px){
+  .dev-row{grid-template-columns:170px minmax(0,1fr)}
+  .dev-nums{grid-column:1 / -1;display:flex;gap:14px}
+  .sim-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dim-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .wrap{max-width:none;padding:0 14px}
+  .kn-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .peak-grid{grid-template-columns:1fr}
+  .dim-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sim-grid{grid-template-columns:1fr}
+  .dev-row{grid-template-columns:1fr;gap:8px}
+  .peak-panel{grid-template-columns:1fr;gap:12px}
+  .chart-wrap{height:260px}
+  .hero{padding-top:8px}
+  .sec{padding:16px 0 14px}
 }
 
-/* ML 可信度三签名（精确 / 出处 / 诚实）——都在主视图，不藏技术层 */
-.devnum{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin:8px 0 4px;
-  font-size:13px;color:var(--text-secondary)}
-.devnum b{font-size:15px;color:var(--text);font-variant-numeric:tabular-nums;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.devnum .du{font-size:12px;color:var(--text-tertiary)}
-.devbadges{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
-.bdg{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;
-  background:var(--surface-soft);color:var(--text-secondary);border:1px solid var(--border-subtle);
-  cursor:help}
-.honest{margin-top:12px;padding:12px 14px;border-radius:8px;background:var(--surface-soft);
-  border:1px solid var(--border-subtle);font-size:12px;line-height:1.9;color:var(--text-secondary)}
-.honest b{color:var(--text);margin-right:8px}
-.honest span{display:block}
-
-/* 证据面板：该时段的弹幕 */
-.dmcmp{display:flex;gap:22px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);
-  border-radius:10px;padding:11px 14px;margin-bottom:10px;font-size:13px;align-items:baseline}
-.dmcmp b{font-size:19px;font-variant-numeric:tabular-nums}
-.dmcmp .u b{color: var(--accent-ink)} .dmcmp .p b{color:var(--text-secondary)}
-.dmwhy{font-size:12.5px;color:var(--text-secondary);margin-bottom:10px}
-.dmlist{max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:10px;
-  background:var(--card);padding:6px 12px}
-.dmline{display:grid;grid-template-columns:52px 1fr;gap:10px;font-size:13px;padding:4px 0;
-  border-bottom:1px dashed var(--border)}
-.dmline:last-child{border-bottom:0}
-.dmline .dt{color:var(--text-tertiary);font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums}
-.dmempty{font-size:13px;color:var(--text-secondary);padding:14px 4px}
-/* 空状态 */
-.empty{padding:56px 24px;text-align:center}
-.empty h2{font-size:23px;font-weight:800;margin-bottom:10px}
-.empty p{color:var(--text-secondary);font-size:14px;margin-bottom:20px;line-height:1.9}
-.empty .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.empty .eg{margin-top:22px;font-size:12.5px;color:var(--text-tertiary)}
-.hideWhenEmpty{display:none!important}
-/* 空态卡：只有一个输入框（顶部 toolbar 在空态隐藏，避免两个入口） */
-.heroempty{padding:56px 24px 48px;display:flex;flex-direction:column;align-items:center;gap:14px}
-.heroeg{font-size:12.5px;color:var(--text-tertiary)}
-.heroinput{width:min(600px,88%);font-size:15px;padding:12px 16px;text-align:center}
-.herohint{font-size:12.5px;color:var(--text-tertiary);min-height:18px;max-width:600px;line-height:1.6}
-.searchhint{font-size:12.5px;color:var(--text-tertiary);margin:-6px 0 12px;min-height:18px}
-.hlchartnote{font-size:11.5px;color:var(--text-tertiary);margin-top:6px;line-height:1.7}
-.hljumps .hlmore{border:1px dashed var(--border);border-radius:999px;padding:4px 11px;font-size:12px;
-  cursor:pointer;background:var(--card);color:var(--accent-ink);font-family:inherit}
-/* ⑤ 相似对标（主视图）：一行一支，紧凑 */
-.peerlist{display:grid;gap:0}
-.peer{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:baseline;
-  padding:9px 0;font-size:13px;border-top:1px dashed var(--border)}
-.peer:first-child{border-top:0;padding-top:2px}
-.peert{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.peersim{font-size:12.5px;color:var(--accent-ink);font-weight:700;font-variant-numeric:tabular-nums}
-.peerout{font-size:12.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
-.peerfoot{font-size:11.5px;color:var(--text-tertiary);margin-top:10px;line-height:1.7}
-@media (max-width:560px){
-  .peer{grid-template-columns:1fr auto}
-  .peerout{grid-column:1/-1}
+/* --- fix: readable axes, thin bands, single-chart rows --- */
+.chart-grid{display:grid;grid-template-columns:62px minmax(0,1fr);align-items:stretch;gap:0}
+.y-axis{position:relative;height:320px;font-size:11.5px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.y-axis .yt{position:absolute;right:8px;transform:translateY(-50%);white-space:nowrap}
+.y-axis .yu{position:absolute;right:8px;top:-2px;font-size:10.5px;color:var(--text-tertiary)}
+.band-below{fill:var(--danger,#d9534f)!important;opacity:.62}
+.band-above{fill:var(--accent)!important;opacity:.42}
+.band-mark{pointer-events:none}
+.dev-chart{border-top:1px solid var(--border-subtle)}
+.dev-axis-head{display:grid;grid-template-columns:200px minmax(0,1fr) 220px;gap:16px;align-items:center;padding:6px 0 4px;font-size:11px;color:var(--text-tertiary)}
+.dev-scale{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.dev-row{background:none!important;border-radius:0!important;border-bottom:1px solid var(--border-subtle);grid-template-columns:200px minmax(0,1fr) 220px!important;gap:16px!important;padding:10px 0!important}
+.dev-name{font-size:13.5px!important}
+.dev-name small{font-size:11.5px!important}
+.dev-svg{height:44px!important}
+.dev-nums{font-size:12.5px!important;line-height:1.6!important}
+.dev-label{font-size:11.5px!important}
+.peak-table{border-top:1px solid var(--border-subtle)}
+.peak-head,.peak-row{display:grid;grid-template-columns:94px minmax(150px,1.25fr) 76px 84px 70px minmax(140px,1.25fr) 44px;gap:12px;align-items:center}
+.peak-head{font-size:11.5px;color:var(--text-tertiary);padding:7px 8px;border-bottom:1px solid var(--border-subtle)}
+.peak-row{width:100%;border:0;border-bottom:1px solid var(--border-subtle);background:none;color:var(--text);font-family:inherit;text-align:left;padding:11px 8px;cursor:pointer;font-size:12.5px}
+.peak-row:hover{background:var(--surface-soft)}
+.peak-row.on{background:var(--accent-soft)}
+.pr-time{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pr-share{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pr-bar{display:block;height:7px;background:var(--surface-hover);border-radius:99px;overflow:hidden}
+.pr-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.pr-pct{font-size:11.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.pr-num{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+.pr-num b{color:var(--text)}
+.pr-phrase{font-size:12.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pr-phrase b{color:var(--accent-ink)}
+.pr-rank{font-size:11.5px;color:var(--text-tertiary);text-align:right;white-space:nowrap}
+.dims-chart{border-top:1px solid var(--border-subtle)}
+.dim-head,.dim-row{display:grid;grid-template-columns:150px minmax(0,1fr) 92px;gap:14px;align-items:center}
+.dim-head{font-size:11.5px;color:var(--text-tertiary);padding:5px 0 3px;border-bottom:1px solid var(--border-subtle)}
+.dim-row{padding:1.5px 0!important;border-bottom:1px solid var(--border-subtle);font-size:12.5px}
+.dim-row .dev-svg{height:23px!important}
+.dim-name{font-size:12.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dim-value{text-align:right;font-size:12px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+.dim-value b{color:var(--text)}
+.sim-spark{height:78px!important}
+.sim-card{padding:12px!important}
+.sim-title{font-size:13.5px!important}
+.sim-outcome{font-size:12px!important}
+.chip{font-size:11.5px!important}
+.sim-actions a,.sim-actions button{font-size:12px!important}
+@media (max-width:900px){
+  .dev-axis-head,.dev-row{grid-template-columns:150px minmax(0,1fr)!important}
+  .dev-nums{grid-column:1 / -1!important;display:flex!important;gap:16px!important;font-size:12.5px!important}
 }
-/* 窄屏：本站侧栏没有抽屉版，≤760px 时收起侧栏，否则 375 宽只剩几十像素给内容（不新增组件） */
 @media (max-width:760px){
   .layout{display:block}
   .sidebar{display:none!important}
-  .main{padding:14px 12px 40px}
-  .heroempty{padding:36px 6px 32px}
-  .heroinput{width:100%}
-}
-/* ── 滚动叙事：顶部导轨（我在看第几段）+ 逐段展开 ──
-   为什么要有：诊断卡很长，"我在哪一段"本身就是可读性的一部分；
-   导轨同时是跳转入口（§1#10 可点元素键盘可达 —— 用的是 <a>）。
-   ⚠️ 逐段展开只在 JS 接管且未开启 reduced-motion 时启用（见 initNarrative），
-   否则默认全可见 —— 不许出现"JS 挂了整页空白"。 */
-.rail{position:sticky;top:8px;z-index:6;display:flex;gap:2px;flex-wrap:wrap;align-items:center;
-  background:var(--card);border:1px solid var(--border);border-radius:999px;padding:4px 6px;
-  margin-bottom:12px;box-shadow:var(--shadow);width:fit-content;max-width:100%}
-.rail[hidden]{display:none}
-.rail a{font-size:12px;color:var(--text-secondary);padding:3px 10px;border-radius:999px;
-  text-decoration:none;transition:color .15s ease,background-color .15s ease}
-.rail a:hover{color:var(--text);background:var(--surface-hover);text-decoration:none}
-.rail a.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
-.reveal{opacity:0;transform:translateY(12px)}
-.reveal.in{opacity:1;transform:none;
-  transition:opacity .4s ease-out,transform .4s ease-out}
-/* 技术层里的参数敏感性控件（主卡绝不出现） */
-.sensrow{display:grid;grid-template-columns:150px 150px 1fr;gap:12px;align-items:center;
-  padding:9px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
-.sensrow:last-child{border-bottom:0}
-.sensrow input[type=range]{width:140px;accent-color: var(--accent-ink)}
-.sensrow .sl{color:var(--text);font-weight:600}
-.sensrow .sl b{color: var(--accent-ink);font-variant-numeric:tabular-nums}
-.sensout{color:var(--text-secondary)}
-.sensout b{color:var(--text)}
-.sensout .cur{color: var(--accent-ink);font-weight:700}
-@media (max-width:720px){ .sensrow{grid-template-columns:1fr;gap:6px} }
-@media (max-width:720px){
-  .posrow{grid-template-columns:74px 1fr 84px;gap:9px}
-  .poshuman{display:none}
-  #chart{height:300px}
+  .main{padding:12px 12px 40px}
+  .chart-grid{grid-template-columns:44px minmax(0,1fr)}
+  .y-axis{height:260px;font-size:10.5px}
+  .y-axis .yt{right:3px}
+  .dev-axis-head{display:none}
+  .dev-row{grid-template-columns:1fr!important;gap:6px!important;padding:9px 0!important}
+  .dev-nums{display:flex!important;gap:14px!important;flex-wrap:wrap}
+  .peak-head{display:none}
+  .peak-row{grid-template-columns:1fr 44px;gap:4px 8px;padding:11px 2px}
+  .pr-time{grid-column:1}
+  .pr-rank{grid-column:2;grid-row:1}
+  .pr-share{grid-column:1 / -1}
+  .pr-num,.pr-phrase{grid-column:1 / -1}
+  .dim-head{display:none}
+  .dim-row{grid-template-columns:92px minmax(0,1fr) 66px;gap:8px}
+  .dim-name{font-size:12px!important}
+  .dim-value{font-size:11.5px}
 }
 
-/* ── AI 报告解读（基于精彩时刻结果给出可观察点）──
-   闸与提示词约束都在后端（serve/ai_report.py）；界面只显示状态与**已用量**。 */
-.aicard{margin-top:var(--card-gap);border:1px solid var(--border);border-radius:var(--radius);
-  background:var(--card);box-shadow:var(--shadow);padding:20px 22px}
-.aihead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.aititle{font-size:15px;font-weight:600}
-.aistate{font-size:12px;color:var(--text-tertiary)}
-.airep{font-size:14.5px;line-height:1.95;margin:8px 0 14px;white-space:pre-wrap}
-.aiadv{background:var(--surface-soft);border-left:3px solid var(--accent-line);
-  border-radius:0 8px 8px 0;padding:11px 14px;font-size:13.5px;line-height:1.9}
-.aiadv b{color:var(--accent-ink)}
-.aiadv ol{margin:6px 0 0 20px}
-.aiadv li{margin:3px 0}
-.aigate{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary);
-  margin-top:12px;line-height:1.8}
-.aigate b{color:var(--text);font-variant-numeric:tabular-nums}
-.aibar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
 
-/* ══════════════════════════════════════════════════════════════
-   精彩时刻检测（2026-10-19 转向）：主视图五块 + 旧诊断折叠层
-   只用既有 token（v3.css）；不新增 token、不新增页面。
-   ══════════════════════════════════════════════════════════════ */
-.hlhead{padding:22px 24px 14px;border-bottom:1px solid var(--border-subtle)}
-.hlhead .vtitle{margin-bottom:6px}
-.hlhead .vmeta{margin-bottom:10px}
-.hlbadges{display:flex;gap:6px;flex-wrap:wrap}
-.hlnotice{font-size:12.5px;color:var(--text-secondary);background:var(--surface-soft);
-  border:1px solid var(--border-subtle);border-radius:8px;padding:9px 13px;margin-bottom:12px;line-height:1.8}
-.hlempty{font-size:13px;color:var(--text-secondary);padding:12px 0 4px;line-height:1.9}
-.hllegend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);
-  margin-bottom:8px;align-items:center}
-.hllegend i{display:inline-block;vertical-align:middle;margin-right:6px}
-.hllegend .swl{width:20px;height:0;border-top:3px solid var(--primary)}
-.hllegend .swt{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
-  border-bottom:10px solid var(--accent)}
-.hllegend .swb{width:16px;height:10px;border-radius:3px;background:var(--primary-tint);
-  border:1px solid var(--primary-line)}
-#hlchart{height:230px;width:100%}
-.hljumps{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;max-height:120px;overflow:auto}
-.hljump{border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:12px;
-  cursor:pointer;background:var(--card);color:var(--text-secondary);font-family:inherit;
-  transition:border-color .15s ease,color .15s ease,background-color .15s ease}
-.hljump:hover,.hljump.on{border-color:var(--accent-ink);color:var(--accent-ink);background:var(--accent-soft)}
-.hljump.crit:hover,.hljump.crit.on{border-color:var(--primary-strong);color:var(--primary-strong);
-  background:var(--primary-soft)}
-#hlpanel{margin-top:4px}
-/* ② 从众 / 中性 / 批判 占比条 */
-.ratio{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--surface-soft);
-  border:1px solid var(--border-subtle)}
-.ratio i{display:block;height:100%}
-.ratio .herd{background:var(--chart-axis)}
-.ratio .neutral{background:var(--text-tertiary);opacity:.4}
-.ratio .crit{background:var(--accent)}
-.ratioline{font-size:14.5px;font-weight:600;margin:12px 0 6px;line-height:1.7}
-.ratioline b{color:var(--accent-ink)}
-.ratiolegend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-top:6px}
-.ratiolegend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;
-  vertical-align:middle}
-.ratiolegend .sw.herd{background:var(--chart-axis)}
-.ratiolegend .sw.neutral{background:var(--text-tertiary);opacity:.4}
-.ratiolegend .sw.crit{background:var(--accent)}
-/* ③ 切片建议 / 高光定位 */
-.hlslices{display:grid;gap:8px}
-.hlslice{display:flex;gap:10px;align-items:center;flex-wrap:wrap;text-align:left;
-  background:var(--surface-soft);border:1px solid var(--border-subtle);border-radius:10px;
-  padding:11px 14px;font-family:inherit;color:var(--text);cursor:pointer;font-size:13.5px;
-  transition:border-color .15s ease,background-color .15s ease}
-.hlslice:hover,.hlslice.on{border-color:var(--accent-line);background:var(--accent-tint)}
-.hlsn{flex:0 0 24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
-  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
-.hlst{font-weight:600;font-size:14px}
-.hlsm{color:var(--text-secondary);font-size:12.5px}
-.hlstime{color:var(--text-tertiary);font-size:12px;font-variant-numeric:tabular-nums;margin-left:auto}
-.hlrep{flex:1 1 100%;font-size:12px;color:var(--text-secondary);line-height:1.55;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.hlrep b{color:var(--text);font-weight:600}
-.hlpanelnote{font-size:12px;color:var(--text-tertiary);margin-top:9px}
-.hlsen{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--text-secondary)}
-.hlsen b{color:var(--text);font-variant-numeric:tabular-nums}
-/* ④ 共振强度对标 */
-.hlpbar{position:relative;height:10px;border-radius:6px;background:var(--surface-soft);
-  border:1px solid var(--border-subtle);margin:16px 0 6px}
-.hlpbar i{position:absolute;top:-4px;width:3px;height:18px;border-radius:2px;background:var(--accent)}
-.hlpbar b{position:absolute;left:50%;top:-3px;width:1px;height:16px;background:var(--text-tertiary)}
-.hlpaxis{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-tertiary)}
-/* 诚实边界（常驻主视图，不折叠） */
-.hlhonestwrap{padding:0 24px 22px}
-.hlhonestwrap .honest{margin-top:16px}
-/* 仅供读屏的 h1（视觉上不占位；页面主标题是功能名，不是装饰） */
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
-  clip:rect(0,0,0,0);white-space:nowrap;border:0}
-/* 旧诊断卡折叠层：默认收起，展开后原有交互照旧 */
+/* --- wiring: backend verdict / actions / notes --- */
+.verdict{margin:10px 0 0;padding:3px 0 3px 12px;border-left:3px solid var(--accent-line)}
+.verdict.warn{border-left-color:var(--accent)}
+.verdict.ok{border-left-color:var(--primary)}
+.vheadline{font-size:18px;line-height:1.42;font-weight:800;letter-spacing:-.01em;max-width:1180px}
+.vdetail{font-size:12.5px;line-height:1.5;color:var(--text-secondary);margin-top:4px;max-width:1180px}
+.vtag{display:inline-block;margin-top:5px;font-size:11px;color:var(--accent-ink);border:1px solid var(--accent-line);border-radius:999px;padding:1px 8px}
+.sec-note{font-size:12.5px;line-height:1.5;color:var(--text-secondary);margin:-2px 0 8px;max-width:1180px}
+.sec-note .sub{color:var(--text-tertiary)}
+.dev-human{font-size:12px;color:var(--text-secondary);margin-top:2px;line-height:1.35}
+.dev-note{grid-column:1 / -1;grid-row:1;font-size:11.5px;line-height:1.45;color:var(--text-tertiary);margin:0 0 4px}
+.dev-row > .dev-name,.dev-row > .dev-svg,.dev-row > .dev-nums{grid-row:2}
+.actions{margin-top:14px;border-top:1px solid var(--border-subtle);padding-top:11px;display:grid;gap:8px}
+.act{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:start;font-size:12.5px;line-height:1.5}
+.act .n{font-size:11px;font-weight:800;color:var(--accent-ink);line-height:1.7}
+.act .basis{display:block;font-size:11.5px;color:var(--text-tertiary);margin-top:2px}
+.act .reflink{display:inline-block;font-size:11.5px;color:var(--text-tertiary);text-decoration:underline;text-underline-offset:3px;margin-top:2px}
+.caveat{font-size:11.5px;line-height:1.45;color:var(--text-tertiary);margin-top:7px}
+.sim-like{font-size:12px;line-height:1.45;color:var(--text-secondary);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
-
-/* ── 结论先行 + 数字收进「?」浮层（2026-10-21 重排）──
-   每个块顶部先给一句人话，图是这句话的证据；
-   口径/方法/边界一律收进 details，正文只留一行。 */
-.hlconcl{font-size:16.5px;font-weight:700;line-height:1.65;margin:2px 0 12px;color:var(--text)}
-.hlconcl b{color:var(--accent-ink)}
-.moreinfo{margin-top:10px;border:1px solid var(--border-subtle);border-radius:8px;
-  background:var(--surface-soft);font-size:12px;color:var(--text-secondary)}
-.moreinfo>summary{cursor:pointer;padding:7px 11px;font-weight:600;list-style:none;
-  display:flex;align-items:center;gap:7px;color:var(--text-secondary)}
-.moreinfo>summary::-webkit-details-marker{display:none}
-.moreinfo>summary::before{content:'?';display:inline-flex;align-items:center;justify-content:center;
-  width:16px;height:16px;border-radius:50%;border:1px solid var(--border);font-size:11px;
-  color:var(--text-tertiary);flex:0 0 16px;line-height:1}
-.moreinfo[open]>summary::before{background:var(--accent-soft);color:var(--accent-ink);
-  border-color:var(--accent-line)}
-.moreinfo .mi-body{padding:0 11px 9px;line-height:1.8}
-.moreinfo .mi-body span{display:block;margin-top:5px}
-.honest .honestline{display:block;font-size:12.5px;color:var(--text-secondary);margin-top:2px}
-.honest details{margin-top:6px}
-
-/* ── Dashboard：KPI 行 + 图表（对标创作中心核心大屏版式）──
-   版式只借"KPI 网格 + 图 + 一句结论"，数据全部是本项目自有字段。 */
-.kpirow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
-  padding:16px 24px 4px}
-.kpirow .kpi{padding:13px 15px;border-radius:10px}
-.kpirow .kpi .kv{font-size:26px;line-height:1.15}
-.kpirow .kpi.hot{background:var(--accent-soft);border-color:var(--accent-line)}
-.kpirow .kpi.hot .kl,.kpirow .kpi.hot .kv{color:var(--accent-ink)}
-.chartbox{width:100%;min-width:0}
-.chartdou{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
-.chartdou>.sec{min-width:0}
-.chartdou canvas{max-width:100%}
-.chartdou>.sec:nth-child(odd){border-right:1px solid var(--border-subtle)}
-@media (max-width:1100px){
-  .chartdou{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media (max-width:860px){
-  .kpirow{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px 16px 2px}
-  /* ⚠️ 必须用 minmax(0,1fr)：ECharts 会给 canvas 写死 px 宽，
-     纯 1fr 的 min-content 会被 451px 的旧 canvas 撑住 → 375 宽横向溢出（实测 496 > 375） */
-  .chartdou{grid-template-columns:minmax(0,1fr)}
-  .chartdou>.sec:nth-child(odd){border-right:0}
-}
-@media (max-width:720px){
-  .hlhead{padding:16px}
-  .hlhonestwrap{padding:0 16px 16px}
-  .hlstime{display:none}
-  #hlchart{height:200px}
-}
 </style>
 </head>
-<body>
+<body class="page-focus">
 <div class="layout">
   <nav class="sidebar" id="v3side" aria-label="主导航"></nav>
   <main class="main">
-    <div class="wrap">
-      <h1 class="sr-only">精彩时刻检测 · 视频节奏诊断</h1>
-      <p class="pagesub"><b>秒级反馈定位仪</b> · 观众在哪一秒集体起反应、哪一段被质疑、同类里什么水平；不预测、不判情绪、不评好坏</p>
-
-  <div class="toolbar" id="toolbar">
-    <input id="search" placeholder="输入 BV 号或标题（库外的自动在线采集）" style="flex:1 1 260px;min-width:200px" autocomplete="off">
-    <button class="btn" id="randBtn" title="随机换一支同类视频">随机一支</button>
-    <button class="btn" id="favBtn" title="收藏这支视频，之后在「我的收藏」里能直接点开">☆ 收藏这支</button>
-    <button class="btn primary" id="shotBtn" title="把这张诊断卡存成图片">存为图片</button>
-    <button class="btn" id="printBtn" title="按 A4 打印或导出 PDF（工具栏与技术层不印）">打印 / 导出 PDF</button>
-    <button class="btn" id="aiBtn" title="基于精彩时刻检测结果给出解读">✦ AI 解读</button>
-  </div>
-  <div class="searchhint" id="searchHint"></div>
-
-  <div id="livebadge" hidden></div>
-
-  <nav class="rail" id="rail" aria-label="诊断卡段落导航" hidden></nav>
-
-  <div class="card" id="shot">
-    <div id="content"><div class="loading">正在加载诊断快照…</div></div>
-  </div>
-
-  <!-- AI 报告解读面板：放在诊断卡之外，避免与卡片内容互相挤占 -->
-  <div id="aipanel" hidden></div>
-</div>
-
-<script>
-const $ = s => document.querySelector(s);
-
-/* ══════════════════════════════════════════════════════════════
-   在线诊断（库外 bvid）：真的去采集这支视频，而不是加载别的视频
-   ══════════════════════════════════════════════════════════════ */
-var LIVE = null;          // 在线元信息（采集条数/时间/诚实说明）；库内视频为 null
-var liveTimer = null;
-
-function isBv(s){ return /^BV[0-9A-Za-z]{10}$/.test(s); }
-
-function setLiveBadge(meta){
-  LIVE = meta;
-  var el = document.getElementById('livebadge');
-  if (!el) return;
-  if (!meta || !meta.live) { el.innerHTML = ''; el.hidden = true; return; }
-  el.hidden = false;
-  el.innerHTML = '<div class="livebar"><span class="ltag">在线采集</span>' +
-    '这不是库内视频：本次实时采到 <b>' + meta.n_collected + '</b> 条弹幕（' + meta.segments + ' 段）' +
-    '，采集于 ' + esc(meta.collected_at) + '。</div>' +
-    '<ul class="livenotes">' + (meta.notes || []).map(function(n){
-      return '<li>' + n.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</li>'; }).join('') + '</ul>';
-}
-
-function loadLive(bvid){
-  $('#content').innerHTML = '<div class="loading">正在采集这支视频的弹幕并算节奏…' +
-    '<br><span style="font-size:12px">库外视频走在线采集（几秒到十几秒），采完再与库内基线比对</span></div>';
-  document.getElementById('rail') && (document.getElementById('rail').hidden = true);
-  resetAI();
-  clearInputs();
-  window.scrollTo(0, 0);
-  fetch('/api/live_diagnose?bvid=' + encodeURIComponent(bvid), { cache: 'no-store' })
-    .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
-    .then(function(o){
-      if (o.s !== 200 || o.j.code !== 0) {
-        liveFail(bvid, (o.j && (o.j.detail || o.j.error)) || ('HTTP ' + o.s));
-        return;
-      }
-      CUR = o.j.data;
-      setName(true);
-      var u = new URLSearchParams();
-      u.set('bvid', bvid);
-      history.replaceState(null, '', '?' + u.toString());
-      LIVE = o.j.meta;
-      DIGEST = null;
-      HL = null; HLMETA = null; DIAGERR = null;
-      HLERR = {status: 404, live: true, detail: '库外在线采集的视频不在精彩时刻检测快照里（检测按采集批次计算）'};
-      api('/api/danmaku_digest?bvid=' + encodeURIComponent(bvid)).then(function(x){ DIGEST = x; }).catch(function(){});
-      render();
-      setLiveBadge(o.j.meta);
-    })
-    .catch(function(e){ liveFail(bvid, e.message); });
-}
-
-function liveFail(bvid, msg){
-  LIVE = null;
-  setName(false);          // 错误态不显示 toolbar（与空态/404 一致），输入框放进卡片
-  $('#content').innerHTML =
-    '<div class="empty">' +
-      '<h2>这支视频诊断不了</h2>' +
-      '<p><b>' + esc(bvid) + '</b><br>' + esc(msg) + '</p>' +
-      '<p style="font-size:13px;color:var(--text-secondary)">在线诊断需要现场采集弹幕；' +
-      '采不到就没有节奏可算。<b>不会拿别的视频冒充它。</b></p>' +
-      '<input id="lfSearch" class="heroinput" placeholder="输入 BV 号或标题" autocomplete="off" aria-label="输入 BV 号或标题">' +
-      '<div class="herohint" id="heroHint" style="margin-top:10px"></div>' +
-      '<div class="row" style="margin-top:12px">' +
-        '<button class="btn primary" id="lfRetry">重试一次</button>' +
-        '<button class="btn" id="lfRand">随机一支</button>' +
-      '</div></div>';
-  document.getElementById('lfRetry').onclick = function(){ loadLive(bvid); };
-  document.getElementById('lfRand').onclick = loadRandom;
-  var inp = document.getElementById('lfSearch');
-  if (inp) inp.onkeydown = function(e){ if (e.key === 'Enter') runSearch(inp.value); };
-}
-
-
-/* 点击互动：平滑滚动 + 闪一下（视觉强引导）。点了不动是 bug，不是"设计克制"。 */
-function focusSection(id){
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  el.classList.remove('flash');
-  void el.offsetWidth;                    // 强制回流，保证连续点击也能重放动画
-  el.classList.add('flash');
-  setTimeout(function(){ el.classList.remove('flash'); }, 1400);
-}
-
-const api = async p => { const r = await fetch(p);
-  if (!r.ok) { const j = await r.json().catch(() => ({}));
-    const e = new Error(j.detail || ("HTTP " + r.status)); e.status = r.status; throw e; }
-  return (await r.json()).data; };
-const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-/* 时间一律给人看的写法：<1 小时 mm:ss；≥1 小时 h:mm:ss（420:05 那种没人读得懂） */
-const mmss = (s, forceH) => { if (s == null) return ''; s = Math.round(s);
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
-  return ((h || forceH) ? h + ':' + String(m).padStart(2,'0') : String(m).padStart(2,'0')) +
-         ':' + String(ss).padStart(2,'0'); };
-/* 区间：<60 秒写「45–50 秒」；≥60 秒一律 01:05–01:15（不让用户自己除 60）。
-   跨小时时两端都补小时位（0:17:25–1:17:00），避免「17:25–1:17:00」一长一短像两个量纲。 */
-function rangeText(t0, t1){
-  const a = roundSec(t0), b = roundSec(t1);
-  if (b < 60) return a + '–' + b + ' 秒';
-  const forceH = b >= 3600;
-  return mmss(a, forceH) + '–' + mmss(b, forceH);
-}
-/* 标题/句首：短段补「第」，长段直接时钟 */
-function rangeLabel(t0, t1){
-  return roundSec(t1) >= 60 ? rangeText(t0, t1) : ('第 ' + rangeText(t0, t1));
-}
-
-let IDX = [], CUR = null, DIGEST = null;
-/* 精彩时刻检测载荷（新端点 /api/video/{bvid}/highlights）。
-   用 var 声明：验收/调试时可在控制台注入 mock 再 render()，不必改文件。 */
-var HL = null, HLERR = null, HLMETA = null, HCHART = null, DIAGERR = null;
-
-/* ── 启动 ── */
-const EXAMPLE = {bvid: 'BV1PJpE6QEx6', tname: '电子竞技'};
-
-(async function init(){
-  const usp = new URLSearchParams(location.search);
-  try {
-    IDX = await api('/api/diagnosis/index');
-    const want = usp.get('bvid');
-    if (want && IDX.some(x => x.bvid === want)) {
-      setName(true);
-      await load(want);
-    } else if (want) {
-      // 库外 BV 号：走**在线采集**真的诊断它（P0 核心修复）。
-      // 旧行为是回一句「没找到」或（更早）默默加载一支无关的库内视频。
-      setName(true);
-      await loadLive(want);
-    } else {
-      emptyState();
-    }
-  } catch(e) {
-    failState((e && e.message) || String(e), null);   // 列表没取到 -> 错误态，不是空白页
-  }
-})();
-
-/* 工具条上的按钮只在真的有卡片时才出现；toolbar 与页面状态一致（空态/404/错误态不显示）*/
-function setName(has){
-  var lb = document.getElementById('livebadge'); if (lb && !has) { lb.hidden = true; lb.innerHTML = ''; }
-  ['#favBtn', '#shotBtn', '#randBtn', '#aiBtn'].forEach(function(k){
-    const el = $(k); if (el) el.classList.toggle('hideWhenEmpty', !has);
-  });
-  setToolbar(has);
-  if (has) updateAIBtn();
-}
-
-function setToolbar(on){
-  var t = document.getElementById('toolbar');
-  if (t) t.classList.toggle('hideWhenEmpty', !on);
-  if (!on) searchHint('');
-}
-
-/* 输入框下方一行提示（空态/toolbar/404 三处共用；不写长篇解释） */
-function searchHint(msg){
-  ['#searchHint', '#heroHint'].forEach(function(k){
-    var el = $(k); if (el) el.textContent = msg || '';
-  });
-}
-
-function clearInputs(){
-  ['#search', '#heroSearch', '#nfSearch'].forEach(function(k){
-    var el = $(k); if (el) el.value = '';
-  });
-  searchHint('');
-}
-
-/* ── 搜索执行：空态输入框与 toolbar 共用这一处，不复制两套逻辑 ── */
-function runSearch(raw){
-  raw = (raw || '').trim();
-  if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
-  if (!raw) return;
-  if (isBv(raw)) {
-    if (IDX.some(function(x){ return x.bvid === raw; })) { searchHint(''); setName(true); load(raw); }
-    else { searchHint(''); setName(true); loadLive(raw); }   // 库外：现场采集
-    return;
-  }
-  var q = raw.toLowerCase();
-  var hit = IDX.find(function(x){
-    return (x.title || '').toLowerCase().indexOf(q) >= 0 ||
-           (x.tname || '').toLowerCase().indexOf(q) >= 0;
-  });
-  if (hit) { searchHint(''); setName(true); load(hit.bvid); return; }
-  searchHint('没找到；可直接粘贴 BV 号，库外视频会现场采集');
-}
-
-/* 空态与错误态：接口没结果 / 接口挂了，都必须给明确交代，不许停在"正在算…" */
-function notFound(bvid){
-  setName(false);
-  $('#content').innerHTML =
-    '<div class="empty">' +
-      '<h2>没找到这个视频</h2>' +
-      '<p><b>' + esc(bvid) + '</b> 不在节奏诊断快照里。<br>' +
-      '只覆盖已采集并跑完节奏分析的视频（当前 803 支），不是所有 B 站视频都在里面。</p>' +
-      '<input id="nfSearch" class="heroinput" placeholder="输入 BV 号或标题" autocomplete="off" aria-label="输入 BV 号或标题">' +
-      '<div class="herohint" id="heroHint" style="margin-top:10px"></div>' +
-      '<div class="row" style="margin-top:12px">' +
-        '<button class="btn" id="nfRand">随机一支</button>' +
-      '</div>' +
-    '</div>';
-  $('#nfRand').onclick = loadRandom;
-  var inp = $('#nfSearch');
-  if (inp) inp.onkeydown = function(e){ if (e.key === 'Enter') runSearch(inp.value); };
-}
-
-function failState(msg, bvid){
-  setName(false);
-  $('#content').innerHTML =
-    '<div class="empty">' +
-      '<h2>诊断卡没能加载出来</h2>' +
-      '<p>接口返回：' + esc(msg) + '<br>' +
-      '这不是"这支视频没问题"，而是"这次没取到数据"——请重试；' +
-      '若持续失败，多半是后端服务或快照没起来。</p>' +
-      '<div class="row"><button class="btn primary" id="fsRetry">重试</button></div>' +
-    '</div>';
-  $('#fsRetry').onclick = function(){ if (bvid) load(bvid); };
-}
-
-/* 空态：卡内只有三样 —— 示例行、唯一输入框、随机一支。
-   界面不解释自己：没有 h2、没有「诊断卡给四样东西」这类说明段。 */
-function emptyState(){
-  setName(false);
-  const r = document.getElementById('rail'); if (r) r.hidden = true;
-  $('#content').innerHTML =
-    '<div class="empty heroempty">' +
-      '<div class="heroeg">例：' + esc(EXAMPLE.bvid) + '（' + esc(EXAMPLE.tname) + '）</div>' +
-      '<input id="heroSearch" class="heroinput" placeholder="输入 BV 号或标题" autocomplete="off" aria-label="输入 BV 号或标题">' +
-      '<div class="row"><button class="btn" id="pickBtn">随机一支</button></div>' +
-      '<div class="herohint" id="heroHint"></div>' +
-    '</div>';
-  $('#pickBtn').onclick = loadRandom;
-  const inp = $('#heroSearch');
-  if (inp) {
-    inp.onkeydown = function(e){ if (e.key === 'Enter') runSearch(inp.value); };
-    inp.oninput = function(){ onTyping(inp.value); };
-    inp.onchange = function(){ if (inp.value.trim()) runSearch(inp.value); };   // 失焦执行
-    // 桌面自动聚焦；移动端不强行弹键盘
-    if (window.matchMedia && window.matchMedia('(min-width: 721px)').matches) {
-      try { inp.focus(); } catch(e) {}
-    }
-  }
-}
-
-/* 输入处理（2026-10-20 重写）
-   ⚠️ 旧实现的 bug：① 输一个库外 BV 号什么都不发生；② 标题每键就整页加载；
-      ③ 空态与 toolbar 是两个输入入口。
-   现在：完整 BV → 库内直读 / 库外在线采集（回车或粘贴后自动触发）；
-        非 BV → 打字时只更新提示，**回车或失焦**才执行，输入过程中不跳页。 */
-var searchTimer = null;
-/* 打字过程中只更新提示，绝不加载（250–400ms debounce）；执行只发生在回车/失焦 */
-function searchTypingHint(raw){
-  raw = (raw || '').trim();
-  if (!raw) { searchHint(''); return; }
-  if (isBv(raw)) { searchHint('按回车开始诊断'); return; }
-  var q = raw.toLowerCase();
-  var hit = IDX.some(function(x){
-    return (x.title || '').toLowerCase().indexOf(q) >= 0 ||
-           (x.tname || '').toLowerCase().indexOf(q) >= 0;
-  });
-  searchHint(hit ? '按回车打开匹配结果' : '没找到；可直接粘贴 BV 号，库外视频会现场采集');
-}
-function onTyping(raw){
-  if (searchTimer) { clearTimeout(searchTimer); searchTimer = null; }
-  searchTimer = setTimeout(function(){ searchTypingHint(raw); }, 300);
-}
-$('#search').oninput = function(e){
-  var raw = e.target.value.trim();
-  if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
-  if (!raw) { searchHint(''); return; }
-  if (isBv(raw)) {
-    // 完整的 BV 号是一次明确输入（不是逐键输入），延迟一下直接执行
-    liveTimer = setTimeout(function(){ runSearch(raw); }, 400);
-    return;
-  }
-  onTyping(raw);
-};
-$('#search').onkeydown = function(e){
-  if (e.key === 'Enter') { e.preventDefault(); runSearch(e.target.value); }
-};
-$('#search').onblur = function(e){
-  if (e.target.value.trim()) runSearch(e.target.value);
-};
-/* 「随机一支」：库内随机抽一支看诊断卡。工具栏 / 空态 / 404 共用同一个入口。 */
-function loadRandom(){
-  if (!IDX.length) return;
-  const x = IDX[Math.floor(Math.random() * IDX.length)];
-  setName(true);
-  load(x.bvid);
-}
-$('#randBtn').onclick = loadRandom;
-// 主题由统一顶栏（v3nav.js）管；切完重画图表
-V3.onTheme = () => {
-  // canvas 不认 CSS 变量：换主题必须销毁重画，否则图表留着上一套配色
-  [HCHART, RING, RADAR, PBAR].forEach(function(c){ if (c) c.dispose(); });
-  HCHART = RING = RADAR = PBAR = null;
-  if (HL) { drawHLChart(); drawDashboardCharts(); }
-};
-
-// 收藏（登录后才有意义；接口 401 时按钮自己隐藏）
-function refreshFav(){
-  const b = $('#favBtn'); if (!b || !CUR) return;
-  fetch('/api/favorites/status?bvid=' + encodeURIComponent(CUR.video.bvid), {credentials:'same-origin'})
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(j => { b.textContent = j.data.favorited ? '★ 已收藏' : '☆ 收藏这支'; })
-    .catch(() => { b.style.display = 'none'; });
-}
-$('#favBtn').onclick = () => {
-  if (!CUR) return;
-  fetch('/api/favorites', {method:'POST', credentials:'same-origin',
-    headers:{'Content-Type':'application/json'}, body: JSON.stringify({bvid: CUR.video.bvid})})
-    .then(r => r.json()).then(j => {
-      if (j.data) { $('#favBtn').textContent = j.data.favorited ? '★ 已收藏' : '☆ 收藏这支'; }
-      if (window.V3 && V3.toast) V3.toast(j.data && j.data.favorited ? '已加入我的收藏' : '已取消收藏');
-    }).catch(() => {});
-};
-$("#printBtn").onclick = function(){ window.print(); };
-
-$('#shotBtn').onclick = async () => {
-  const btn = $('#shotBtn'); btn.textContent = '生成中…'; btn.disabled = true;
-  try {
-    const node = $('#shot');
-    const canvas = await html2canvas(node, {backgroundColor: getComputedStyle(document.body).backgroundColor,
-      scale: 2, useCORS: true, windowWidth: node.scrollWidth});
-    const a = document.createElement('a');
-    a.download = '节奏诊断卡_' + (CUR ? CUR.video.bvid : 'video') + '.png';
-    a.href = canvas.toDataURL('image/png'); a.click();
-  } catch(e) { alert('存图失败：' + e.message); }
-  btn.textContent = '存为图片'; btn.disabled = false;
-};
-
-/* 原始响应（要状态码与 meta）：诊断侧沿用 api() 会丢 meta；精彩时刻要靠状态码决定空态文案 */
-function apiFull(p){
-  return fetch(p, {cache: 'no-store', credentials: 'same-origin'}).then(function(r){
-    return r.json().catch(function(){ return {}; }).then(function(j){
-      return {ok: r.ok, status: r.status, j: j};
-    });
-  });
-}
-
-/* ── 加载一支视频 ──
-   同时取两张卡：① /highlights 精彩时刻（主视图）② /diagnosis 既有节奏诊断（折叠层）。
-   两者独立失败：**精彩时刻成功就照常渲染主视图**（没有密度曲线就退化为峰/段标签），
-   旧诊断取不到只在折叠层位置写一行「旧诊断暂时取不到」；两个都失败才整页错误。 */
-async function load(bvid){
-  $('#content').innerHTML = '<div class="loading">正在算精彩时刻与节奏诊断…</div>';
-  HL = null; HLERR = null; HLMETA = null; DIAGERR = null;
-  LIVE = null; setLiveBadge(null);
-  const rail0 = document.getElementById('rail'); if (rail0) rail0.hidden = true;
-  resetAI();
-  // 换片清理：旧搜索词不留、回到页面顶部（同一视频内的深链接不受影响）
-  clearInputs();
-  window.scrollTo(0, 0);
-  let dp, hp;
-  try {
-    const rs = await Promise.allSettled([
-      apiFull('/api/video/' + encodeURIComponent(bvid) + '/diagnosis'),
-      apiFull('/api/video/' + encodeURIComponent(bvid) + '/highlights')
-    ]);
-    dp = rs[0]; hp = rs[1];
-  } catch (e) {
-    failState((e && e.message) || String(e), bvid);
-    return;
-  }
-  const rd = (dp.status === 'fulfilled') ? dp.value : null;
-  const diagOk = !!(rd && rd.ok && rd.j && rd.j.data);
-  if (hp.status === 'fulfilled') {
-    const rh = hp.value;
-    if (rh.ok && rh.j && rh.j.code === 0 && rh.j.data) {
-      HL = rh.j.data;
-      HLMETA = rh.j.meta || null;
-    } else {
-      HLERR = {status: rh.status, detail: (rh.j && (rh.j.detail || rh.j.error)) || ('HTTP ' + rh.status)};
-    }
-  } else {
-    HLERR = {status: 0, detail: (hp.reason && hp.reason.message) || '网络错误'};
-  }
-  if (!diagOk) {
-    DIAGERR = (rd ? ((rd.j && (rd.j.detail || rd.j.error)) || ('HTTP ' + rd.status))
-                  : ((dp.reason && dp.reason.message) || '网络错误'));
-  }
-  // 两个都失败 → 整页错误态（不静默换视频）
-  if (!diagOk && !HL) {
-    if (rd && rd.status === 404 && (!HLERR || HLERR.status === 404)) notFound(bvid);
-    else failState(DIAGERR, bvid);
-    return;
-  }
-  CUR = diagOk ? rd.j.data : stubFromHL(bvid);
-  // 悬停要即时：弹幕摘要一次取回（≤101 行），不在 hover 里发请求
-  DIGEST = null;
-  if (diagOk) api('/api/danmaku_digest?bvid=' + encodeURIComponent(bvid)).then(x => { DIGEST = x; }).catch(() => {});
-  // 换片时清掉上一条视频的交互参数（drill/bench/act/peak/seg/slice/high），只留 bvid；
-  // 同一 bvid 重新加载（重试）时保留深链接，否则 ?peak=3 一进来就被自己清掉。
-  var u = new URLSearchParams(location.search);
-  var prev = u.get('bvid');
-  if (prev !== bvid) {
-    // 换片：地址栏只留 bvid，旧视频的面板/切片/深链接参数全部清掉
-    u = new URLSearchParams();
-    u.set('bvid', bvid);
-  }
-  history.replaceState(null, '', '?' + u.toString());
-  render();
-}
-
-/* 只有精彩时刻取到时的最小 CUR：让主视图、收藏、弹幕接口都有 bvid 可用 */
-function stubFromHL(bvid){
-  var v = {bvid: bvid, title: (HL && HL.title) || bvid,
-           tname: (HL && HL.tname) || '', duration: (HL && HL.duration) || null,
-           batch_date: (HL && HL.batch_date) || null};
-  return {video: v, curve: null, benchmarks: [], verdict: null, deviations: [], position: null};
-}
-
-
-/* ══════════════════════════════════════════════════════════════
-   精彩时刻检测（2026-10-19 转向）—— 主视图五块
-   数据：/api/video/{bvid}/highlights（新端点）；/diagnosis 只提供密度曲线与旧诊断卡。
-   ⚠️ 图表配色一律走 dmChart()（canvas 不认 CSS 变量）；页面 HTML/CSS 只用 var(--token)。
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── 小工具 ── */
-function hlDur(){
-  if (HL && HL.duration) return HL.duration;
-  if (CUR && CUR.video && CUR.video.duration) return CUR.video.duration;
-  if (CUR && CUR.curve && CUR.curve.duration) return CUR.curve.duration;
-  return 0;
-}
-function numOr(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; }
-function fmtN(n){ return (n == null || isNaN(n)) ? '—' : String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-function pctOfSec(sec, dur){ if (!dur || sec == null) return 0; return Math.max(0, Math.min(100, sec / dur * 100)); }
-function roundSec(s){ return s == null ? 0 : Math.round(s); }
-function ratioToPct(v){
-  var n = numOr(v);
-  if (n == null) return null;
-  return n <= 1.0001 ? n * 100 : n;
-}
-function hlRatioText(v){
-  var p = ratioToPct(v);
-  return p == null ? '—' : Math.round(p) + '%';
-}
-function isLongHL(){
-  if (HL && typeof HL.is_long === 'boolean') return HL.is_long;
-  return hlDur() > 1800;
-}
-function hlBvid(){
-  return (CUR && CUR.video && CUR.video.bvid) || (HL && HL.bvid) || '';
-}
-
-/* 地址栏状态：?peak=N 共振峰 / ?seg=N 质疑段 / ?slice=N 切片 / ?high=N 高光 */
-function markHL(k, v){
-  var u = new URLSearchParams(location.search);
-  ['peak', 'seg', 'slice', 'high'].forEach(function(x){ u.delete(x); });
-  if (k) u.set(k, v);
-  history.replaceState(null, '', '?' + u.toString());
-}
-/* 旧诊断曲线图在折叠层里：展开后才画（收起时容器宽高为 0） */
-
-/* ── 主视图头部：这是哪支视频（BV 号对人是乱码，标题才是） ── */
-function hlHeadHTML(d){
-  var v = (d && d.video) || {};
-  // 数字墙：弹幕数/播放量/峰数都在 KPI 行，页头只留身份信息，不重复念数
-  var meta = [v.up_name, v.tname,
-    v.duration_text ? '时长 ' + v.duration_text : ''].filter(Boolean).join(' · ');
-  var badges = '';
-  if (HL) {
-    badges += '<span class="pill lv">' + (isLongHL() ? '长视频 · 给切片位置' : '短视频 · 给高光位置') + '</span>';
-    if (HL.batch_date) badges += '<span class="pill lv">批次 ' + esc(HL.batch_date) + '</span>';
-  }
-  return '<div class="hlhead">' +
-    '<div class="vtitle">' + esc(v.title || v.bvid || '') + '</div>' +
-    '<div class="vmeta">' + esc(meta) +
-      (v.url ? '　<a href="' + esc(v.url) + '" target="_blank" rel="noopener">B站 ↗</a>' : '') + '</div>' +
-    (badges ? '<div class="hlbadges">' + badges + '</div>' : '') +
-  '</div>';
-}
-
-/* ── 五块主视图（+ 相似对标 ⑤）── */
-function hlViewHTML(d){
-  // Dashboard 版式：KPI 行 → 图谱 → 峰强度 → (环图 | 雷达) → 切片 → 对标 → 相似 → 边界
-  return kpiHTML() + graphHTML(d) + peakBarHTML() +
-         '<div class="chartdou">' + feedbackHTML() + radarHTML() + dimsBarHTML() + '</div>' +
-         outHTML() + hlBenchHTML() + peerBenchHTML(d) + honestHLHTML();
-}
-
-/* 密度曲线只在旧诊断载荷里；/diagnosis 失败时主视图退化为峰/段标签 */
-function hlCurve(){ return (CUR && CUR.curve) || null; }
-
-/* 取复读强度最高的那个峰（三角大小按 score 缩放，与图上最大三角一致） */
-function hlTopPeak(){
-  var peaks = (HL && HL.peaks) || [];
-  var best = null;
-  peaks.forEach(function(p){ if (!best || (p.score || 0) > (best.score || 0)) best = p; });
-  return best;
-}
-/* 一个峰的代表弹幕（第一条非空的） */
-function hlFirstDanmaku(list){
-  list = list || [];
-  for (var i = 0; i < list.length; i++) {
-    var it = list[i];
-    var t = (typeof it === 'string') ? it : (it && it.text);
-    if (t) return String(t);
-  }
-  return '';
-}
-/* ① 的一句结论：只说"最强反应在第几秒 + 观众在刷什么"，计数留给顶部徽章 */
-function hlGraphConclusion(peaks){
-  peaks = peaks || [];
-  if (!peaks.length) {
-    return '<div class="hlconcl">整片没有达到阈值的共振峰 —— 未检出就是未检出。</div>';
-  }
-  var tp = hlTopPeak();
-  var t = hlFirstDanmaku(tp && tp.top_danmaku);
-  var tSec = roundSec(tp.start_sec);
-  return '<div class="hlconcl">' +
-    (peaks.length >= 2 ? (peaks.length + ' 个共振峰，') : '') +
-    '最强反应' + (tSec >= 60 ? ('在 <b>' + mmss(tSec) + '</b>') : ('在第 <b>' + tSec + '</b> 秒')) +
-    (t ? '（观众在刷「' + esc(t) + '」）' : '') + '。</div>';
-}
-
-/* ── KPI 行（对标创作中心核心大屏：一排大数字 + 小标签）── */
-function kpiHTML(){
-  if (!HL) return '';
-  var np = (HL.peaks || []).length;
-  var crit = HL.critique || {};
-  var ns = (crit.n_segments != null) ? crit.n_segments : ((crit.segments || []).length);
-  var b = HL.benchmark || {};
-  var pc = (b.resonance_pctl != null) ? Math.round(b.resonance_pctl) : null;
-  function card(label, val, unit, hot){
-    return '<div class="kpi' + (hot ? ' hot' : '') + '">' +
-      '<div class="kl">' + esc(label) + '</div>' +
-      '<div class="kv">' + val + (unit ? '<span class="ku">' + unit + '</span>' : '') + '</div></div>';
-  }
-  var v0 = (CUR && CUR.video) || {};
-  var peakMax = (HL.benchmark && HL.benchmark.max_peak_score != null)
-    ? Math.round(HL.benchmark.max_peak_score) : null;
-  return '<div class="kpirow" id="kpirow">' +
-    card('全片弹幕', fmtN(HL.n_danmaku), ' 条', true) +
-    card('共振峰', np, ' 个') +
-    card('质疑段', ns, ' 段') +
-    card('共振强度', pc == null ? '—' : pc, pc == null ? '' : ' 分位') +
-    card('播放量', v0.play_text || '—', '') +
-    card('最强峰', peakMax == null ? '—' : peakMax, ' 分') +
-  '</div>';
-}
-
-/* ② 共振峰强度分布（柱状）：只回答"最强的峰在哪半段" */
-function peakBarHTML(){
-  var peaks = (HL && HL.peaks) || [];
-  if (!peaks.length) return '';
-  var dur = hlDur() || 1;
-  var top3 = peaks.slice().sort(function(a, b){ return (b.score || 0) - (a.score || 0); }).slice(0, 3);
-  function inBack(p){
-    var s = (p.peak_sec != null) ? p.peak_sec : p.start_sec;
-    return s >= dur / 2;
-  }
-  var back = top3.filter(inBack).length;
-  var concl = (back === 3) ? '最强的 3 个峰都在后半段。'
-            : (back === 0) ? '最强的 3 个峰都在前半段。'
-            : '最强的 3 个峰跨越前后半段。';
-  return '<div class="sec" id="sec-peakbar">' +
-    '<div class="sechead"><span class="secno">②</span><span class="sectitle">共振峰强度分布</span>' +
-      '<span class="secnote">柱高 = 复读强度 ｜ 点柱子看弹幕</span></div>' +
-    '<div class="hlconcl">' + concl + '</div>' +
-    '<div id="peakBar" class="chartbox" style="height:210px" role="img" aria-label="共振峰强度分布"></div>' +
-  '</div>';
-}
-
-/* ④ 节奏签名雷达：10 维同类百分位 vs 中位 50（数据来自 position.dims） */
-var RADAR_SHORT = {
-  peak_cnt: '爆点数量', rhythm_entropy: '起伏均衡', mid_ratio: '中段留存',
-  avg_text_len: '内容量', main_peak_pct: '爆点位置', dm_per_min: '互动热度',
-  ending_5pct: '收尾', early_lag_ratio: '起势速度', burst_cv: '节奏起伏',
-  opening_5pct: '开场'
-};
-function radarHTML(){
-  var pos = CUR && CUR.position;
-  var dims = (pos && pos.dims) || [];
-  if (!dims.length) {
-    return '<div class="sec" id="sec-radar">' +
-      '<div class="sechead"><span class="secno">④</span><span class="sectitle">节奏签名雷达</span></div>' +
-      '<div class="hlempty">这支视频没有节奏签名数据（旧诊断未取到）。</div></div>';
-  }
-  var hi = dims.filter(function(d){ return (numOr(d.pct) || 0) >= 50; }).length;
-  var low = dims.slice().sort(function(a, b){ return (numOr(a.pct) || 0) - (numOr(b.pct) || 0); })[0];
-  var concl = dims.length + ' 维里 <b>' + hi + '</b> 维高于同类中位' +
-    (low ? '；' + esc(low.label) + '最弱。' : '。');
-  return '<div class="sec" id="sec-radar">' +
-    '<div class="sechead"><span class="secno">④</span><span class="sectitle">节奏签名雷达</span>' +
-      '<span class="secnote">同类百分位 ｜ 50 = 分区中位</span></div>' +
-    '<div class="hlconcl">' + concl + '</div>' +
-    '<div id="radarChart" class="chartbox" style="height:330px" role="img" aria-label="节奏签名雷达"></div>' +
-  '</div>';
-}
-
-/* ⑤ 10 维同类位置（横向柱）：和雷达同一份数据，换成 B站式条形更易读 */
-function dimsBarHTML(){
-  var pos = CUR && CUR.position;
-  var dims = (pos && pos.dims) || [];
-  if (!dims.length) return '';
-  var hi = dims.filter(function(d){ return (numOr(d.pct) || 0) >= 50; }).length;
-  return '<div class="sec" id="sec-dimsbar">' +
-    '<div class="sechead"><span class="secno">⑤</span><span class="sectitle">同类位置（10 维）</span>' +
-      '<span class="secnote">横条 = 同类百分位 ｜ 竖线 = 中位 50</span></div>' +
-    '<div class="hlconcl"><b>' + hi + '</b> 个维度高于同类中位，<b>' + (dims.length - hi) + '</b> 个低于中位。</div>' +
-    '<div id="dimsBar" class="chartbox" style="height:290px" role="img" aria-label="十维同类百分位"></div>' +
-  '</div>';
-}
-
-/* ① 精彩时刻图谱：密度曲线 + 共振峰红三角 + 质疑段蓝色区带 */
-function graphHTML(d){
-  var c = hlCurve();
-  var hasCurve = !!(c && c.you && c.you.length);
-  var peaks = (HL && HL.peaks) || [];
-  var crit = (HL && HL.critique) || {};
-  // detected=false 时绝不画蓝色带（未检出就如实写未检出）
-  var crits = (crit.detected === false) ? [] : (crit.segments || []);
-  var notice = '';
-  if (!peaks.length) notice += '<span>未检出共振峰：这段弹幕的复读聚集没有达到检测阈值（5 秒内复读量——同一文本多出来的条数之和——≥3，且至少一种文本在 5 秒内被刷 ≥3 次）。</span>';
-  var openingN = peaks.filter(function(p){ return p.in_opening; }).length;
-  if (openingN) notice += '<span>有 ' + openingN + ' 个共振峰落在片头 60 秒内，标为<b>片头打卡噪声</b>——照画，但别当精彩时刻读。</span>';
-  if (!crits.length) {
-    notice += '<span>未检出质疑段：未检出就是未检出，不放宽阈值凑数。</span>';
-  }
-  notice += '<span>共振 / 质疑段定位粒度为 5 秒桶（时间取自桶边界）；短质疑段按最小可视宽度画，真实起止见下方标签。</span>';
-  // 图例写明两个编码维度：三角高度是密度、大小是复读强度（否则会被读成"越高越强"）
-  var hasMl = crits.some(function(x){ return x.method === 'ml'; });
-  var hasDict = crits.some(function(x){ return x.method !== 'ml'; });
-  var legend = '<div class="hllegend">' +
-    '<span><i class="swl"></i>弹幕密度（101 个 1% 时段）</span>' +
-    '<span><i class="swt"></i>共振峰（红三角，可点）</span>' +
-    (hasDict ? '<span><i class="swb"></i>质疑段 · 词典（实线蓝）</span>' : '') +
-    (hasMl ? '<span><i class="swl" style="border-top-style:dashed;opacity:.55"></i>' +
-      '虚线 = 弱监督泛化（召回更高、可能误报）</span>' : '') +
-    '<span>三角高度 = 该位置弹幕密度；三角大小 = 复读强度</span>' +
-  '</div>';
-  // 读屏摘要：峰数、最高峰时段、质疑段数
-  var topPeak = null;
-  peaks.forEach(function(p){ if (!topPeak || (p.score || 0) > (topPeak.score || 0)) topPeak = p; });
-  var aria = '共振峰 ' + peaks.length + ' 个' +
-    (topPeak ? '，最高峰在 ' + rangeText(topPeak.start_sec, topPeak.end_sec) : '') +
-    '；质疑段 ' + crits.length + ' 段';
-  var concl = hlGraphConclusion(peaks);
-  return '<div class="sec" id="sec-hlgraph">' +
-    '<div class="sechead"><span class="secno">①</span><span class="sectitle">精彩时刻图谱</span>' +
-      '<span class="secnote">横轴 = 播放进度 0–100% ｜ 点红三角或下方标签</span></div>' +
-    concl + legend +
-    (hasCurve ? '<div id="hlchart" role="img" aria-label="' + esc(aria) + '"></div>' :
-      '<div class="hlempty">这支视频没有密度曲线数据，图谱只列可点的共振峰与质疑段标签。</div>') +
-    (notice ? '<details class="moreinfo"><summary>检测口径与未检出说明</summary>' +
-      '<div class="mi-body">' + notice + '</div></details>' : '') +
-    '<div class="hljumps" id="hljumps">' + hlJumpsHTML() + '</div>' +
-    '<div id="hlpanel"></div>' +
-  '</div>';
-}
-
-/* 图谱下方的标签：共振峰按复读强度取前 8 + 全部质疑段；其余收进「展开全部」。
-   41 个峰全铺出来会把下面五块挤走，而且默认状态读不出重点。 */
-var JUMPS_ALL = false;
-function hlJumpsHTML(){
-  var peaks = (HL && HL.peaks) || [];
-  var segs = (HL && HL.critique && HL.critique.segments) || [];
-  var ranked = peaks.map(function(p, i){ return {p: p, i: i}; })
-    .sort(function(a, b){
-      return (b.p.score || 0) - (a.p.score || 0) || (a.i - b.i);
-    });
-  var shown = JUMPS_ALL ? ranked : ranked.slice(0, 8);
-  var out = shown.map(function(o){
-    var p = o.p;
-    return '<button class="hljump" data-peakhl="' + o.i + '" title="点开看这一刻的弹幕">共振峰 ' +
-      rangeText(p.start_sec, p.end_sec) +
-      (p.pctl != null ? ' · 峰级百分位 ' + Math.round(p.pctl) : '') +
-      (p.in_opening ? ' · 片头打卡噪声' : '') + '</button>';
-  });
-  segs.forEach(function(s, i){
-    out.push('<button class="hljump crit" data-seghl="' + i + '" title="点开看质疑弹幕">质疑段 ' +
-      rangeText(s.start_sec, s.end_sec) +
-      (s.method === 'ml' ? '（弱监督）' : (s.method === 'dict' ? '（词典）' : '')) +
-      (s.n != null ? ' · ' + s.n + ' 条' : '') + '</button>');
-  });
-  var total = ranked.length + segs.length;
-  if (!JUMPS_ALL && ranked.length > 8) {
-    out.push('<button class="hlmore" id="hlMore" title="展开全部共振峰">展开全部（' + total + '）</button>');
-  } else if (JUMPS_ALL && total > 8) {
-    out.push('<button class="hlmore" id="hlMore" title="只看最强的 8 个峰">收起</button>');
-  }
-  return out.join('');
-}
-function bindHLChips(){
-  document.querySelectorAll('.hljump[data-peakhl]').forEach(function(el){
-    el.onclick = function(){ openPeak(+el.dataset.peakhl); };
-  });
-  document.querySelectorAll('.hljump[data-seghl]').forEach(function(el){
-    el.onclick = function(){ openCritique(+el.dataset.seghl); };
-  });
-  var m = document.getElementById('hlMore');
-  if (m) m.onclick = function(){
-    JUMPS_ALL = !JUMPS_ALL;
-    var box = document.getElementById('hljumps');
-    if (box) { box.innerHTML = hlJumpsHTML(); bindHLChips(); }
-  };
-}
-
-/* 三类占比的唯一取数点（环图与图例共用，避免两处各算一遍） */
-function feedbackData(){
-  var f = (HL && HL.feedback) || {};
-  var n = numOr(f.n_danmaku);
-  var ch = numOr(f.n_herd), cn = numOr(f.n_neutral), cc = numOr(f.n_critique);
-  var sumC = (ch || 0) + (cn || 0) + (cc || 0);
-  var rh, rn, rc;
-  if (n != null && n > 0 && sumC > 0) {
-    rh = (ch || 0) / n * 100; rn = (cn || 0) / n * 100; rc = (cc || 0) / n * 100;
-  } else {
-    rh = ratioToPct(f.herd); rn = ratioToPct(f.neutral); rc = ratioToPct(f.critique);
-  }
-  return {n: n, ch: ch, cn: cn, cc: cc, rh: rh || 0, rn: rn || 0, rc: rc || 0};
-}
-
-/* ③ 弹幕构成环图（对标创作中心「粉丝来源」环图版式） */
-function feedbackHTML(){
-  var d = feedbackData();
-  var head = '<div class="sechead"><span class="secno">③</span><span class="sectitle">弹幕构成</span>' +
-    '<span class="secnote">环图 = 三种角色占比</span></div>';
-  if ((d.rh + d.rn + d.rc) <= 0) {
-    return '<div class="sec" id="sec-hlfeedback">' + head +
-      '<div class="hlempty">这支视频没有弹幕构成数据（检测尚未覆盖或全片无弹幕）。</div></div>';
-  }
-  var aria = '从众复读 ' + Math.round(d.rh) + '%，中性 ' + Math.round(d.rn) + '%，质疑表达 ' + Math.round(d.rc) + '%';
-  // 结论只说两个数：复读占比 + 质疑占比。中性由环图自己表示，计数全部收进 title。
-  var critTxt = (d.rc >= 0.05) ? (d.rc.toFixed(1) + '%') : '不到 0.1%';
-  var concl = '弹幕里 <b>' + Math.round(d.rh) + '%</b> 是跟着刷的复读，只有 <b>' +
-    critTxt + '</b> 是认真质疑。';
-  return '<div class="sec" id="sec-hlfeedback">' + head +
-    '<div class="hlconcl">' + concl + '</div>' +
-    '<div id="ringChart" class="chartbox" style="height:270px" role="img" aria-label="' + esc(aria) + '"></div>' +
-    '<div class="ratiolegend">' +
-      '<span title="' + fmtN(d.ch) + ' 条"><i class="sw herd"></i>从众复读</span>' +
-      '<span title="' + fmtN(d.cn) + ' 条"><i class="sw neutral"></i>中性</span>' +
-      '<span title="' + fmtN(d.cc) + ' 条"><i class="sw crit"></i>质疑表达</span>' +
-      (d.n != null ? '<span title="全片弹幕条数">共 ' + fmtN(d.n) + ' 条</span>' : '') +
-    '</div>' +
-    '<details class="moreinfo"><summary>三类怎么分</summary><div class="mi-body">' +
-      '<span>从众复读 = 同一文本 5 秒内被刷 ≥2 次，或文本 ≤4 字，或命中「哈 / 666 / 前排 / 打卡 / 空降」这类语气词。</span>' +
-      '<span>质疑表达 = 命中质疑词、长度 ≥8 且情感分为负。</span>' +
-      '<span>分类是规则判定，只看弹幕文字，不看内容。</span>' +
-    '</div></details>' +
-  '</div>';
-}
-
-/* ③ 切片建议（长视频）/ 高光定位（短视频） */
-/* 卡片上的原始弹幕：不判定情绪，让弹幕自己说话（2026-10-19 用户拍板） */
-function hlRepInline(list, maxN){
-  list = list || [];
-  if (!list.length) return '';
-  maxN = maxN || 2;
-  var parts = [];
-  for (var i = 0; i < list.length && parts.length < maxN; i++) {
-    var it = list[i];
-    var text = (typeof it === 'string') ? it : ((it && it.text != null) ? it.text : '');
-    if (!text) continue;
-    var n = (typeof it === 'string') ? null : (it && it.n);
-    parts.push('<b>' + esc(text) + '</b>' + (n != null ? '×' + fmtN(n) : ''));
-  }
-  if (!parts.length) return '';
-  return '<span class="hlrep">段内复读最多：' + parts.join(' ｜ ') + '</span>';
-}
-
-function outHTML(){ return isLongHL() ? sliceHTML() : highlightHTML(); }
-
-function sliceHTML(){
-  var list = (HL && HL.slice_suggestions) || [];
-  var head = '<div class="sechead"><span class="secno">⑥</span><span class="sectitle">切片建议</span>' +
-    '<span class="secnote">长视频 · 点开看代表弹幕</span></div>';
-  if (!list.length) {
-    return '<div class="sec" id="sec-hlout">' + head +
-      '<div class="hlempty">没有达到阈值、值得单独切出的片段。未检出就是未检出，不硬凑。</div></div>';
-  }
-  var items = list.slice(0, 3).map(function(s, i){
-    // 卡面只留 2 个数字（起止秒）；峰级百分位等收进 title
-    var tip = '点开看这一刻的弹幕' + (s.pctl != null ? ' ｜ 峰级百分位 ' + Math.round(s.pctl) : '');
-    return '<button class="hlslice" data-slice="' + i + '" title="' + esc(tip) + '">' +
-      '<span class="hlsn">' + (s.rank || (i + 1)) + '</span>' +
-      '<span class="hlst">' + rangeLabel(s.start_sec, s.end_sec) + '</span>' +
-      '<span class="hlsm">' + (s.opening_only ? '片头打卡段，仅供参考' : '共振最强') + '</span>' +
-      hlRepInline(s.top_danmaku) +
-    '</button>';
-  }).join('');
-  // 块级结论：先给"切哪一段"，卡片是证据
-  var top = list.slice().sort(function(a, b){ return (b.score || 0) - (a.score || 0); })[0] || list[0];
-  var concl = '<div class="hlconcl">从 <b>' + rangeText(top.start_sec, top.end_sec) + '</b>' +
-    (roundSec(top.end_sec) >= 60 ? ' ' : '') + '切起，这一段观众刷得最集中。</div>';
-  return '<div class="sec" id="sec-hlout">' + head + concl +
-    '<div class="hlslices">' + items + '</div>' +
-    '<div id="slicePanel"></div></div>';
-}
-
-function highlightHTML(){
-  var list = (HL && HL.highlight_positions) || [];
-  var head = '<div class="sechead"><span class="secno">⑥</span><span class="sectitle">高光定位</span>' +
-    '<span class="secnote">短视频 · 点开看代表弹幕</span></div>';
-  if (!list.length) {
-    return '<div class="sec" id="sec-hlout">' + head +
-      '<div class="hlempty">没有检出值得单独标出的高光位置。未检出就是未检出，不硬凑。</div></div>';
-  }
-  var items = list.slice(0, 3).map(function(s, i){
-    var t0 = (s.start_sec != null) ? s.start_sec : s.sec;
-    var t1 = (s.end_sec != null) ? s.end_sec : s.sec;
-    // 卡面只留 2 个数字（起止秒）；峰级百分位等收进 title
-    var tip = '点开看这一刻的弹幕' + (s.pctl != null ? ' ｜ 峰级百分位 ' + Math.round(s.pctl) : '');
-    return '<button class="hlslice hlhigh" data-high="' + i + '" title="' + esc(tip) + '">' +
-      '<span class="hlsn">' + (s.rank || (i + 1)) + '</span>' +
-      '<span class="hlst">' + rangeLabel(t0, t1) + '</span>' +
-      '<span class="hlsm">' + (s.opening_only ? '片头打卡段，仅供参考' : '反应最集中') + '</span>' +
-      hlRepInline(s.top_danmaku) +
-    '</button>';
-  }).join('');
-  // 块级结论：先给"看哪一段"，卡片是证据
-  var first = list[0];
-  var t0 = (first.start_sec != null) ? first.start_sec : first.sec;
-  var t1 = (first.end_sec != null) ? first.end_sec : first.sec;
-  var concl = '<div class="hlconcl"><b>' + rangeText(t0, t1) + '</b>' +
-    (roundSec(t1) >= 60 ? ' ' : '') + '反应最集中，值得单独回看。</div>';
-  return '<div class="sec" id="sec-hlout">' + head + concl +
-    '<div class="hlslices">' + items + '</div>' +
-    '<div id="slicePanel"></div></div>';
-}
-
-/* ⑦ 共振强度对标：可比组百分位（视频级） */
-function hlBenchHTML(){
-  var b = (HL && HL.benchmark) || {};
-  var head = '<div class="sechead"><span class="secno">⑦</span><span class="sectitle">共振强度对标</span>' +
-    '<span class="secnote">和可比组比：共振强不强</span></div>';
-  // n_peaks=0（全库 131/888）是"未检出"，不是"你弱"：不做强度对标，避免被读成倒数
-  var npk = (HL && HL.peaks) ? HL.peaks.length : 0;
-  if (npk === 0) {
-    return '<div class="sec" id="sec-hlbench">' + head +
-      '<div class="hlempty">未检出共振峰，不做强度对标（未检出 ≠ 共振弱）。</div></div>';
-  }
-  var pctl = numOr(b.resonance_pctl);
-  if (pctl == null) {
-    return '<div class="sec" id="sec-hlbench">' + head +
-      '<div class="hlempty">这支视频没有可用的对标数据（可比组样本不足或检测缺失）。</div></div>';
-  }
-  var pc = Math.max(0, Math.min(100, pctl));
-  var pn = numOr(b.partition_n);
-  var ok = b.partition_ok !== false;
-  var z = numOr(b.resonance_z);
-  var word = (pc >= 80 ? '偏强' : pc >= 60 ? '中上' : pc >= 40 ? '中间水平' : pc >= 20 ? '中下' : '偏弱');
-  // 结论只说一个数：百分位；得分/中位/稳健 z 全部收进「?」
-  // 不写分区名：可比组的具体构成收进「?」，避免被读成"同分区对标"
-  var concl = '共振强度在可比组里排第 <b>' + Math.round(pc) + '</b> 百分位（' + word + '）。';
-  var miBody = '<span>最强共振峰得分：' + fmtN(numOr(b.max_peak_score)) + '</span>' +
-    '<span>' + (ok ? '可比组中位' : '全库中位') + '：' + fmtN(numOr(b.partition_med)) + '</span>' +
-    (z != null ? '<span>稳健 z：' + z.toFixed(2) + '（相对可比组中位的稳健偏离）</span>' : '') +
-    '<span>视频级 = 对照可比组每支视频的最强峰；峰级（单个峰）见 ⑥ 与上方标签。可比组 = 同一分区内样本量足够（≥20 支）的视频；不足时退回全库参照，不按播放量/时长分层。</span>' +
-    (ok ? '' : '<span>可比组样本不足 20 支' + (pn != null ? '（当前 ' + pn + ' 支）' : '') +
-      '，已退回全库基准；百分位只表示共振强度在参照组里的位置。</span>');
-  return '<div class="sec" id="sec-hlbench">' + head +
-    '<div class="hlconcl">' + concl + '</div>' +
-    '<div class="hlpbar" role="img" aria-label="视频级百分位 ' + Math.round(pc) + '"><b></b><i style="left:' + pc.toFixed(1) + '%"></i></div>' +
-    '<div class="hlpaxis"><span>弱（0）</span><span>可比组中位</span><span>强（100）</span></div>' +
-    '<details class="moreinfo"><summary>这个百分位怎么算</summary><div class="mi-body">' +
-      miBody + '</div></details>' +
-  '</div>';
-}
-
-/* ⑤ 相似对标：复用 /diagnosis 里既有的余弦 kNN（节奏签名形状向量），不重训、不加算法。
-   与 ④ 的区别：④ 比"共振强不强"，⑤ 比"节奏长得像谁、它后来怎样"。
-   /diagnosis 失败或没有对标时整块消失（不阻塞主视图）。 */
-function peerBenchHTML(d){
-  var bs = (d && d.benchmarks) || [];
-  if (!bs.length) return '';
-  var rows = bs.slice(0, 3).map(function(b){
-    var sim = (b.similarity_pct != null) ? Math.round(b.similarity_pct) + '%' : (b.similarity_label || '—');
-    return '<div class="peer">' +
-      '<span class="peert">《' + esc(b.title || b.bvid) + '》</span>' +
-      '<span class="peersim">相似度 ' + esc(sim) + '</span>' +
-      '<span class="peerout">' + esc(b.outcome_text || '暂无后续追踪数据') + '</span>' +
-    '</div>';
-  }).join('');
-  return '<div class="sec" id="sec-hlpeer">' +
-    '<div class="sechead"><span class="secno">⑧</span><span class="sectitle">相似对标</span>' +
-      '<span class="secnote">节奏最像的同类视频</span></div>' +
-    '<div class="hlconcl">节奏最像的 <b>' + Math.min(3, bs.length) + '</b> 支视频，以及它们后来怎样。</div>' +
-    '<div id="peerBar" class="chartbox" style="height:190px" role="img" aria-label="相似视频与相似度"></div>' +
-    '<div class="peerlist">' + rows + '</div>' +
-    '<details class="moreinfo"><summary>相似度与「后来表现」怎么读</summary><div class="mi-body">' +
-      '<span>相似度 = 节奏签名余弦（非内容相似）。</span>' +
-      '<span>「后来表现」= 历史结果变量，非预测。</span>' +
-    '</div></details>' +
-  '</div>';
-}
-
-/* ── 诚实边界：常驻主视图，不折叠（5 条；后端 caveats 优先，缺位时用本地兜底） ── */
-var HL_CAVEATS = [
-  '只测「情绪共振」与「质疑」，不测「内容质量」——量大 ≠ 内容好。',
-  '不判定情绪：弹幕情绪词语义随内容语境漂移，系统只标「哪里起了反应 / 观众在刷什么」，不猜「这是什么情绪」。',
-  '批判层可能很薄：未检出 = 未检出，不放宽阈值凑数。',
-  '「该切 / 该看」= 情绪共振最强处，不是内容最好处。',
-  '复读近似 = 文本完全相等（变体可能漏检）；弹幕只反映观众反应，不解释内容含义。'
-];
-function hlCaveatList(){
-  var fb = HL_CAVEATS.slice();
-  if (HL && Object.prototype.toString.call(HL.caveats) === '[object Array]' && HL.caveats.length) {
-    var out = [];
-    for (var i = 0; i < 5; i++) {
-      if (i < HL.caveats.length && HL.caveats[i]) out.push(String(HL.caveats[i]));
-      else out.push(fb[i]);
-    }
-    return out;
-  }
-  return fb;
-}
-function honestHLHTML(){
-  var items = hlCaveatList();
-  // 一行摘要常驻 + 「?」展开 5 条原文：一条都不删，只是从"正文常驻"降为"浮层详情"
-  return '<div class="hlhonestwrap" id="sec-hlhonest">' +
-    '<div class="honest"><b>诚实边界</b>' +
-      '<span class="honestline">只测反应 · 不判情绪 · 不预测 · 不评质量</span>' +
-      '<details class="moreinfo"><summary>展开 ' + items.length + ' 条原文</summary>' +
-        '<div class="mi-body">' +
-          items.map(function(t){ return '<span>' + esc(t) + '</span>'; }).join('') +
-        '</div></details>' +
-    '</div></div>';
-}
-
-/* ── 精彩时刻数据不可用时的明确空态（不许静默换成别的视频） ── */
-function hlEmptyHTML(d){
-  var e = HLERR || {};
-  var title, why, retry = '';
-  if (e.live) {
-    title = '在线采集的视频没有精彩时刻快照';
-    why = e.detail || '精彩时刻检测按采集批次统一计算，库外在线采集的视频不在快照里。';
-  } else if (e.status === 404) {
-    title = '精彩时刻检测没有覆盖这支视频';
-    why = e.detail || '检测快照只覆盖跑完精彩时刻作业的视频，不是所有视频都在里面。';
-  } else {
-    title = '精彩时刻检测数据这次没取到';
-    why = e.detail || ('HTTP ' + (e.status || '网络错误'));
-    retry = '<div class="row" style="margin-top:14px"><button class="btn primary" id="hlRetry">重新取一次</button></div>';
-  }
-  return '<div class="sec" id="sec-hlempty">' +
-    '<div class="empty" style="padding:34px 18px">' +
-      '<h2 style="font-size:19px">' + esc(title) + '</h2>' +
-      '<p style="margin-bottom:0">' + esc(why) + '</p>' + retry +
-    '</div>' +
-  '</div>';
-}
-
-/* ── 旧诊断卡：原样收进折叠层（默认收起，不占主视图） ── */
-
-/* ── ① 图谱绘制 ── */
-function drawHLChart(){
-  var el = $('#hlchart'); if (!el || !CUR) return;
-  var c = hlCurve();
-  var youRaw = (c && c.you) || [];
-  if (!youRaw.length) return;
-  if (HCHART) { HCHART.dispose(); HCHART = null; }
-  HCHART = echarts.init(el, null, {renderer: 'canvas'});
-  var C = dmChart();
-  var dur = hlDur();
-  var you = youRaw.map(function(v){ return +(v * 100).toFixed(3); });
-  var xs = you.map(function(_, i){ return i; });
-  var ymax = Math.max.apply(null, you.concat([1])) * 1.3;
-  var peaks = (HL && HL.peaks) || [];
-  var crit0 = (HL && HL.critique) || {};
-  var crits = (crit0.detected === false) ? [] : (crit0.segments || []);
-  var last = you.length - 1;
-  // 三角大小 = 复读强度（peak_score 在页面内线性缩放到 9–22）；
-  // 高度仍是"该位置弹幕密度"（y 值），两个编码维度分开，避免"三角越高越强"的误读。
-  var scores = peaks.map(function(p){ return numOr(p.score) || 0; });
-  var smin = scores.length ? Math.min.apply(null, scores) : 0;
-  var smax = scores.length ? Math.max.apply(null, scores) : 0;
-  function triSize(sc){
-    if (smax <= smin) return 15;
-    return +(9 + (sc - smin) / (smax - smin) * 13).toFixed(1);
-  }
-  var peakData = [];
-  peaks.forEach(function(p, i){
-    var sec = (p.peak_sec != null) ? p.peak_sec : ((p.start_sec + p.end_sec) / 2);
-    var idx = Math.max(0, Math.min(last, Math.round(pctOfSec(sec, dur) / 100 * last)));
-    peakData.push({value: [idx, you[idx] || 0], peakIdx: i, name: '共振峰',
-                   symbolSize: triSize(numOr(p.score) || 0)});
-  });
-  // 质疑段：长视频里 1.1% 的宽度只有 1px，按最小可视宽度（左右各 0.35%）画，并在图注说明
-  var PAD = 0.35;
-  var areas = crits.map(function(s){
-    var a = pctOfSec(s.start_sec, dur), b = pctOfSec(s.end_sec, dur);
-    var a2 = a, b2 = b;
-    if (b2 - a2 < PAD * 2) { a2 = a - PAD; b2 = b + PAD; }
-    a2 = Math.max(0, Math.min(100, a2)); b2 = Math.max(0, Math.min(100, b2));
-    var b0 = Math.max(0, Math.min(last, Math.round(a2 / 100 * last)));
-    var b1 = Math.max(b0, Math.min(last, Math.round(b2 / 100 * last)));
-    // 词典 = 实线蓝；弱监督 = 虚线浅蓝（召回更高、可能误报）
-    var st = (s.method === 'ml')
-      ? {color: C.band, borderColor: C.primary, borderType: 'dashed', borderWidth: 1, opacity: 0.5}
-      : {color: C.band, borderColor: C.primary, borderType: 'solid', borderWidth: 1};
-    return [{xAxis: b0, itemStyle: st}, {xAxis: b1}];
-  });
-  var lineSeries = {
-    name: '弹幕密度', type: 'line', data: you, showSymbol: false, smooth: false, z: 4,
-    lineStyle: {width: 2.5, color: C.primary}, itemStyle: {color: C.primary},
-    areaStyle: {color: C.band}
-  };
-  if (areas.length) {
-    lineSeries.markArea = {silent: true,
-      itemStyle: {color: C.band, borderColor: C.primary, borderWidth: 1},
-      data: areas};
-  }
-  var series = [lineSeries];
-  if (peakData.length) {
-    series.push({name: '共振峰', type: 'scatter', data: peakData, symbol: 'triangle',
-      symbolSize: 13, z: 6, itemStyle: {color: C.accent}, label: {show: false}});
-  }
-  HCHART.setOption({
-    backgroundColor: 'transparent',
-    grid: {left: 50, right: 18, top: 18, bottom: 62},
-    tooltip: {trigger: 'axis', axisPointer: {type: 'line'},
-      backgroundColor: C.tipBg, borderColor: C.tipBorder,
-      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font},
-      formatter: function(ps){
-        if (!ps || !ps.length) return '';
-        var i = ps[0].dataIndex;
-        var html = '<b>播放进度 ' + i + '%' + (dur ? '（' + mmss(i / 100 * dur) + '）' : '') + '</b><br>' +
-          '弹幕密度：' + (you[i] != null ? you[i].toFixed(2) : '—') + '%（该 1% 时段占全片弹幕的比例）';
-        for (var k = 0; k < peakData.length; k++) {
-          if (peakData[k].value[0] === i) {
-            var p = peaks[peakData[k].peakIdx];
-            html += '<div style="margin-top:7px;padding-top:7px;border-top:1px solid ' + C.tipBorder + '">' +
-              '共振峰（三角高度=该位置弹幕密度，三角大小=复读强度）' +
-              (p.n_repeat != null ? '　复读 ' + p.n_repeat + ' 条' : '') +
-              (p.top_danmaku && p.top_danmaku.length
-                ? '<br>观众刷：<b>' + esc(p.top_danmaku[0].text) + '</b>×' + fmtN(p.top_danmaku[0].n) : '') +
-              (p.in_opening ? '<br>片头打卡噪声（片头 60 秒内，可能是打卡弹幕）' : '') + '</div>';
-            break;
-          }
-        }
-        for (var j = 0; j < crits.length; j++) {
-          var s = crits[j];
-          if (i >= Math.round(pctOfSec(s.start_sec, dur) / 100 * last) - 0.5 &&
-              i <= Math.round(pctOfSec(s.end_sec, dur) / 100 * last) + 0.5) {
-            html += '<div style="margin-top:5px;color:' + C.textTertiary + '">质疑段' +
-              (s.method === 'ml' ? '（弱监督）' : '（词典）') + '：' +
-              rangeLabel(s.start_sec, s.end_sec) + '</div>';
-            break;
-          }
-        }
-        return html;
-      }},
-    xAxis: {type: 'category', data: xs, boundaryGap: false, name: '播放进度',
-      nameLocation: 'middle', nameGap: 44, nameTextStyle: {color: C.axis, fontSize: 12},
-      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
-      axisLabel: {color: C.axis, fontSize: 11, interval: 9,
-        formatter: function(v){ return v + '%' + (dur ? '\n' + mmss(v / 100 * dur) : ''); }}},
-    yAxis: {type: 'value', min: 0, max: ymax, name: '弹幕占比',
-      nameTextStyle: {color: C.axis, fontSize: 12},
-      axisLine: {show: false}, axisTick: {show: false},
-      axisLabel: {color: C.axis, fontSize: 11, formatter: function(v){ return v.toFixed(1) + '%'; }},
-      splitLine: {lineStyle: {color: C.split}}},
-    series: series
-  });
-  HCHART.on('click', function(p){
-    if (p.seriesName === '共振峰' && p.data && p.data.peakIdx != null) openPeak(p.data.peakIdx);
-  });
-  if (!window.__v3resizeBound) {
-    window.__v3resizeBound = 1;
-    window.addEventListener('resize', function(){
-      [HCHART, RING, RADAR, DIMSBAR, PBAR, PEERBAR].forEach(function(c){ if (c) c.resize(); });
-    });
-  }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Dashboard 图表：环图 / 雷达 / 峰强度柱状
-   一律走 dmChart() 取色（canvas 不认 CSS 变量）；容器缺失就静默跳过。
-   ══════════════════════════════════════════════════════════════ */
-var RING = null, RADAR = null, PBAR = null, DIMSBAR = null, PEERBAR = null;
-
-function drawRingChart(){
-  var el = document.getElementById('ringChart');
-  if (!el || !HL) return;
-  if (RING) { RING.dispose(); RING = null; }
-  var d = feedbackData();
-  if ((d.rh + d.rn + d.rc) <= 0) return;
-  var C = dmChart();
-  var cardBg = dpVar('--card', '#FFFFFF');
-  RING = echarts.init(el, null, {renderer: 'canvas'});
-  RING.setOption({
-    backgroundColor: 'transparent',
-    tooltip: {trigger: 'item', backgroundColor: C.tipBg, borderColor: C.tipBorder,
-      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font},
-      formatter: function(p){ return p.name + '：' + p.percent.toFixed(1) + '%'; }},
-    series: [{
-      type: 'pie', radius: ['52%', '76%'], center: ['50%', '50%'],
-      avoidLabelOverlap: true, label: {show: false}, labelLine: {show: false},
-      itemStyle: {borderColor: cardBg, borderWidth: 2},
-      data: [
-        {name: '从众复读', value: d.rh, itemStyle: {color: C.axis}},
-        {name: '中性', value: d.rn, itemStyle: {color: C.textTertiary, opacity: 0.55}},
-        {name: '认真质疑', value: d.rc, itemStyle: {color: C.accent}}
-      ]
-    }]
-  });
-}
-
-function drawRadarChart(){
-  var el = document.getElementById('radarChart');
-  var pos = CUR && CUR.position;
-  var dims = (pos && pos.dims) || [];
-  if (!el || !dims.length) return;
-  if (RADAR) { RADAR.dispose(); RADAR = null; }
-  var C = dmChart();
-  var names = dims.map(function(x){ return RADAR_SHORT[x._dim] || x.label; });
-  var mine = dims.map(function(x){ var v = numOr(x.pct); return v == null ? 0 : v; });
-  RADAR = echarts.init(el, null, {renderer: 'canvas'});
-  RADAR.setOption({
-    backgroundColor: 'transparent',
-    tooltip: {trigger: 'item', backgroundColor: C.tipBg, borderColor: C.tipBorder,
-      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font}},
-    legend: {bottom: 0, itemWidth: 12, itemHeight: 8,
-      textStyle: {color: C.textTertiary, fontSize: 12, fontFamily: C.font},
-      data: ['本视频', '分区中位']},
-    radar: {
-      center: ['50%', '46%'], radius: '62%', splitNumber: 4,
-      indicator: names.map(function(n){ return {name: n, max: 100}; }),
-      axisName: {color: C.textTertiary, fontSize: 11, fontFamily: C.font},
-      splitLine: {lineStyle: {color: C.split}},
-      splitArea: {areaStyle: {color: ['transparent']}},
-      axisLine: {lineStyle: {color: C.split}}
-    },
-    series: [{
-      type: 'radar', symbolSize: 4,
-      data: [
-        {value: mine, name: '本视频',
-         itemStyle: {color: C.accent},
-         lineStyle: {color: C.accent, width: 2},
-         areaStyle: {color: C.accent, opacity: 0.14}},
-        {value: names.map(function(){ return 50; }), name: '分区中位',
-         itemStyle: {color: C.axis},
-         lineStyle: {color: C.axis, width: 1.5, type: 'dashed'},
-         areaStyle: {color: 'transparent'}}
-      ]
-    }]
-  });
-}
-
-function drawPeakBar(){
-  var el = document.getElementById('peakBar');
-  var peaks = (HL && HL.peaks) || [];
-  if (!el || !peaks.length) return;
-  if (PBAR) { PBAR.dispose(); PBAR = null; }
-  var C = dmChart();
-  var order = peaks.map(function(_, i){ return i; })
-    .sort(function(a, b){ return (peaks[a].start_sec || 0) - (peaks[b].start_sec || 0); });
-  var cats = order.map(function(i){ return mmss(peaks[i].start_sec); });
-  var vals = order.map(function(i){ return numOr(peaks[i].score) || 0; });
-  PBAR = echarts.init(el, null, {renderer: 'canvas'});
-  PBAR.setOption({
-    backgroundColor: 'transparent',
-    grid: {left: 40, right: 14, top: 14, bottom: 28},
-    tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'},
-      backgroundColor: C.tipBg, borderColor: C.tipBorder,
-      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font},
-      formatter: function(ps){
-        var i = order[ps[0].dataIndex];
-        var p = peaks[i];
-        return '<b>' + mmss(p.start_sec) + '–' + mmss(p.end_sec) + '</b><br>' +
-          '复读强度 ' + (numOr(p.score) || 0) +
-          (p.n_repeat != null ? '　复读 ' + fmtN(p.n_repeat) + ' 条' : '') +
-          (p.in_opening ? '<br>片头打卡噪声' : '');
-      }},
-    xAxis: {type: 'category', data: cats,
-      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
-      axisLabel: {color: C.axis, fontSize: 11, interval: 0, rotate: cats.length > 8 ? 40 : 0}},
-    yAxis: {type: 'value', name: '强度',
-      nameTextStyle: {color: C.axis, fontSize: 11},
-      axisLine: {show: false}, axisTick: {show: false},
-      axisLabel: {color: C.axis, fontSize: 11},
-      splitLine: {lineStyle: {color: C.split}}},
-    series: [{
-      type: 'bar', data: vals, barMaxWidth: 26,
-      itemStyle: {color: C.accent, borderRadius: [4, 4, 0, 0]},
-      emphasis: {itemStyle: {color: C.primary}}
-    }]
-  });
-  PBAR.on('click', function(p){ openPeak(order[p.dataIndex]); });
-}
-
-function drawDimsBar(){
-  var el = document.getElementById('dimsBar');
-  var pos = CUR && CUR.position;
-  var dims = (pos && pos.dims) || [];
-  if (!el || !dims.length) return;
-  if (DIMSBAR) { DIMSBAR.dispose(); DIMSBAR = null; }
-  var C = dmChart();
-  var order = dims.slice().sort(function(a, b){ return (numOr(a.pct) || 0) - (numOr(b.pct) || 0); });
-  var names = order.map(function(x){ return RADAR_SHORT[x._dim] || x.label; });
-  var vals = order.map(function(x){ return numOr(x.pct) || 0; });
-  DIMSBAR = echarts.init(el, null, {renderer: 'canvas'});
-  DIMSBAR.setOption({
-    backgroundColor: 'transparent',
-    tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'},
-      backgroundColor: C.tipBg, borderColor: C.tipBorder,
-      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font},
-      formatter: function(ps){
-        var i = ps[0].dataIndex;
-        return names[i] + '：同类第 ' + Math.round(vals[i]) + ' 百分位';
-      }},
-    grid: {left: 92, right: 26, top: 10, bottom: 20},
-    xAxis: {type: 'value', min: 0, max: 100,
-      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
-      axisLabel: {color: C.axis, fontSize: 11, formatter: function(v){ return v; }},
-      splitLine: {lineStyle: {color: C.split}}},
-    yAxis: {type: 'category', data: names,
-      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
-      axisLabel: {color: C.text, fontSize: 11}},
-    series: [{
-      type: 'bar', barMaxWidth: 16,
-      data: vals.map(function(v){ return {value: v, itemStyle: {color: v >= 50 ? C.primary : C.accent, borderRadius: [0,4,4,0]}}; }),
-      markLine: {silent: true, symbol: 'none', label: {show: false},
-        lineStyle: {color: C.axis, type: 'dashed', width: 1},
-        data: [{xAxis: 50}]}
-    }]
-  });
-}
-
-function drawPeerBar(){
-  var el = document.getElementById('peerBar');
-  var bs = (CUR && CUR.benchmarks) || [];
-  if (!el || !bs.length) return;
-  if (PEERBAR) { PEERBAR.dispose(); PEERBAR = null; }
-  var C = dmChart();
-  var top = bs.slice(0, 3).reverse();
-  var names = top.map(function(b){ var t = String(b.title || b.bvid || ''); return t.length > 16 ? t.slice(0, 16) + '…' : t; });
-  var vals = top.map(function(b){ return numOr(b.similarity_pct) || 0; });
-  PEERBAR = echarts.init(el, null, {renderer: 'canvas'});
-  PEERBAR.setOption({
-    backgroundColor: 'transparent',
-    tooltip: {trigger: 'axis', axisPointer: {type: 'shadow'},
-      backgroundColor: C.tipBg, borderColor: C.tipBorder,
-      textStyle: {color: C.text, fontSize: 12, fontFamily: C.font},
-      formatter: function(ps){ var i = ps[0].dataIndex; return names[i] + '：节奏相似度 ' + Math.round(vals[i]) + '%'; }},
-    grid: {left: 124, right: 30, top: 8, bottom: 20},
-    xAxis: {type: 'value', min: 0, max: 100,
-      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
-      axisLabel: {color: C.axis, fontSize: 11, formatter: function(v){ return v + '%'; }},
-      splitLine: {lineStyle: {color: C.split}}},
-    yAxis: {type: 'category', data: names,
-      axisLine: {lineStyle: {color: C.split}}, axisTick: {show: false},
-      axisLabel: {color: C.text, fontSize: 11}},
-    series: [{type: 'bar', barMaxWidth: 16, data: vals,
-      itemStyle: {color: C.accent, borderRadius: [0,4,4,0]}}]
-  });
-}
-
-function drawDashboardCharts(){
-  drawRingChart();
-  drawRadarChart();
-  drawDimsBar();
-  drawPeakBar();
-  drawPeerBar();
-}
-
-/* ── 弹幕列表与情感占比（面板复用） ── */
-function hlTopHTML(list){
-  list = list || [];
-  if (!list.length) return '<div class="reso-empty">这一段没有可展示的代表弹幕。</div>';
-  return list.map(function(it){
-    var text = (typeof it === 'string') ? it : ((it && it.text != null) ? it.text : '');
-    var n = (typeof it === 'string') ? null : (it && it.n);
-    return '<div class="reso-item"><span class="t">' + esc(text) + '</span>' +
-      (n != null ? '<span class="c">×' + fmtN(n) + '</span>' : '') + '</div>';
-  }).join('');
-}
-function hlSentHTML(sent){
-  if (!sent) return '<div class="reso-empty">没有情感占比数据。</div>';
-  var pos = numOr(sent.pos), neg = numOr(sent.neg), neu = numOr(sent.neu);
-  if (pos == null && neg == null && neu == null) return '<div class="reso-empty">没有情感占比数据。</div>';
-  var tot = (pos || 0) + (neg || 0) + (neu || 0);
-  function fmt(v){
-    if (v == null) return '—';
-    var p = (tot > 0.0001) ? (v / tot * 100) : (v <= 1 ? v * 100 : v);
-    return Math.round(p) + '%';
-  }
-  return '<div class="hlsen"><span>正向 <b>' + fmt(pos) + '</b></span>' +
-    '<span>中性 <b>' + fmt(neu) + '</b></span>' +
-    '<span>负向 <b>' + fmt(neg) + '</b></span></div>';
-}
-
-/* ── 点峰 / 点段 / 点切片卡片 → 面板 ── */
-function openPeak(i){
-  var p = ((HL && HL.peaks) || [])[i]; if (!p) return;
-  markHL('peak', i);
-  var box = $('#hlpanel'); if (!box) return;
-  // meta 只留短词；口径解释收进下方「?」
-  var meta = [];
-  if (p.pctl != null) meta.push('峰级百分位 ' + Math.round(p.pctl));
-  if (p.in_opening) meta.push('片头打卡噪声');
-  if (p.n_rep_texts != null) meta.push('复读文本 ' + p.n_rep_texts + ' 种');
-  var sec = (p.peak_sec != null) ? p.peak_sec : ((p.start_sec + p.end_sec) / 2);
-  box.innerHTML = '<div class="dmpanel">' +
-    '<h4>共振峰 · ' + rangeLabel(p.start_sec, p.end_sec) + '</h4>' +
-    (meta.length ? '<div class="dmwhy">' + esc(meta.join(' ｜ ')) + '</div>' : '') +
-    '<details class="moreinfo"><summary>这几个词怎么读</summary><div class="mi-body">' +
-      '<span>峰级百分位 = 这个峰的复读强度对照可比组所有共振峰的位置（' +
-        (p.partition_n != null ? '参比峰 ' + p.partition_n + ' 个' : '可比组') + '）。</span>' +
-      '<span>片头打卡噪声 = 落在片头 60 秒内的峰，可能是打卡弹幕，不代表精彩时刻。</span>' +
-      '<span>播放进度第 ' + Math.round(pctOfSec(sec, hlDur())) + '%。</span>' +
-    '</div></details>' +
-    '<div class="reso"><div class="reso-h">这一刻观众在刷什么' +
-      '<span class="n">' + (p.n_repeat != null ? '复读 ' + fmtN(p.n_repeat) + ' 条' : '') + '</span></div>' +
-      '<div class="reso-cols">' +
-        '<div><div class="reso-sub">复读最多</div>' + hlTopHTML(p.top_danmaku) + '</div>' +
-        '<div><div class="reso-sub">情感占比（参考）</div>' + hlSentHTML(p.sentiment) + '</div>' +
-      '</div></div>' +
-    '<div class="hlpanelnote">弹幕原文未做筛选或改写；情感占比为情感词典打分，仅参考，不判定具体情绪。</div>' +
-  '</div>';
-  document.querySelectorAll('.hljump').forEach(function(el){ el.classList.remove('on'); });
-  var on = document.querySelector('.hljump[data-peakhl="' + i + '"]');
-  if (on) on.classList.add('on');
-  focusSection('hlpanel');
-}
-
-function openCritique(i){
-  var c = (HL && HL.critique) || {};
-  var s = (c.segments || [])[i]; if (!s) return;
-  markHL('seg', i);
-  var box = $('#hlpanel'); if (!box) return;
-  var src = (s.method === 'ml') ? '弱监督' : (s.method === 'dict' ? '词典' : '');
-  // meta 只留短词；规则解释收进「?」
-  var meta = [];
-  if (s.n != null) meta.push('质疑弹幕 ' + s.n + ' 条');
-  if (s.neg_ratio != null) meta.push('负向占比 ' + hlRatioText(s.neg_ratio));
-  box.innerHTML = '<div class="dmpanel">' +
-    '<h4>质疑段' + (src ? '（' + src + '）' : '') + ' · ' +
-      rangeLabel(s.start_sec, s.end_sec) + '</h4>' +
-    (meta.length ? '<div class="dmwhy">' + esc(meta.join(' ｜ ')) + '</div>' : '') +
-    '<details class="moreinfo"><summary>这一段是怎么被判成质疑的</summary><div class="mi-body">' +
-      '<span>规则：' + (s.method === 'ml'
-        ? '弱监督分类器，召回更高、可能误报。'
-        : '质疑词 + 长度 ≥8 + 情感为负。') + '</span>' +
-      (s.score != null ? '<span>质疑权重得分：' + s.score + '</span>' : '') +
-      (s.ml_score != null ? '<span>弱监督均分：' + Number(s.ml_score).toFixed(3) + '</span>' : '') +
-    '</div></details>' +
-    '<div class="reso"><div class="reso-h">这一段观众在质疑什么</div>' +
-      '<div class="reso-cols">' +
-        '<div><div class="reso-sub">代表质疑弹幕</div>' + hlTopHTML(s.top_danmaku) + '</div>' +
-        '<div><div class="reso-sub">怎么读</div><div class="reso-empty">段数少不代表视频没人质疑，只代表命中了检测规则；反讽、谐音可能漏检。</div></div>' +
-      '</div></div>' +
-    '<div class="hlpanelnote">质疑段按「质疑词 + 否定情感」规则检出，不代表内容质量结论。</div>' +
-  '</div>';
-  document.querySelectorAll('.hljump').forEach(function(el){ el.classList.remove('on'); });
-  var on = document.querySelector('.hljump[data-seghl="' + i + '"]');
-  if (on) on.classList.add('on');
-  focusSection('hlpanel');
-}
-
-function selectHLCard(sel){
-  document.querySelectorAll('.hlslice').forEach(function(el){ el.classList.remove('on'); });
-  var el = document.querySelector(sel); if (el) el.classList.add('on');
-}
-
-function openSlice(i){
-  var s = ((HL && HL.slice_suggestions) || [])[i]; if (!s) return;
-  markHL('slice', i);
-  var note = [];
-  if (s.pctl != null) note.push('峰级百分位 ' + Math.round(s.pctl));
-  if (s.score != null) note.push('得分 ' + s.score);
-  if (s.opening_only) note.push('片头打卡段，仅供参考');
-  showHLRange('slicePanel',
-    '切片 ' + (s.rank || (i + 1)) + ' · ' + rangeLabel(s.start_sec, s.end_sec),
-    note.join(' ｜ '), s.start_sec, s.end_sec, s.top_danmaku);
-  selectHLCard('.hlslice[data-slice="' + i + '"]');
-}
-
-function openHighlight(i){
-  var s = ((HL && HL.highlight_positions) || [])[i]; if (!s) return;
-  markHL('high', i);
-  var t0 = (s.start_sec != null) ? s.start_sec : s.sec;
-  var t1 = (s.end_sec != null) ? s.end_sec : s.sec;
-  var note = (s.pctl != null) ? ('峰级百分位 ' + Math.round(s.pctl)) : '';
-  if (s.opening_only) note += (note ? ' ｜ ' : '') + '片头打卡段，仅供参考';
-  showHLRange('slicePanel',
-    '高光 · ' + rangeLabel(t0, t1),
-    note, t0, t1, s.top_danmaku);
-  selectHLCard('.hlhigh[data-high="' + i + '"]');
-}
-
-/* 切片/高光面板：有代表弹幕就直接列；没有再按秒区间取真实弹幕补上 */
-function showHLRange(boxid, title, note, t0, t1, items){
-  var box = document.getElementById(boxid); if (!box) return;
-  var hasItems = !!(items && items.length);
-  box.innerHTML = '<div class="dmpanel">' +
-    '<h4>' + esc(title) + '</h4>' +
-    (note ? '<div class="dmwhy">' + esc(note) + '</div>' : '') +
-    '<div class="reso"><div class="reso-h">这一刻观众在刷什么' +
-      '<span class="n">' + rangeLabel(t0, t1) + '</span></div>' +
-      '<div class="reso-cols">' +
-        '<div><div class="reso-sub">复读最多</div><div id="' + boxid + '-top">' +
-          (hasItems ? hlTopHTML(items) : '<div class="reso-empty">正在取这一段弹幕…</div>') + '</div></div>' +
-        '<div><div class="reso-sub">代表弹幕（按时间）</div><div id="' + boxid + '-samples">' +
-          '<div class="reso-empty">正在取这一段弹幕…</div></div></div>' +
-      '</div></div>' +
-    '<div class="hlpanelnote">弹幕原文未做筛选或改写；「代表弹幕」按时间顺序取这一段内的真实弹幕。</div>' +
-  '</div>';
-  focusSection(boxid);
-  api('/api/danmaku_at?bvid=' + encodeURIComponent(hlBvid()) +
-      '&t0=' + Number(t0).toFixed(1) + '&t1=' + Number(t1).toFixed(1) + '&limit=60')
-    .then(function(d){
-      var top = document.getElementById(boxid + '-top');
-      if (top && !hasItems) {
-        top.innerHTML = hlTopHTML((d.top_repeat || []).map(function(r){ return {text: r.txt, n: r.n}; }));
-      }
-      var smp = document.getElementById(boxid + '-samples');
-      if (smp) {
-        var its = (d.items || []).slice(0, 8);
-        smp.innerHTML = its.length ? its.map(function(it){
-          return '<div class="reso-s"><span class="dt">' + mmss(it.t) + '</span>' + esc(it.txt) + '</div>';
-        }).join('') : '<div class="reso-empty">这一段时间里没有弹幕。</div>';
-      }
-    })
-    .catch(function(e){
-      var top = document.getElementById(boxid + '-top');
-      if (top && !hasItems) top.innerHTML = '<div class="reso-empty">取这一段弹幕失败：' + esc(e.message) + '</div>';
-      var smp = document.getElementById(boxid + '-samples');
-      if (smp) smp.innerHTML = '<div class="reso-empty">取这一段弹幕失败：' + esc(e.message) + '</div>';
-    });
-}
-
-/* ── 渲染主流程 ── */
-function render(){
-  const d = CUR;
-  // 单一仪表盘：旧诊断卡已并入新视图（曲线在图谱、对标在⑦⑧），不再有折叠层
-  var warn = DIAGERR
-    ? '<div class="sec" id="sec-diagerr"><div class="hlnotice">节奏曲线与 10 维位置这次没取到（' +
-      esc(DIAGERR) + '）；其余图表照常。</div></div>'
-    : '';
-  $('#content').innerHTML = hlHeadHTML(d) +
-    (HL ? hlViewHTML(d) + warn : hlEmptyHTML(d));
-  bind();
-  updateAIBtn();
-  if (HL) { drawHLChart(); drawDashboardCharts(); }
-
-  refreshFav();
-  initNarrative();   // 必须在深链接分支之前
-
-  // 深链接：?peak / ?seg / ?slice / ?high 落到精彩时刻交互态
-  const usp = new URLSearchParams(location.search);
-  if (usp.get('peak') != null) { setTimeout(function(){ openPeak(+usp.get('peak')); }, 200); return; }
-  if (usp.get('seg') != null) { setTimeout(function(){ openCritique(+usp.get('seg')); }, 200); return; }
-  if (usp.get('slice') != null) { setTimeout(function(){ openSlice(+usp.get('slice')); }, 200); return; }
-  if (usp.get('high') != null) { setTimeout(function(){ openHighlight(+usp.get('high')); }, 200); return; }
-}
-
-
-/* 选中一支对标对象 → 上图叠它的曲线 */
-
-/* ① 一句话结论 */
-
-/* ② 定位 */
-
-/* ③ 对标对比图 */
-
-
-/* 诚实边界条：放在主视图可见处（不藏技术层）。
-   三签名里的「诚实」——常驻"这是估计值""不做因果承诺"，评委第一眼就能看到。 */
-
-/* ④ 偏离诊断 */
-
-/* ⑤ 相似对标 */
-
-/* ⑥ 行动 */
-
-/* 交互绑定 */
-function bind(){
-  // 精彩时刻：图下方标签（键盘可达）与切片/高光卡片，都走原生 button 点击
-  bindHLChips();
-  document.querySelectorAll('.hlslice[data-slice]').forEach(el => el.onclick = () => openSlice(+el.dataset.slice));
-  document.querySelectorAll('.hlhigh[data-high]').forEach(el => el.onclick = () => openHighlight(+el.dataset.high));
-  const hlRetry = $('#hlRetry');
-  if (hlRetry) hlRetry.onclick = () => { if (CUR) load(CUR.video.bvid); };
-}
-
-
-/* ── 滚动叙事：图谱 → 对标 → 边界 逐步展开 ──
-   安全约定：默认全部可见；只有 JS 接管且用户没开 reduced-motion 时才做逐段展开。
-   任一前提不满足就只是没有动画，内容一个都不少。 */
-function initNarrative(){
-  // 主视图四段（五块里切片卡与高光卡互斥，同一个 id）
-  const nodes = ['sec-hlgraph', 'sec-peakbar', 'sec-hlfeedback', 'sec-radar', 'sec-dimsbar',
-                 'sec-hlout', 'sec-hlbench', 'sec-hlpeer']
-    .map(id => document.getElementById(id)).filter(Boolean);
-  const rail = document.getElementById('rail');
-  if (!nodes.length || !rail) return;
-  const names = {'sec-hlgraph': '① 图谱', 'sec-peakbar': '② 峰强度',
-                 'sec-hlfeedback': '③ 弹幕构成', 'sec-radar': '④ 雷达',
-                 'sec-dimsbar': '⑤ 10 维位置', 'sec-hlout': '⑥ 切片 / 高光',
-                 'sec-hlbench': '⑦ 共振对标', 'sec-hlpeer': '⑧ 相似对标'};
-  rail.innerHTML = nodes.map(n =>
-    '<a href="#' + n.id + '" data-t="' + n.id + '">' + names[n.id] + '</a>').join('');
-  rail.hidden = false;
-  const links = {};
-  rail.querySelectorAll('a').forEach(a => { links[a.dataset.t] = a; });
-  const setOn = id => Object.keys(links).forEach(k => links[k].classList.toggle('on', k === id));
-
-  // 不做逐段淡入：主视图区块必须默认全可见 ——
-  // 否则没滚到的区块是 opacity:0，整页截图 / 「存为图片」会把它们拍成空白。
-  if (!('IntersectionObserver' in window)) { setOn(nodes[0].id); return; }
-
-  // 导轨高亮"我现在读到哪"（判定带放在视口中部，避免来回抖）
-  const rio = new IntersectionObserver(es => {
-    es.forEach(e => { if (e.isIntersecting) setOn(e.target.id); });
-  }, {rootMargin: '-45% 0px -45% 0px', threshold: 0});
-  nodes.forEach(n => rio.observe(n));
-  setOn(nodes[0].id);
-}
-
-/* 技术层的敏感性滑块：拖一下看结论稳不稳（只在这里，主卡没有） */
-
-/* ══════════════════════════════════════════════════════════════
-   AI 解读 —— 基于精彩时刻结果给出可观察点。
-   · 定位口径（答辩别说"别人都有所以我们也做"，也别说"全新的创新点"）：
-     就是上面那一句而已。
-   · 它**不是**"去 AI 味"的对象 —— 去 AI 味只指设计层（措辞/视觉），不指"不许有 AI 功能"。
-   · 三道闸与提示词约束都在后端（serve/ai_report.py）；界面只显示状态与**已用量**，
-     并在被拒绝时**如实说明原因**（不把"没开"说成"诊断失败"）。
-   ══════════════════════════════════════════════════════════════ */
-var AISTATE = null;
-var AIADMIN = false;     // 用量 / 费用 / 模型名只给管理员；普通用户整行不渲染
-var AITEXT = '';
-
-function aiUsageLine(ai){
-  if (!AIADMIN) return '';
-  if (!ai) return '用量暂时取不到（接口没返回）。';
-  return '已用 <b>' + ai.used_today + ' / ' + ai.day_limit + '</b> 次　｜　累计 <b>¥' +
-    Number(ai.spent_cny).toFixed(4) + ' / ¥' + Number(ai.budget_cny).toFixed(2) +
-    '</b>　｜　单次上限 ' + ai.max_tokens + ' token' +
-    (ai.model ? ('　｜　模型 ' + esc(ai.model)) : '　｜　未配置密钥');
-}
-
-function resetAI(){
-  var p = document.getElementById('aipanel');
-  if (p) { p.hidden = true; p.innerHTML = ''; }
-  AITEXT = '';
-}
-
-function aiShell(inner, ai){
-  var p = document.getElementById('aipanel');
-  if (!p) return;
-  var gate = aiUsageLine(ai);
-  p.hidden = false;
-  p.innerHTML = '<div class="aicard"><div class="aihead">' +
-    '<span class="aititle">✦ AI 解读（精彩时刻）</span>' +
-    '</div>' + inner + (gate ? '<div class="aigate">' + gate + '</div>' : '') + '</div>';
-}
-
-function aiOK(d, ai){
-  var sug = d.suggestions || [];
-  var sugHTML = sug.length ? ('<div class="aiadv"><b>可参考的观察点</b><ol>' +
-    sug.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></div>') :
-    '<div class="aiadv"><b>可参考的观察点</b><div style="margin-top:6px">这次没有给出可参考的观察点。</div></div>';
-  aiShell(sugHTML + (d.report ? '<div class="airep">' + esc(d.report) + '</div>' : '') +
-    (d.cached ? '<div class="hlpanelnote">（缓存结果）</div>' : ''), ai);
-  focusSection('aipanel');
-}
-
-function aiBlocked(msg, ai){
-  aiShell('<div class="aiadv"><b>这次没有给出解读</b>' +
-    '<div style="margin-top:6px">' + esc(msg) + '</div></div>', ai);
-  focusSection('aipanel');
-}
-
-/* 错误文案：按状态码给固定文案，不把"未开启/超限"包装成"解读失败"，也不显示费用/token */
-function aiErrText(status, detail){
-  if (status === 409) return 'AI 解读未开启';
-  if (status === 422) return '本次解读未通过内容校验，已不展示';
-  if (status === 429) return '今日 AI 解读额度已用完';
-  if (status === 404) return '这支视频不在精彩时刻检测快照里';
-  return detail || ('HTTP ' + status);
-}
-
-/* AI 按钮只在有精彩时刻数据时可用：库外视频/快照 404 不做旧诊断解读 */
-function updateAIBtn(){
-  var b = document.getElementById('aiBtn');
-  if (!b) return;
-  var ok = !!HL;
-  b.disabled = !ok;
-  b.title = ok ? '基于精彩时刻检测结果给出解读' : 'AI 解读仅覆盖库内精彩时刻快照';
-}
-
-function refreshAIState(cb){
-  fetch('/api/v3/ai/state', { credentials: 'same-origin', cache: 'no-store' })
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){ AISTATE = (j && j.data) ? j.data : null; if (cb) cb(AISTATE); })
-    .catch(function(){ if (cb) cb(null); });
-}
-
-function runAI(){
-  if (!CUR) { V3.toast('先选一支视频'); return; }
-  if (!HL) { V3.toast('AI 解读仅覆盖库内精彩时刻快照'); return; }
-  var b = document.getElementById('aiBtn');
-  if (b) { b.disabled = true; b.textContent = '正在解读…'; }
-  aiShell('<div class="loading">正在把精彩时刻检测结果交给模型解读…</div>', AISTATE);
-  fetch('/api/v3/ai/report', { method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bvid: hlBvid() }) })
-    .then(function(r){ return r.json().then(function(j){ return { s: r.status, j: j }; }); })
-    .then(function(o){
-      if (o.s === 200 && o.j && o.j.code === 0) { aiOK(o.j.data, (o.j.meta || {}).ai); }
-      else { aiBlocked(aiErrText(o.s, (o.j && (o.j.detail || o.j.error))), null); }
-    })
-    .catch(function(e){ aiBlocked('请求没发出去：' + ((e && e.message) || e), null); })
-    .then(function(){
-      if (b) { b.disabled = false; b.textContent = '✦ AI 解读'; }
-      updateAIBtn();
-      refreshAIState(function(ai){
-        var g = document.querySelector('.aigate');
-        if (g) g.innerHTML = aiUsageLine(ai);
-      });
-    });
-}
-
-(function initAI(){
-  var b = document.getElementById('aiBtn');
-  if (b) b.onclick = runAI;
-  // 角色到手后再决定是否渲染用量行（管理员可见，普通用户整行不渲染）
-  if (window.V3 && V3.ready) {
-    V3.ready(function(me){
-      AIADMIN = !!(me && me.role === 'admin');
-      if (AIADMIN) refreshAIState(function(ai){
-        var g = document.querySelector('.aigate');
-        if (g) g.innerHTML = aiUsageLine(ai);
-      });
-    });
-  }
-  updateAIBtn();
-})();
-
-/* 折叠技术层 */
-</script>
+    <div class="wrap" id="page">
+      <div class="topbar">
+        <p class="pagesub"><b>视频分析</b> · 弹幕节奏 · 高峰 · 同类对比</p>
+        <div class="tools">
+          <input id="q" aria-label="输入 BV 号或标题" placeholder="输入 BV 号或标题" autocomplete="off">
+          <button type="button" class="toolbtn" id="rand">随机一条</button>
+          <button type="button" class="toolbtn" id="fav" hidden>收藏</button>
+          <button type="button" class="toolbtn" id="shot">存图</button>
+        </div>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div id="content"><div class="loading">正在加载…</div></div>
     </div>
   </main>
 </div>
+<script src="vendor/html2canvas.min.js"></script>
+<script src="v3nav.js?v=20261021"></script>
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)};
+var ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'};
+function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,function(c){return ESC[c]})}
+function num(v){return (typeof v==='number'&&isFinite(v))?v:null}
+function numOr(v,d){var x=num(v);return x==null?d:x}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function fmtN(n){if(n==null||isNaN(n))return '—';return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function fmt1(n){if(n==null||isNaN(n))return '—';return (Math.round(n*10)/10).toFixed(1)}
+function fmt2(n){if(n==null||isNaN(n))return '—';return (Math.round(n*100)/100).toFixed(2)}
+function fmtTime(sec){if(sec==null||!isFinite(sec))return '—';sec=Math.round(sec);var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;if(h)return h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');return m+':'+String(s).padStart(2,'0')}
+var state={idx:[],diag:null,hl:null,video:null,curve:null,peaks:[],devs:[],dims:[],bench:[],live:false,sel:-1,zoom:{i0:0,i1:100},overlay:null,overlayOn:false};
+
+function hint(m){var el=$('#hint');if(el)el.textContent=m||''}
+function setContent(h){var el=$('#content');if(el)el.innerHTML=h}
+function api(path){return fetch(path,{cache:'no-store',credentials:'same-origin'}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok||(j&&j.code!=null&&j.code!==0)){var e=new Error((j&&(j.detail||j.error))||('HTTP '+r.status));e.status=r.status;throw e}return j.data})})}
+function apiFull(path){return fetch(path,{cache:'no-store',credentials:'same-origin'}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){return{ok:r.ok,status:r.status,j:j}})})}
+function readCard(r){return (r&&r.ok&&r.j&&r.j.code===0&&r.j.data)?r.j.data:null}
+
+function boot(){
+  var q=$('#q'),rand=$('#rand'),shot=$('#shot'),fav=$('#fav');
+  if(q){
+    q.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();runSearch(q.value)}});
+    q.addEventListener('input',function(){hint('')});
+  }
+  if(rand)rand.addEventListener('click',randomOne);
+  if(fav)fav.addEventListener('click',toggleFav);
+  if(shot){if(window.html2canvas)shot.addEventListener('click',saveImage);else shot.hidden=true}
+  window.addEventListener('popstate',route);
+  api('/api/diagnosis/index').then(function(rows){state.idx=(rows||[]).filter(function(x){return x&&x.bvid})}).catch(function(){state.idx=[]}).then(route);
+}
+function route(){var b=(new URLSearchParams(location.search)).get('bvid');b=(b||'').trim();if(!b){emptyState();return}if(state.idx.length&&!hasInLib(b)){loadLive(b);return}load(b)}
+function hasInLib(b){return state.idx.some(function(x){return x.bvid===b})}
+function go(b){if(!b)return;history.pushState(null,'','?bvid='+encodeURIComponent(b));if(state.idx.length&&!hasInLib(b))loadLive(b);else load(b)}
+function randomOne(){if(!state.idx.length){hint('还没有可用视频');return}go(state.idx[Math.floor(Math.random()*state.idx.length)].bvid)}
+function runSearch(raw){raw=(raw||'').trim();if(!raw)return;if(/^BV[0-9A-Za-z]{10}$/.test(raw)){hint('');go(raw);return}var q=raw.toLowerCase();var hit=state.idx.find(function(x){return (x.title||'').toLowerCase().indexOf(q)>=0||(x.tname||'').toLowerCase().indexOf(q)>=0});if(hit){hint('');go(hit.bvid)}else hint('没找到；可直接粘贴 BV 号')}
+function emptyState(){state.diag=null;state.hl=null;state.video=null;state.curve=null;state.peaks=[];state.devs=[];state.dims=[];state.bench=[];state.live=false;state.sel=-1;var f=$('#fav');if(f)f.hidden=true;setContent('<div class="state"><h1>看一条视频的节奏</h1><p>输入 BV 号或标题，或点「随机一条」。</p></div>')}
+function errorState(t,m,b){setContent('<div class="state"><h1>'+esc(t)+'</h1><p>'+esc(m||'这次没取到数据。')+'</p><button type="button" class="btn primary" data-retry="'+esc(b||'')+'">重试</button></div>');var x=document.querySelector('[data-retry]');if(x)x.onclick=function(){if(b)load(b)}}
+function loadingState(t){setContent('<div class="state"><div class="loading">'+esc(t||'正在加载…')+'</div></div>')}
+
+function load(b){
+  state.live=false;loadingState('正在加载…');
+  Promise.all([apiFull('/api/video/'+encodeURIComponent(b)+'/diagnosis'),apiFull('/api/video/'+encodeURIComponent(b)+'/highlights')]).then(function(rs){
+    var d=readCard(rs[0]),h=readCard(rs[1]);
+    if(!d&&!h){var st=(rs[0]&&rs[0].status)||(rs[1]&&rs[1].status)||0;if(st===404){loadLive(b);return}errorState('这次没取到数据',((rs[0]&&rs[0].j&&(rs[0].j.detail||rs[0].j.error))||(rs[1]&&rs[1].j&&(rs[1].j.detail||rs[1].j.error))||'接口没有返回数据。'),b);return}
+    applyCards(d,h);render();
+  }).catch(function(e){errorState('这次没取到数据',(e&&e.message)||String(e),b)});
+}
+function loadLive(b){
+  state.live=true;loadingState('正在现场采集…');
+  api('/api/live_diagnose?bvid='+encodeURIComponent(b)).then(function(d){if(!d){errorState('这条视频没取到','现场采集没有返回数据。',b);return}applyCards(d,null);render()}).catch(function(e){errorState('这条视频没取到',(e&&e.message)||String(e),b)});
+}
+function applyCards(d,h){
+  state.diag=d||null;state.hl=h||null;
+  var v=(d&&d.video)?d.video:{};
+  if(!v.bvid&&h)v={bvid:h.bvid,title:h.title,tname:h.tname,duration:h.duration,n_danmaku:h.n_danmaku,batch_date:h.batch_date};
+  state.video=v;
+  state.curve=(d&&d.curve&&d.curve.you&&d.curve.you.length)?d.curve:null;
+  state.devs=(d&&d.deviations)||[];
+  state.dims=(d&&d.position&&d.position.dims)||[];
+  state.bench=(d&&d.benchmarks)||[];
+  state.peaks=buildPeaks(h,d);
+  state.sel=-1;state.zoom={i0:0,i1:100};state.overlay=null;state.overlayOn=false;
+  var q=$('#q');if(q)q.value='';hint('');
+}
+function buildPeaks(h,d){
+  var dur=num(state.video&&state.video.duration);var total=num(state.video&&state.video.n_danmaku);
+  var raw=(h&&h.peaks&&h.peaks.length)?h.peaks.slice():[];
+  raw.sort(function(a,b){return (num(b.score)||0)-(num(a.score)||0)});
+  raw=raw.slice(0,5).sort(function(a,b){return (num(a.peak_sec)||0)-(num(b.peak_sec)||0)});
+  var ranks={};
+  (h&&h.highlight_positions||[]).forEach(function(x){ranks[x.start_sec+'|'+x.end_sec+'|'+x.sec]=num(x.rank)});
+  var out=raw.map(function(p,i){
+    var t0=num(p.start_sec),t1=num(p.end_sec),sec=num(p.peak_sec);
+    if(sec==null&&t0!=null&&t1!=null)sec=(t0+t1)/2;
+    var pct=dur?clamp(sec/dur*100,0,100):null;
+    var i0=dur?clamp(Math.floor(t0/dur*100),0,100):0,i1=dur?clamp(Math.ceil(t1/dur*100)-1,0,100):i0;
+    var share=0,peakShare=0;
+    var yr=(d&&d.curve&&d.curve.you_raw)||[];
+    for(var k=i0;k<=i1;k++){var x=num(yr[k])||0;share+=x;if(x>peakShare)peakShare=x}
+    var count=Math.round(share*(total||0));
+    var dens=state.video&&dur?(peakShare*total*6000/dur):null;
+    var top=(p.top_danmaku&&p.top_danmaku[0])||null;
+    return {i:i,t0:t0,t1:t1,sec:sec,pct:pct,i0:i0,i1:i1,score:num(p.score)||0,
+      rank:ranks[t0+'|'+t1+'|'+sec]||(i+1),count:count,share:total?count/total:null,
+      peakDensity:dens,n_repeat:num(p.n_repeat),n_rep_texts:num(p.n_rep_texts),
+      phrase:top?{text:top.text,n:num(top.n)}:null,
+      opening:!!p.in_opening,pctl:num(p.pctl),peers:num(p.partition_n)};
+  });
+  if(out.length){var top=out.slice().sort(function(a,b){return b.score-a.score})[0];out.forEach(function(p){p.top=(p===top)})}
+  return out;
+}
+
+function verdictHTML(){
+  var vd=state.diag&&state.diag.verdict;if(!vd||!vd.headline)return '';
+  var tone=vd.tone==='warn'?' warn':(vd.tone==='ok'?' ok':'');
+  var html='<div class="verdict'+tone+'"><div class="vheadline">'+esc(vd.headline)+'</div>';
+  if(vd.detail)html+='<div class="vdetail">'+esc(vd.detail)+'</div>';
+  if(vd.problem_5s)html+='<span class="vtag">'+esc(vd.problem_5s)+'</span>';
+  return html+'</div>';
+}
+function heroHTML(){
+  var v=state.video||{},p=state.diag&&state.diag.position;
+  var facts=[];
+  if(v.up_name)facts.push('<span>'+esc(v.up_name)+'</span>');
+  if(v.tname)facts.push('<span>'+esc(v.tname)+'</span>');
+  if(v.duration_text||v.duration!=null)facts.push('<span>'+esc(v.duration_text||fmtTime(v.duration))+'</span>');
+  if(v.n_danmaku!=null)facts.push('<span><b>'+fmtN(v.n_danmaku)+'</b> 条弹幕</span>');
+  if(v.play_text)facts.push('<span>'+esc(v.play_text)+' 播放</span>');
+  if(v.batch_date)facts.push('<span>批次 '+esc(v.batch_date)+'</span>');
+  var k,vv;
+  var density=(v.n_danmaku!=null&&v.duration)?v.n_danmaku*60/v.duration:null;
+  var peakN=state.peaks.length;
+  var opening=null,mid=null;
+  state.devs.forEach(function(x){if(x.label==='开场吸引力')opening=num(x.value);if(x.label==='中段留存')mid=num(x.value)});
+  var peers=(state.curve&&num(state.curve.n_peers))||num(p&&p.n_peers);
+  var rank=p&&num(p.rank),pct=p&&num(p.percentile);
+  var ahead=p&&num(p.ahead_pct); if(ahead==null&&pct!=null)ahead=100-pct;
+  var cells=[
+    ['互动热度',density?fmt1(density)+'<small> 条/分</small>':'—','全片平均'],
+    ['高峰',peakN?String(peakN):'—','已标出'],
+    ['开场 0–5%',opening!=null?fmt1(opening*100)+'%':'—','弹幕占比'],
+    ['中段 5–95%',mid!=null?fmt1(mid*100)+'%':'—','弹幕占比'],
+    ['同类样本',peers?peers+'<small> 支</small>':'—',state.diag&&state.diag.position?esc(state.diag.position.scope||''):''],
+    ['同类位置',rank?'第 '+rank+' <small>/ '+fmtN(peers||0)+'</small>':(pct!=null?fmt1(pct)+'%':'—'),ahead!=null?'前 '+fmt1(ahead)+'%':'']
+  ];
+  var kn=cells.map(function(c){return '<div class="kn"><span>'+c[0]+'</span><b>'+c[1]+'</b><small>'+esc(c[2]||'')+'</small></div>'}).join('');
+  var kicker=[v.tname,v.batch_date?'批次 '+v.batch_date:''].filter(Boolean).join(' · ');
+  return '<header class="hero"><div class="hero-kicker">'+esc(kicker||'视频')+(state.live?'<span class="live-tag">现场采集</span>':'')+'</div>'+
+    '<h1 class="hero-title">'+esc(v.title||v.bvid||'')+'</h1>'+
+    '<div class="hero-facts">'+facts.join('<span class="hero-sep">·</span>')+(v.bvid?'<a class="bili" href="https://www.bilibili.com/video/'+esc(v.bvid)+'" target="_blank" rel="noopener">B站 ↗</a>':'')+'</div>'+
+    verdictHTML()+
+    '<div class="kn-grid">'+kn+'</div></header>';
+}
+
+function curveSection(){
+  var c=state.curve,v=state.video;
+  if(!c||!c.you||c.you.length<5||!v||!v.duration)return '';
+  var top=state.peaks.slice().sort(function(a,b){return b.score-a.score})[0];
+  var meta=[];
+  if(c.n_peers)meta.push('同类 '+c.n_peers+' 支');
+  if(v.duration)meta.push('全长 '+fmtTime(v.duration));
+  return '<section class="sec" id="sec-curve"><div class="sec-head"><h2><span class="no">02</span>全片节奏</h2>'+
+    '<span class="sec-meta">'+meta.join(' · ')+'</span></div>'+
+    (c.summary?'<div class="sec-note">'+esc(c.summary)+'</div>':'')+
+    '<div class="legend"><span><i class="i-you"></i>这条视频</span><span><i class="i-med"></i>同类中位</span><span><i class="i-band"></i>25%–75% 带</span><span><i class="i-peak"></i>高峰</span><span>1× = 同类中位</span><span>纵轴 log</span>'+(state.overlayOn&&state.overlay?'<span><i class="i-over"></i>'+esc(state.overlay.title||'叠加曲线')+'</span>':'')+'</div>'+
+    '<div class="chart-host">'+chartGridHTML()+'</div>'+
+    bandStrip()+
+  '</section>';
+}
+function chartGridHTML(){
+  return '<div class="chart-grid"><div class="y-axis" id="yAxis"></div><div>'+
+    '<div class="chart-wrap" id="chartWrap">'+mainChartSVG()+'<div class="tip" id="chartTip"></div></div>'+
+    '<div class="x-axis" id="chartX"></div></div></div>';
+}
+function chartScale(){
+  var c=state.curve,v=state.video,z=state.zoom;if(!c)return{max:1,median:0,maxVal:0};
+  var f=(v&&v.n_danmaku&&v.duration)?v.n_danmaku*6000/v.duration:1;
+  var you=c.you.slice(z.i0,z.i1+1).map(function(x){return (num(x)||0)*f});
+  var med=c.median.slice(z.i0,z.i1+1).map(function(x){return (num(x)||0)*f});
+  var maxVal=Math.max.apply(null,you.concat([0]));
+  var medSorted=med.slice().sort(function(a,b){return a-b});
+  var median=medSorted.length?medSorted[Math.floor(medSorted.length/2)]:0;
+  return {max:Math.max(maxVal,1)*1.08,median:median,maxVal:maxVal};
+}
+function mainChartSVG(){
+  var c=state.curve,v=state.video,z=state.zoom,i0=z.i0,i1=z.i1,span=i1-i0;
+  var W=1000,H=320,T=18,B=298;
+  var factor=(v&&v.n_danmaku&&v.duration)?v.n_danmaku*6000/v.duration:1;
+  var top=state.peaks.slice().sort(function(a,b){return b.score-a.score})[0];
+  function seg(k){var a=c[k].slice(i0,i1+1).map(function(x){return (num(x)||0)*factor});return a}
+  var you=seg('you'),med=seg('median'),p25=seg('p25'),p75=seg('p75');
+  var max=chartScale().max;
+  if(!isFinite(max)||max<=0)max=1;
+  function X(i){return (i/span)*W}
+  function Y(x){return B-(Math.log1p(Math.max(x,0))/Math.log1p(max))*(B-T)}
+  function path(a){return a.map(function(x,i){return (i?'L':'M')+X(i).toFixed(1)+','+Y(x).toFixed(1)}).join('')}
+  var area='M0,'+B+' L'+you.map(function(x,i){return X(i).toFixed(1)+','+Y(x).toFixed(1)}).join(' L')+' L'+W+','+B+' Z';
+  var band='M';
+  for(var i=0;i<=span;i++)band+=(i?' L':'')+X(i).toFixed(1)+','+Y(p75[i]).toFixed(1);
+  for(var j=span;j>=0;j--)band+=' L'+X(j).toFixed(1)+','+Y(p25[j]).toFixed(1);
+  band+=' Z';
+  var bands='';
+  (c.bands||[]).forEach(function(b){
+    var a=Math.max(num(b.from),i0),bb=Math.min(num(b.to),i1);
+    if(!(bb>a))return;
+    var x0=X(a-i0),x1=X(bb-i0);
+    bands+='<rect class="band-mark '+(b.kind==='below'?'band-below':'band-above')+'" x="'+x0.toFixed(1)+'" y="4" width="'+(x1-x0).toFixed(1)+'" height="6"></rect>';
+  });
+  var selBand='';
+  var sp=state.peaks[state.sel];
+  if(sp&&sp.i1>=i0&&sp.i0<=i1){
+    var a=Math.max(sp.i0,i0),b=Math.min(sp.i1,i1);
+    selBand='<rect class="peak-sel" x="'+X(a-i0).toFixed(1)+'" y="'+T+'" width="'+Math.max(2,X(b-i0)-X(a-i0)).toFixed(1)+'" height="'+(B-T)+'"></rect>';
+  }
+  var marks='';
+  state.peaks.forEach(function(p){
+    var ci=Math.round(num(p.pct));
+    if(ci<i0||ci>i1)return;
+    var x=X(ci-i0),y=Y((num(c.you[ci])||0)*factor);
+    marks+='<line class="peak-line" x1="'+x.toFixed(1)+'" y1="'+(T-6)+'" x2="'+x.toFixed(1)+'" y2="'+B+'"></line><circle class="peak-dot" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4"></circle>';
+  });
+  if(top&&top.pct!=null&&top.pct>=i0&&top.pct<=i1){
+    marks+='<text class="peak-tag" x="'+X(top.pct-i0).toFixed(1)+'" y="'+(T-6)+'" text-anchor="middle">最高 '+fmtTime(top.sec)+'</text>';
+  }
+  var over='';
+  if(state.overlayOn&&state.overlay&&state.overlay.curve){
+    var oc=state.overlay.curve.slice(i0,i1+1).map(function(x){return (num(x)||0)*factor});
+    over='<path class="overlay-line" d="'+path(oc)+'"></path>';
+  }
+  var aria='全片节奏'+(top?'，最高峰 '+fmtTime(top.sec):'');
+  return '<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+esc(aria)+'">'+
+    '<line class="base-line" x1="0" y1="'+B+'" x2="'+W+'" y2="'+B+'"></line>'+
+    bands+selBand+
+    '<path class="peer-band" d="'+band+'"></path>'+
+    '<path class="peer-line" d="'+path(med)+'"></path>'+
+    '<path class="you-area" d="'+area+'"></path>'+
+    '<path class="you-line" d="'+path(you)+'"></path>'+over+marks+
+    '<line id="hoverLine" class="hover-line" x1="0" y1="'+T+'" x2="0" y2="'+B+'" visibility="hidden"></line>'+
+    '<circle id="hoverDot" class="hover-dot" r="3.5" visibility="hidden"></circle>'+
+    '<rect id="brushRect" class="brush-rect" x="0" y="'+T+'" width="0" height="'+(B-T)+'" visibility="hidden"></rect>'+
+    '<rect id="chartHit" class="chart-hit" x="0" y="0" width="'+W+'" height="'+H+'"></rect>'+
+  '</svg>';
+}
+function drawXAxis(){
+  var v=state.video,z=state.zoom,dur=num(v&&v.duration),host=$('#chartX');
+  if(!host)return;var out='';
+  [0,.25,.5,.75,1].forEach(function(t,i){
+    var idx=Math.round(z.i0+(z.i1-z.i0)*t);
+    var sec=dur?dur*idx/100:null;
+    out+='<span class="tick'+(i===0?' first':(i===4?' last':''))+'" style="left:'+(t*100).toFixed(0)+'%">'+(sec==null?'—':fmtTime(sec))+'</span>';
+  });
+  host.innerHTML=out;
+}
+function drawYAxis(){
+  var host=$('#yAxis');if(!host)return;
+  var sc=chartScale(),H=320,T=18,B=298;
+  function pct(v){var y=B-(Math.log1p(Math.max(v,0))/Math.log1p(sc.max))*(B-T);return clamp(y/H*100,0,100)}
+  var items=[['0',0],['中位 '+String(Math.round(sc.median)),sc.median],['峰 '+String(Math.round(sc.maxVal)),sc.maxVal]];
+  host.innerHTML='<span class="yu">条/分</span>'+items.map(function(it){return '<span class="yt" style="top:'+pct(it[1]).toFixed(1)+'%">'+it[0]+'</span>'}).join('');
+}
+function bandStrip(){
+  var b=(state.curve&&state.curve.bands)||[];
+  if(!b.length)return '';
+  return '<div class="band-strip">'+b.map(function(x){
+    return '<span class="band-chip">'+fmtTime(state.video.duration*x.from/100)+'–'+fmtTime(state.video.duration*x.to/100)+' <b>'+fmt2(x.ratio)+'×</b></span>';
+  }).join('')+'</div>';
+}
+function devTrack(dev){
+  var W=320,H=46,L=6,R=6,M=12,T=8,B=30;
+  function X(v){return L+(v/100)*(W-L-R)}
+  var pct=clamp(num(dev.pct)||0,0,100);
+  return '<svg class="dev-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+esc(dev.label)+'">'+
+    '<line class="dev-axis" x1="'+L+'" y1="'+B+'" x2="'+(W-R)+'" y2="'+B+'"></line>'+
+    [25,50,75].map(function(v){return '<line class="dev-axis" x1="'+X(v).toFixed(1)+'" y1="'+(T+6)+'" x2="'+X(v).toFixed(1)+'" y2="'+B+'" opacity="'+(v===50?'.9':'.45')+'"></line>'}).join('')+
+    '<line class="dev-med" x1="'+X(50).toFixed(1)+'" y1="'+(T-2)+'" x2="'+X(50).toFixed(1)+'" y2="'+(B+4)+'"></line>'+
+    '<circle class="dev-dot" cx="'+X(pct).toFixed(1)+'" cy="'+((T+B)/2).toFixed(1)+'" r="4.5"></circle>'+
+    '<text class="dev-label" x="'+X(pct).toFixed(1)+'" y="'+(T-1)+'" text-anchor="middle">'+Math.round(pct)+'%</text>'+
+  '</svg>';
+}
+function actionsHTML(){
+  var vd=state.diag&&state.diag.verdict;if(!vd)return '';
+  var acts=vd.actions||[];if(!acts.length&&!vd.caveat)return '';
+  var h='<div class="actions">'+acts.map(function(a,i){
+    var ref=a.ref&&a.ref.bvid?'<a class="reflink" href="?bvid='+encodeURIComponent(a.ref.bvid)+'">参考视频</a>':'';
+    return '<div class="act"><span class="n">'+(a.n||i+1)+'</span><div><div>'+esc(a.text||'')+'</div>'+
+      (a.basis?'<span class="basis">'+esc(a.basis)+'</span>':'')+ref+'</div></div>';
+  }).join('')+'</div>';
+  if(vd.caveat)h+='<div class="caveat">'+esc(vd.caveat)+'</div>';
+  return h;
+}
+function deviationsSection(){
+  var list=state.devs;if(!list.length)return '';
+  var rows=list.map(function(d){
+    return '<div class="dev-row">'+
+      (d.compare_text?'<div class="dev-note">'+esc(d.compare_text)+'</div>':'')+
+      '<div class="dev-name">'+esc(d.label)+
+        (d.human?'<div class="dev-human">'+esc(d.human)+'</div>':'')+
+        '<small>同类 '+fmtN(num(d.peer_count))+' 支</small></div>'+
+      devTrack(d)+
+      '<div class="dev-nums">这条视频 <b>'+esc(d.you_text||fmt2(d.value))+'</b><br>同类中位 <b>'+esc(d.median_text||fmt2(d.median))+'</b> <span class="n">· '+esc(d.position_text||'')+'</span></div></div>';
+  }).join('');
+  return '<section class="sec" id="sec-dev"><div class="sec-head"><h2><span class="no">03</span>和同类差在哪</h2><span class="sec-meta">0–100 同类位置 · 虚线是同类中位</span></div><div class="dev-chart"><div class="dev-axis-head"><span></span><div class="dev-scale"><span>0</span><span>50</span><span>100</span></div><span></span></div>'+rows+'</div>'+actionsHTML()+'</section>';
+}
+function peaksSection(){
+  var list=state.peaks;if(!list.length)return '';
+  var maxShare=Math.max.apply(null,list.map(function(p){return p.share||0}))||1;
+  var rows=list.map(function(p){
+    var w=Math.max(3,Math.round((p.share||0)/maxShare*100));
+    var phrase=p.phrase?'「'+esc(p.phrase.text)+'」'+(p.phrase.n?' <b>×'+fmtN(p.phrase.n)+'</b>':''):'—';
+    return '<button type="button" class="peak-row'+(state.sel===p.i?' on':'')+'" data-peak="'+p.i+'">'+
+      '<span class="pr-time">'+fmtTime(p.t0)+'–'+fmtTime(p.t1)+'</span>'+
+      '<span class="pr-share"><span class="pr-bar"><i style="width:'+w+'%"></i></span><span class="pr-pct">'+fmt1((p.share||0)*100)+'%</span></span>'+
+      '<span class="pr-num">弹幕 <b>'+fmtN(p.count)+'</b></span>'+
+      '<span class="pr-num">峰值 <b>'+fmt1(p.peakDensity)+'</b>/分</span>'+
+      '<span class="pr-num">复读 <b>'+fmtN(p.n_repeat)+'</b></span>'+
+      '<span class="pr-phrase">'+phrase+'</span>'+
+      '<span class="pr-rank">'+(p.rank?'No.'+p.rank:'')+'</span>'+
+    '</button>';
+  }).join('');
+  var top=state.peaks.filter(function(p){return p.top})[0];
+  var topNote=top?'最高峰 '+fmtTime(top.t0)+'–'+fmtTime(top.t1)+(top.phrase?' · 「'+esc(top.phrase.text)+'」'+(top.phrase.n?'×'+fmtN(top.phrase.n):''):''):'';
+  return '<section class="sec" id="sec-peaks"><div class="sec-head"><h2><span class="no">04</span>高峰</h2><span class="sec-meta">最高 5 段</span></div>'+
+    (topNote?'<div class="sec-note">'+topNote+'</div>':'')+
+    '<div class="peak-table"><div class="peak-head"><span>时间</span><span>占全片</span><span>弹幕</span><span>峰值</span><span>复读</span><span>短语</span><span></span></div>'+rows+'</div>'+
+    '<div class="peak-panel" id="peakPanel" hidden></div></section>';
+}
+function dimTrack(x){
+  var W=220,H=34,L=5,R=5,T=7,B=24;
+  function X(v){return L+(v/100)*(W-L-R)}
+  var pct=clamp(num(x.pct)||0,0,100);
+  return '<svg class="dev-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+esc(x.label)+'">'+
+    '<line class="dev-axis" x1="'+L+'" y1="'+B+'" x2="'+(W-R)+'" y2="'+B+'"></line>'+
+    [25,50,75].map(function(v){return '<line class="dev-axis" x1="'+X(v).toFixed(1)+'" y1="'+(T+4)+'" x2="'+X(v).toFixed(1)+'" y2="'+B+'" opacity="'+(v===50?'.9':'.4')+'"></line>'}).join('')+
+    '<line class="dev-med" x1="'+X(50).toFixed(1)+'" y1="'+(T-2)+'" x2="'+X(50).toFixed(1)+'" y2="'+(B+3)+'"></line>'+
+    '<circle class="dev-dot" cx="'+X(pct).toFixed(1)+'" cy="'+((T+B)/2).toFixed(1)+'" r="3.8"></circle>'+
+  '</svg>';
+}
+function dimsSection(){
+  var list=state.dims;if(!list.length)return '';
+  var n=(state.diag&&state.diag.position&&num(state.diag.position.n_peers))||(state.curve&&num(state.curve.n_peers));
+  var rows=list.map(function(x){
+    var ahead=num(x.ahead);
+    return '<div class="dim-row"><div class="dim-name">'+esc(x.label)+'</div>'+dimTrack(x)+
+      '<div class="dim-value">前 <b>'+fmt1(ahead)+'%</b></div></div>';
+  }).join('');
+  var pos=state.diag&&state.diag.position;
+  var note=pos&&pos.headline?('<div class="sec-note">'+esc(pos.headline)+(pos.detail?' · <span class="sub">'+esc(pos.detail)+'</span>':'')+'</div>'):'';
+  return '<section class="sec" id="sec-dims"><div class="sec-head"><h2><span class="no">05</span>同类位置</h2><span class="sec-meta">'+(n?n+' 支同类':'')+' · 虚线是同类中位</span></div>'+
+    note+'<div class="dims-chart"><div class="dim-head"><span></span><div class="dev-scale"><span>0</span><span>50</span><span>100</span></div><span></span></div>'+rows+'</div></section>';
+}
+function sparkCompare(a,b){
+  if(!a||a.length<3)return '';
+  var other=(b&&b.length===a.length)?b:[];
+  var W=260,H=78,T=6,B=72,max=Math.max.apply(null,a.concat(other).map(function(x){return num(x)||0}));
+  if(!(max>0))max=1;
+  function X(i){return i/(a.length-1)*W}function Y(v){return B-((num(v)||0)/max)*(B-T)}
+  var line=a.map(function(v,i){return (i?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1)}).join('');
+  var area='M0,'+B+' L'+a.map(function(v,i){return X(i).toFixed(1)+','+Y(v).toFixed(1)}).join(' L')+' L'+W+','+B+' Z';
+  var ghost=other.length?'<path fill="none" stroke="var(--text-tertiary)" stroke-width="1.2" opacity=".55" d="'+other.map(function(v,i){return (i?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1)}).join('')+'"></path>':'';
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:100%;display:block"><path fill="var(--chart-fill-primary)" d="'+area+'"></path>'+ghost+'<path fill="none" stroke="var(--primary)" stroke-width="1.8" d="'+line+'"></path></svg>';
+}
+function similarSection(){
+  var list=state.bench.filter(function(x){return x&&(x.title||x.bvid)}).slice(0,3);
+  if(!list.length)return '';
+  var cards=list.map(function(b,i){
+    var same=(b.same_labels||[]).map(function(x){return '<span class="chip">'+esc(x)+'</span>'}).join('');
+    var diff=b.diff_label?'<span class="chip diff">'+esc(b.diff_label)+'</span>':'';
+    var outcome=b.outcome_text?'<div class="sim-outcome">'+(b.did_better?'<b>后续更强</b> · ':'')+esc(b.outcome_text)+'</div>':'';
+    var like=b.like_text?'<div class="sim-like">'+esc(b.like_text)+'</div>':'';
+    var on=state.overlayOn&&state.overlay&&state.overlay.bvid===b.bvid;
+    return '<div class="sim-card"><div class="sim-top"><span class="sim-pct">'+fmtN(num(b.similarity_pct))+'<small>% 相似</small></span>'+(b.did_better?'<span class="pt-rank">后续更强</span>':'')+'</div>'+
+      '<div class="sim-title">'+esc(b.title||b.bvid)+'</div>'+like+'<div class="chips">'+same+diff+'</div>'+outcome+
+      '<div class="sim-spark">'+sparkCompare(b.curve,state.curve&&state.curve.you)+'</div>'+
+      '<div class="sim-actions"><a href="?bvid='+encodeURIComponent(b.bvid||'')+'">打开这条</a><button type="button" class="'+(on?'on':'')+'" data-overlay="'+i+'">'+(on?'取消叠加':'叠加曲线')+'</button></div></div>';
+  }).join('');
+  return '<section class="sec" id="sec-similar"><div class="sec-head"><h2><span class="no">06</span>相似视频</h2><span class="sec-meta">叠加后可在主图对照</span></div><div class="sim-grid">'+cards+'</div></section>';
+}
+function footHTML(){
+  var left=state.idx.length?'已采集 '+fmtN(state.idx.length)+' 支视频':'B站公开弹幕';
+  if(state.video&&state.video.batch_date)left+=' · 批次 '+esc(state.video.batch_date);
+  return '<footer class="pagefoot"><span>'+left+'</span><span>B站公开弹幕</span></footer>';
+}
+function render(){
+  var h=heroHTML();
+  h+=curveSection();
+  h+=deviationsSection();
+  h+=peaksSection();
+  h+=dimsSection();
+  h+=similarSection();
+  h+=footHTML();
+  setContent(h);bindAll();drawXAxis();drawYAxis();refreshFav();
+}
+function bindAll(){
+  document.querySelectorAll('.peak-row[data-peak]').forEach(function(el){el.onclick=function(){setPeak(+el.getAttribute('data-peak'))}});
+  document.querySelectorAll('[data-overlay]').forEach(function(el){el.onclick=function(){toggleOverlay(+el.getAttribute('data-overlay'))}});
+  bindChart();
+}
+function bindChart(){
+  var hit=$('#chartHit');if(!hit)return;
+  var wrap=$('#chartWrap'),tip=$('#chartTip'),line=$('#hoverLine'),dot=$('#hoverDot'),brush=$('#brushRect');
+  var down=false,x0=null,moved=false;
+  function toLocalX(e){var r=hit.getBoundingClientRect();return clamp((e.clientX-r.left)/r.width,0,1)}
+  function toIdx(r){return Math.round(state.zoom.i0+r*(state.zoom.i1-state.zoom.i0))}
+  hit.addEventListener('pointermove',function(e){
+    var r=toLocalX(e),idx=toIdx(r),c=state.curve;if(!c)return;
+    var v=state.video,dur=num(v&&v.duration),factor=(v&&v.n_danmaku&&dur)?v.n_danmaku*6000/dur:1;
+    var t=dur?dur*idx/100:null,d=(num(c.you[idx])||0)*factor,md=(num(c.median[idx])||0)*factor,cnt=Math.round((num(c.you_raw[idx])||0)*(v.n_danmaku||0));
+    var W=1000;var px=r*W;
+    line.setAttribute('x1',px);line.setAttribute('x2',px);line.setAttribute('visibility','visible');
+    var sc=chartScale(),p25v=(num(c.p25[idx])||0)*factor,p75v=(num(c.p75[idx])||0)*factor;
+    dot.setAttribute('cx',px);dot.setAttribute('cy',(298-(Math.log1p(Math.max(d,0))/Math.log1p(sc.max))*(298-18)));
+    dot.setAttribute('visibility','visible');
+    var belt=p75v>p25v?('带内 '+Math.max(0,Math.min(100,Math.round((d-p25v)/(p75v-p25v)*100)))+'%'):'带外';
+    if(tip){tip.innerHTML='<b>'+fmtTime(t)+'</b> · '+fmt1(d)+' 条/分<br>同类中位 '+fmt1(md)+' 条/分<br>25–75 带 '+fmt1(p25v)+'–'+fmt1(p75v)+' · '+belt+'<br>这一格 '+fmtN(cnt)+' 条';tip.style.opacity='1';tip.style.left=(r*100)+'%';tip.style.top='8px'}
+  });
+  hit.addEventListener('pointerleave',function(){if(line)line.setAttribute('visibility','hidden');if(dot)dot.setAttribute('visibility','hidden');if(tip)tip.style.opacity='0'});
+  hit.addEventListener('pointerdown',function(e){down=true;moved=false;x0=toLocalX(e);hit.setPointerCapture&&hit.setPointerCapture(e.pointerId)});
+  hit.addEventListener('pointermove',function(e){if(!down)return;var x=toLocalX(e);if(Math.abs(x-x0)>0.02)moved=true;if(brush){brush.setAttribute('x',(Math.min(x0,x)*1000).toFixed(1));brush.setAttribute('width',(Math.abs(x-x0)*1000).toFixed(1));brush.setAttribute('visibility','visible')}});
+  hit.addEventListener('pointerup',function(e){if(!down)return;down=false;var x=toLocalX(e);if(brush)brush.setAttribute('visibility','hidden');if(!moved)return;var a=Math.round(Math.min(x0,x)*(state.zoom.i1-state.zoom.i0)+state.zoom.i0),b=Math.round(Math.max(x0,x)*(state.zoom.i1-state.zoom.i0)+state.zoom.i0);if(b-a>=2){state.zoom={i0:clamp(a,0,99),i1:clamp(b,1,100)};renderCurveOnly()}});
+  hit.addEventListener('dblclick',function(){state.zoom={i0:0,i1:100};renderCurveOnly()});
+}
+function renderCurveOnly(){
+  var host=$('#sec-curve');if(!host)return;
+  var oldPanel=$('#peakPanel');var open=oldPanel&&!oldPanel.hidden;
+  host.querySelector('.chart-host').innerHTML=chartGridHTML();
+  drawXAxis();drawYAxis();bindChart();
+  if(open&&state.sel>=0){var panel=$('#peakPanel');if(panel){panel.hidden=false}}
+}
+function setPeak(i){
+  state.sel=i;var p=state.peaks[i];if(!p)return;
+  document.querySelectorAll('.peak-row').forEach(function(el){el.classList.toggle('on',+el.getAttribute('data-peak')===i)});
+  renderCurveOnly();
+  var panel=$('#peakPanel');if(!panel)return;
+  panel.hidden=false;
+  var nums='<div class="pp-nums">'+
+    '<div class="pp-k"><span>区间</span><b>'+fmtTime(p.t0)+'–'+fmtTime(p.t1)+'</b></div>'+
+    '<div class="pp-k"><span>弹幕</span><b>'+fmtN(p.count)+'</b></div>'+
+    '<div class="pp-k"><span>占全片</span><b>'+fmt1(p.share*100)+'%</b></div>'+
+    '<div class="pp-k"><span>峰值</span><b>'+fmt1(p.peakDensity)+'/分</b></div>'+
+    '<div class="pp-k"><span>复读</span><b>'+fmtN(p.n_repeat)+'</b></div>'+
+    '<div class="pp-k"><span>复读句</span><b>'+fmtN(p.n_rep_texts)+'</b></div>'+
+    (p.pctl!=null?'<div class="pp-k"><span>同类位置</span><b>'+fmt1(p.pctl)+'%</b></div>':'')+
+    (p.peers!=null?'<div class="pp-k"><span>同类样本</span><b>'+fmtN(p.peers)+'</b></div>':'')+
+  '</div>';
+  var phrase=p.phrase?'<div class="sim-outcome">「'+esc(p.phrase.text)+'」'+(p.phrase.n?'<b>×'+fmtN(p.phrase.n)+'</b>':'')+'</div>':'';
+  panel.innerHTML='<div>'+nums+phrase+'</div><div><div class="pp-list" id="ppList"><div class="loading">正在取这一段弹幕…</div></div></div>';
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  panel.scrollIntoView({behavior:reduce?'auto':'smooth',block:'nearest'});
+  if(state.live){var l=$('#ppList');if(l)l.innerHTML='<div class="pp-empty">现场采集不保留弹幕原文。</div>';return}
+  if(p.t0==null||p.t1==null||!state.video||!state.video.bvid){var l2=$('#ppList');if(l2)l2.innerHTML='<div class="pp-empty">这一段没有可取的弹幕。</div>';return}
+  api('/api/danmaku_at?bvid='+encodeURIComponent(state.video.bvid)+'&t0='+Number(p.t0).toFixed(1)+'&t1='+Number(p.t1).toFixed(1)+'&limit=60').then(function(d){
+    var list=(d&&d.items)||[];var box=$('#ppList');if(!box)return;
+    box.innerHTML=list.length?list.map(function(it){return '<div class="pp-line"><span class="pp-t">'+fmtTime(it.t)+'</span><span>'+esc(it.txt)+'</span></div>'}).join(''):'<div class="pp-empty">这一段没有弹幕。</div>';
+  }).catch(function(){var box=$('#ppList');if(box)box.innerHTML='<div class="pp-empty">这一段弹幕没取到。</div>'});
+}
+function toggleOverlay(i){
+  var b=state.bench[i];if(!b||!b.curve)return;
+  if(state.overlayOn&&state.overlay&&state.overlay.bvid===b.bvid){state.overlay=null;state.overlayOn=false}
+  else{state.overlay={bvid:b.bvid,title:b.title,curve:b.curve};state.overlayOn=true}
+  document.querySelectorAll('[data-overlay]').forEach(function(el){var j=+el.getAttribute('data-overlay');var bb=state.bench[j];el.classList.toggle('on',!!(state.overlayOn&&state.overlay&&bb&&state.overlay.bvid===bb.bvid));el.textContent=(state.overlayOn&&state.overlay&&bb&&state.overlay.bvid===bb.bvid)?'取消叠加':'叠加曲线'});
+  renderCurveOnly();
+}
+function refreshFav(){
+  var b=$('#fav');if(!b)return;
+  if(!state.video||!state.video.bvid){b.hidden=true;return}
+  fetch('/api/favorites/status?bvid='+encodeURIComponent(state.video.bvid),{credentials:'same-origin',cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(function(j){b.hidden=false;b.textContent=(j&&j.data&&j.data.favorited)?'已收藏':'收藏'}).catch(function(){b.hidden=true});
+}
+function toggleFav(){
+  var b=$('#fav');if(!b||!state.video||!state.video.bvid)return;
+  fetch('/api/favorites',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({bvid:state.video.bvid})}).then(function(r){return r.json()}).then(function(j){if(j&&j.data){b.textContent=j.data.favorited?'已收藏':'收藏';if(window.V3&&V3.toast)V3.toast(j.data.favorited?'已收藏':'已取消收藏')}}).catch(function(){});
+}
+function saveImage(){
+  var btn=$('#shot'),node=$('#page');if(!btn||!node||!window.html2canvas)return;
+  var old=btn.textContent;btn.disabled=true;btn.textContent='生成中…';
+  window.html2canvas(node,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,useCORS:true,windowWidth:node.scrollWidth}).then(function(canvas){
+    var a=document.createElement('a');a.download='视频节奏_'+((state.video&&state.video.bvid)||'video')+'.png';a.href=canvas.toDataURL('image/png');a.click();
+  }).catch(function(){if(window.V3&&V3.toast)V3.toast('存图失败')}).then(function(){btn.disabled=false;btn.textContent=old});
+}
+boot();
+})();
+</script>
 </body>
 </html>
